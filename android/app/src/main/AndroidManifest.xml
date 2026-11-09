@@ -9,7 +9,7 @@
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
         android:allowBackup="false"
-        android:theme="@android:style/Theme.Material.NoActionBar">
+        android:theme="@style/Theme.Shelf">
         <activity
             android:name=".MainActivity"
             android:exported="true"
