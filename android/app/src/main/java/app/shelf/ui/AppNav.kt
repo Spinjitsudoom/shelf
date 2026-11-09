@@ -24,7 +24,20 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.shelf.AppContainer
+import app.shelf.playback.PlayerConnection
+import app.shelf.playback.PlayerUi
+import app.shelf.ui.player.MiniPlayer
+import app.shelf.ui.player.NowPlayingScreen
 import app.shelf.data.LibrarySource
 import app.shelf.ui.browse.AlbumScreen
 import app.shelf.ui.browse.ArtistScreen
@@ -55,17 +68,24 @@ private val TABS = listOf(Tab(Routes.HOME, "Home", R.drawable.ic_home), Tab(Rout
 
 /** The signed-in app: screens, the mini player above the bottom bar, and the bar itself. */
 @Composable
-fun AppNav(container: AppContainer, signedOut: SignedOutHandler, miniPlayer: @Composable () -> Unit = {},
-           onPlay: OnPlay = { _, _, _ -> }) {
+fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerConnection? = null) {
     val source: LibrarySource = container.api ?: return
     val nav = rememberNavController()
+    val playing by (player?.state ?: kotlinx.coroutines.flow.MutableStateFlow(PlayerUi())).collectAsStateWithLifecycle()
+    var nowPlaying by rememberSaveable { mutableStateOf(false) }
+    val onPlay: OnPlay = { tracks, index, ctx -> player?.play(tracks, index, ctx) }
+    val cover = { t: app.shelf.data.Track -> source.coverUrl(t.albumId, t.cover, 160) }
+    BackHandler(enabled = nowPlaying) { nowPlaying = false }
+    Box(Modifier.fillMaxSize()) {
     val entry by nav.currentBackStackEntryAsState()
     val current = entry?.destination?.route
     Scaffold(
         containerColor = Shelf.colors.tray,
         bottomBar = {
             Column {
-                miniPlayer()
+                if (player != null && playing.current != null) {
+                    MiniPlayer(playing, cover, player::toggle, player::next, player::previous) { nowPlaying = true }
+                }
                 NavigationBar(containerColor = Shelf.colors.sleeve) {
                     TABS.forEach { tab ->
                         NavigationBarItem(
@@ -101,6 +121,16 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, miniPlayer: @Co
             }
             composable("mix/{key}") { MixScreen(it.arguments!!.getString("key")!!, source, onPlay, back, signedOut) }
         }
+    }
+    AnimatedVisibility(nowPlaying && player != null && playing.current != null,
+        enter = slideInVertically { it }, exit = slideOutVertically { it }) {
+        Box(Modifier.fillMaxSize().background(Shelf.colors.tray)) {
+            NowPlayingScreen(playing, source, player!!,
+                onArtist = { nowPlaying = false; nav.navigate(Routes.artist(it)) },
+                onContext = { nowPlaying = false; nav.navigate(it) },
+                onClose = { nowPlaying = false })
+        }
+    }
     }
 }
 

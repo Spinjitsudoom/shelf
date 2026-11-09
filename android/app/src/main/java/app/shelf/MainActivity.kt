@@ -42,7 +42,7 @@ class MainActivity : ComponentActivity() {
                         StartViewModel.Step.Checking -> Unit
                         StartViewModel.Step.Server -> ServerScreen(state, start::submitServer)
                         StartViewModel.Step.SignIn -> SignInScreen(state, start::signIn, start::changeServer)
-                        StartViewModel.Step.Done -> AppNav(container, signedOut = start::signedOut, onPlay = player::play)
+                        StartViewModel.Step.Done -> AppNav(container, signedOut = start::signedOut, player = player)
                     }
                 }
             }
