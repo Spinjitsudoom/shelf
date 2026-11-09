@@ -1,0 +1,43 @@
+# Copy to config.toml and edit.
+
+# Folders containing your music. Subfolders are scanned; Artist/Album/Track layout works best.
+# This is the starting list: once folders are added, changed or removed in Settings, Shelf
+# keeps that list instead (SHELF_MUSIC_DIRS, if set, overrides both).
+music_dirs = ["~/Music"]
+
+# Password for the first admin account ("admin"), made the first time Shelf starts.
+# Leave empty to create the admin account in the browser instead. Add other people
+# from the admin dashboard.
+password = "change-me"
+
+# Database and caches. Keep this on a local disk, not a network share.
+# data_dir = "~/.local/share/shelf"
+
+host = "0.0.0.0"
+port = 4533
+
+# How often to look for new or changed files (a rescan can also be started from Settings).
+scan_interval_minutes = 10
+
+# How much disk the converted (smaller) copies used for streaming may take up.
+transcode_cache_mb = 2048
+
+# Look up timed lyrics on lrclib.net when your files don't have them. Only the
+# artist, title, album and length of the song are sent; answers are cached.
+online_lyrics = true
+
+# Find music videos on YouTube (sends the song's artist and title) and play them in
+# YouTube's own player.
+music_videos = true
+
+# Show artist photos and biographies from Wikipedia, and check MusicBrainz once a day for
+# albums by your artists that aren't on the shelf yet (sends the artists' names).
+artist_info = true
+
+# Measure each song's tempo (BPM) and key in the background, for playlist columns and
+# recommendations, and how each song sounds, for "sounds like" in recommendations, radio and
+# mixes. About 3.5 seconds of processor time per song, once.
+analyze_tempo = true
+
+# The CD drive for ripping (admin dashboard → CD drive) is /dev/sr0; another one can be set
+# with the SHELF_CD_DEVICE environment variable. Ripping needs cd-paranoia (libcdio).

@@ -1,0 +1,47 @@
+# The Shelf desktop player as a Flatpak. It packages the app electron-builder made
+# (desktop/dist/linux-unpacked), so build that first:
+#   cd desktop && npm ci && npx electron-builder --linux dir --publish never
+#   flatpak-builder --user --install-deps-from=flathub --force-clean --repo=repo build-dir packaging/flatpak/io.github.spinjitsudoom.Shelf.yml
+#   flatpak build-bundle repo Shelf.flatpak io.github.spinjitsudoom.Shelf
+id: io.github.spinjitsudoom.Shelf
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '25.08'
+command: shelf
+separate-locales: false
+finish-args:
+  - --share=ipc
+  - --share=network          # the Shelf server
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio      # playing music
+  - --device=dri             # drawing with the graphics card
+  - --talk-name=org.freedesktop.Notifications
+  - --own-name=org.mpris.MediaPlayer2.chromium.*  # the desktop's player controls
+modules:
+  - name: shelf
+    buildsystem: simple
+    sources:
+      - type: dir
+        path: ../../desktop/dist/linux-unpacked
+        dest: app
+      - type: file
+        path: ../../desktop/build/icon.png
+      - type: file
+        path: io.github.spinjitsudoom.Shelf.desktop
+      - type: file
+        path: io.github.spinjitsudoom.Shelf.metainfo.xml
+      - type: script
+        dest-filename: shelf.sh
+        commands:
+          - export TMPDIR="$XDG_RUNTIME_DIR/app/$FLATPAK_ID"
+          - exec zypak-wrapper /app/shelf/shelf --ozone-platform-hint=auto "$@"
+    build-commands:
+      - cp -a app /app/shelf
+      - rm -f /app/shelf/chrome-sandbox  # zypak sandboxes it instead
+      - install -Dm755 shelf.sh /app/bin/shelf
+      - install -Dm644 icon.png /app/share/icons/hicolor/512x512/apps/io.github.spinjitsudoom.Shelf.png
+      - install -Dm644 io.github.spinjitsudoom.Shelf.desktop /app/share/applications/io.github.spinjitsudoom.Shelf.desktop
+      - install -Dm644 io.github.spinjitsudoom.Shelf.metainfo.xml /app/share/metainfo/io.github.spinjitsudoom.Shelf.metainfo.xml

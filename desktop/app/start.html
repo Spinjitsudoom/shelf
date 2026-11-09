@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Shelf</title>
+<style>
+  :root { --tray: #1a1d24; --sleeve: #232731; --ink: #e6e9ef; --ink-2: #99a1b0; --rule: #323745; --cobalt: #8199ff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--tray); color: var(--ink);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { min-height: 100%; display: grid; place-items: center; padding: 24px 16px; }
+  form { width: min(380px, 100%); display: flex; flex-direction: column; gap: 10px; }
+  h1 { margin: 10px 0 2px; font-size: 40px; font-weight: 900; letter-spacing: -.02em; }
+  .lead { margin: 0 0 14px; color: var(--ink-2); }
+  label { font-weight: 650; font-size: 14px; }
+  input { height: 52px; padding: 0 14px; border: 0; border-radius: 12px; outline: none; color: var(--ink);
+    background: var(--sleeve); box-shadow: inset 0 0 0 1px var(--rule); font: inherit; font-size: 17px; }
+  input:focus { box-shadow: inset 0 0 0 2px var(--cobalt); }
+  .hint { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .error { margin: 4px 0 0; color: #ff8a80; font-size: 14.5px; min-height: 1.4em; }
+  button { height: 52px; border: 0; border-radius: 999px; background: var(--cobalt); color: #0f1424;
+    font: inherit; font-weight: 750; font-size: 16px; }
+  button:disabled { opacity: .6; }
+  .recent { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .recent button { height: 36px; padding: 0 14px; background: var(--sleeve); color: var(--ink);
+    box-shadow: inset 0 0 0 1px var(--rule); font-weight: 600; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <form id="f" novalidate>
+    <img src="icon.svg" alt="" width="60" height="60">
+    <h1>Shelf</h1>
+    <p class="lead">Connect to the Shelf server with your music.</p>
+    <label for="server">Server address</label>
+    <input id="server" type="url" autocomplete="url" spellcheck="false" placeholder="192.168.1.20:4533">
+    <p class="hint">The address you open Shelf at in a browser, like <b>192.168.1.20:4533</b>.</p>
+    <p class="error" id="error" role="alert"></p>
+    <button type="submit" id="go">Connect</button>
+  </form>
+</main>
+<script>
+  // The desktop app's start screen: where's the Shelf server? The app checks the address
+  // (window.ShelfDesktop.connect) and opens it; on a problem it says what went wrong.
+  var input = document.getElementById("server"), error = document.getElementById("error"), go = document.getElementById("go");
+  var params = new URLSearchParams(location.search);
+  input.value = params.get("server") || "";
+  error.textContent = params.get("error") || "";
+
+  document.getElementById("f").addEventListener("submit", function (e) {
+    e.preventDefault();
+    error.textContent = "";
+    go.disabled = true; go.textContent = "Connecting…";
+    ShelfDesktop.connect(input.value).then(function (problem) {
+      if (!problem) return;
+      error.textContent = problem;
+      go.disabled = false; go.textContent = "Connect";
+      input.focus();
+    });
+  });
+  input.focus();
+  input.select();
+</script>
+</body>
+</html>

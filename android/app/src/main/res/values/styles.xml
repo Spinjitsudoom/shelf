@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Shelf" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/tray</item>
+        <item name="android:statusBarColor">@color/tray</item>
+        <item name="android:navigationBarColor">@color/tray</item>
+        <item name="android:colorAccent">#8199ff</item>
+    </style>
+    <color name="tray">#1a1d24</color>
+</resources>

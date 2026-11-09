@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.spinjitsudoom.Shelf</id>
+  <name>Shelf</name>
+  <summary>Play the music on your Shelf server</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-or-later</project_license>
+  <developer id="io.github.spinjitsudoom">
+    <name>Spinjitsudoom</name>
+  </developer>
+  <description>
+    <p>
+      Shelf is a music server for your own CD rips. This app connects to your Shelf server
+      and plays your library, with the keyboard's media keys and the desktop's playback
+      controls.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.spinjitsudoom.Shelf.desktop</launchable>
+  <url type="homepage">https://github.com/Spinjitsudoom/shelf</url>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.6.0" date="2026-11-09"/>
+  </releases>
+</component>

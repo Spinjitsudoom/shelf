@@ -1,0 +1,48 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Server tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Run the tests
+        run: uv run --frozen pytest -q
+      - name: Smoke test (start the server, scan, stream)
+        run: uv run --frozen python packaging/smoke_test.py uv run --frozen shelf
+
+  windows:
+    name: Server smoke test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - name: Get ffmpeg
+        run: |
+          python packaging/windows/fetch_ffmpeg.py "$env:RUNNER_TEMP\ffmpeg"
+          "$env:RUNNER_TEMP\ffmpeg" | Out-File -FilePath $env:GITHUB_PATH -Append
+      - name: Smoke test (start the server, scan, stream)
+        run: uv run --frozen python packaging/smoke_test.py uv run --frozen shelf
+
+  web:
+    name: Web app syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Check every script parses
+        run: for f in src/shelf/web/js/*.js src/shelf/web/sw.js desktop/app/*.js; do node --check "$f"; done

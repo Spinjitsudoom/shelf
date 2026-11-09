@@ -1,0 +1,65 @@
+{
+  "name": "shelf-desktop",
+  "productName": "Shelf",
+  "version": "0.6.0",
+  "description": "The Shelf music player for Windows and Linux. Connects to your Shelf server.",
+  "homepage": "https://github.com/Spinjitsudoom/shelf",
+  "author": "Spinjitsudoom <229893545+Spinjitsudoom@users.noreply.github.com>",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "main": "app/main.js",
+  "desktopName": "io.github.spinjitsudoom.Shelf.desktop",
+  "scripts": {
+    "postinstall": "install-electron",
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis --publish never",
+    "dist:deb": "electron-builder --linux deb --publish never",
+    "dist:dir": "electron-builder --linux dir --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.9.3",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "io.github.spinjitsudoom.Shelf",
+    "productName": "Shelf",
+    "executableName": "shelf",
+    "artifactName": "Shelf-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "app/**",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Shelf",
+      "artifactName": "Shelf-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "AudioVideo",
+      "synopsis": "Music player for your Shelf server",
+      "description": "Plays the music on your Shelf server, with media keys and desktop playback controls.",
+      "maintainer": "Spinjitsudoom <229893545+Spinjitsudoom@users.noreply.github.com>",
+      "desktop": {
+        "entry": {
+          "Keywords": "music;player;audio;",
+          "Categories": "AudioVideo;Audio;Player;"
+        }
+      },
+      "syncDesktopName": true
+    },
+    "deb": {
+      "artifactName": "shelf_${version}_${arch}.${ext}"
+    }
+  }
+}

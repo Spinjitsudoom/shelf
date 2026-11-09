@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#2c4fd0"/>
+  <!-- jewel case -->
+  <rect x="96" y="128" width="256" height="256" rx="10" fill="#e9ebee"/>
+  <rect x="96" y="128" width="22" height="256" rx="6" fill="#c9ced8"/>
+  <!-- disc sliding out -->
+  <circle cx="300" cy="256" r="118" fill="#dfe3ea"/>
+  <circle cx="300" cy="256" r="118" fill="none" stroke="#1c2029" stroke-opacity=".12" stroke-width="4"/>
+  <path d="M300 152a104 104 0 0 1 90 52" fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round" opacity=".9"/>
+  <path d="M232 318a92 92 0 0 1-20-38" fill="none" stroke="#9fb0ef" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="300" cy="256" r="34" fill="#2c4fd0"/>
+  <circle cx="300" cy="256" r="14" fill="#e9ebee"/>
+</svg>

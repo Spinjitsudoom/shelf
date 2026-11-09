@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Shelf
+GenericName=Music Player
+Comment=Play the music on your Shelf server
+Exec=shelf %U
+Icon=io.github.spinjitsudoom.Shelf
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=music;player;audio;
+StartupWMClass=io.github.spinjitsudoom.Shelf

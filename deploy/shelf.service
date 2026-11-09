@@ -1,0 +1,17 @@
+# Keeps Shelf running in the background and starts it with the computer (systemd, per user).
+# install.sh writes and enables this for you. To set it up by hand instead, for a copy of
+# Shelf in ~/shelf (edit the paths if yours is elsewhere):
+#   cp deploy/shelf.service ~/.config/systemd/user/ && systemctl --user enable --now shelf
+#   loginctl enable-linger $USER      # keep running when you're logged out
+[Unit]
+Description=Shelf music server
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/env bash %h/shelf/run.sh
+WorkingDirectory=%h/shelf
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
