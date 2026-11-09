@@ -1,6 +1,6 @@
 # Shelf for Android, native
 
-*Design, 2026-11-09. Status: waiting for approval.*
+*Design, 2026-11-09. Status: approved by the owner (with swipe-to-skip added).*
 
 ## Why
 
@@ -121,6 +121,10 @@ index in Room. With no connection, the app opens to what's downloaded and plays 
 - **Search,** with recent searches.
 - **Now Playing:** big cover (with the CD or record spinning), scrubber, controls, queue,
   lyrics (synced), device picker, sleep timer, video button (opens the YouTube app).
+- **Swipe to skip** (asked for by the owner): swiping the mini player, or the cover on Now
+  Playing, left goes to the next song and right goes to the previous one. The next or previous
+  cover slides in with your finger and snaps on release (or springs back if you didn't swipe
+  far enough), with a light haptic tick. It works the same when controlling another device.
 - **People and shared mixes,** Settings (listening, account, appearance, downloads), About.
 - **Home-screen widget** (as today), and **Android Auto** (browse Home, Library and Mixes, and
   play).
@@ -133,7 +137,7 @@ Each milestone is installable on the Redmi as Shelf Preview and checked there be
 1. **Foundation and playing music:** project, theme, typography, cover components (case,
    vinyl, tape), sign-in, Home, Library, Album, Artist, Playlist (read-only), the player
    service with notification, lock screen and background play, a mini player, Now Playing and
-   the queue.
+   the queue, and swipe to skip.
 2. **Everyday parity:** search, Favourites, playlist editing, mixes and radio, lyrics,
    downloads and offline, settings, normalisation, history and scrobbling (the server already
    records plays sent to it).
