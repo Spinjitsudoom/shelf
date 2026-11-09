@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import app.shelf.playback.PlayerConnection
 import app.shelf.ui.AppNav
 import app.shelf.ui.start.ServerScreen
 import app.shelf.ui.start.SignInScreen
@@ -22,10 +23,13 @@ import app.shelf.ui.theme.Shelf
 import app.shelf.ui.theme.ShelfTheme
 
 class MainActivity : ComponentActivity() {
+    private var player: PlayerConnection? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val container = (application as ShelfApp).container
+        val player = PlayerConnection(this) { container.api }.also { this.player = it }
         setContent {
             ShelfTheme {
                 val start: StartViewModel = viewModel(factory = viewModelFactory {
@@ -38,10 +42,15 @@ class MainActivity : ComponentActivity() {
                         StartViewModel.Step.Checking -> Unit
                         StartViewModel.Step.Server -> ServerScreen(state, start::submitServer)
                         StartViewModel.Step.SignIn -> SignInScreen(state, start::signIn, start::changeServer)
-                        StartViewModel.Step.Done -> AppNav(container, signedOut = start::signedOut)
+                        StartViewModel.Step.Done -> AppNav(container, signedOut = start::signedOut, onPlay = player::play)
                     }
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        player?.release() // the music itself lives on in PlaybackService
+        super.onDestroy()
     }
 }
