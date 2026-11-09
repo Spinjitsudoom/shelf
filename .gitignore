@@ -11,7 +11,7 @@ wheels/
 
 # Local settings (has your password) and anything Shelf stores
 config.toml
-data/
+/data/
 *.db
 
 # Android build output and signing keys
