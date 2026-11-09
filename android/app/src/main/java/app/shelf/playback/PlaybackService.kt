@@ -32,6 +32,11 @@ import app.shelf.connect.ConnectBridge
 import app.shelf.connect.RemotePlayer
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.SettableFuture
+import com.google.common.collect.ImmutableList
+import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaLibraryService.LibraryParams
+import androidx.media3.session.SessionError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -234,13 +239,53 @@ class PlaybackService : MediaLibraryService() {
         player.playWhenReady = play
     }
 
+    private val tree = LibraryTree { api }
+
+    /** Run [block] off the main thread's way and hand its answer to Media3 as a future. */
+    private fun <T> later(fallback: T, block: suspend () -> T): ListenableFuture<T> {
+        val f = SettableFuture.create<T>()
+        scope.launch { f.set(try { block() } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; fallback }) }
+        return f
+    }
+
+    /** Items from a car display come as ids only ("album:5|12"): look the songs up. */
+    private suspend fun resolve(items: List<MediaItem>): List<MediaItem> = items.flatMap { item ->
+        if (item.track() != null) listOf(item)
+        else tree.expand(item.mediaId)?.let { (list, i) -> listOf(list[i]) }.orEmpty()
+    }
+
     private inner class Callback : MediaLibrarySession.Callback {
         override fun onAddMediaItems(session: MediaSession, controller: MediaSession.ControllerInfo, mediaItems: MutableList<MediaItem>):
-            ListenableFuture<MutableList<MediaItem>> = Futures.immediateFuture(playable(mediaItems).toMutableList())
+            ListenableFuture<MutableList<MediaItem>> =
+            if (mediaItems.all { it.track() != null }) Futures.immediateFuture(playable(mediaItems).toMutableList())
+            else later(mutableListOf()) { playable(resolve(mediaItems)).toMutableList() }
 
         override fun onSetMediaItems(session: MediaSession, controller: MediaSession.ControllerInfo, mediaItems: MutableList<MediaItem>,
-                                     startIndex: Int, startPositionMs: Long): ListenableFuture<MediaItemsWithStartPosition> =
-            Futures.immediateFuture(MediaItemsWithStartPosition(playable(mediaItems), startIndex, startPositionMs))
+                                     startIndex: Int, startPositionMs: Long): ListenableFuture<MediaItemsWithStartPosition> {
+            // One song picked in the car: play its whole list from there.
+            val single = mediaItems.singleOrNull()
+            if (single != null && '|' in single.mediaId) return later(MediaItemsWithStartPosition(emptyList(), 0, 0)) {
+                tree.expand(single.mediaId)?.let { (list, i) -> MediaItemsWithStartPosition(playable(list), i, 0) }
+                    ?: MediaItemsWithStartPosition(playable(resolve(mediaItems)), 0, 0)
+            }
+            return Futures.immediateFuture(MediaItemsWithStartPosition(playable(mediaItems), startIndex, startPositionMs))
+        }
+
+        override fun onGetLibraryRoot(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, params: LibraryParams?):
+            ListenableFuture<LibraryResult<MediaItem>> = Futures.immediateFuture(LibraryResult.ofItem(tree.root(), params))
+
+        override fun onGetChildren(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, parentId: String, page: Int, pageSize: Int,
+                                   params: LibraryParams?): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> =
+            later(LibraryResult.ofError(SessionError.ERROR_IO)) {
+                val all = tree.children(parentId)
+                val from = (page * pageSize).coerceIn(0, all.size)
+                LibraryResult.ofItemList(all.subList(from, (from + pageSize).coerceAtMost(all.size)), params)
+            }
+
+        override fun onGetItem(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, mediaId: String):
+            ListenableFuture<LibraryResult<MediaItem>> = later(LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)) {
+                tree.expand(mediaId)?.let { (list, i) -> LibraryResult.ofItem(list[i], null) } ?: LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
+            }
 
         override fun onPlaybackResumption(session: MediaSession, controller: MediaSession.ControllerInfo, isForPlayback: Boolean):
             ListenableFuture<MediaItemsWithStartPosition> =

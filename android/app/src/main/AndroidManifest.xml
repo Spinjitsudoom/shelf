@@ -36,6 +36,10 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+        <!-- Android Auto: browse and play from the car's display. -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
         <!-- The home-screen widget (the WebView app's class name, so placed widgets carry on). -->
         <receiver
             android:name=".NowPlayingWidget"
