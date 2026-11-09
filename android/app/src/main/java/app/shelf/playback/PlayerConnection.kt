@@ -76,6 +76,22 @@ class PlayerConnection(context: Context, private val source: () -> LibrarySource
         c.play()
     }
 
+    /** Right after the song that's playing. */
+    fun playNext(tracks: List<Track>) {
+        val c = controller ?: return
+        val src = source() ?: return
+        val items = tracks.map { it.toControllerItem(src, null) }
+        if (c.mediaItemCount == 0) { c.setMediaItems(items); c.prepare(); c.play() } else c.addMediaItems(c.currentMediaItemIndex + 1, items)
+    }
+
+    /** At the end of the queue. */
+    fun addToQueue(tracks: List<Track>) {
+        val c = controller ?: return
+        val src = source() ?: return
+        val items = tracks.map { it.toControllerItem(src, null) }
+        if (c.mediaItemCount == 0) { c.setMediaItems(items); c.prepare(); c.play() } else c.addMediaItems(items)
+    }
+
     fun toggle() { controller?.let { if (it.playWhenReady) it.pause() else { if (it.playbackState == Player.STATE_IDLE) it.prepare(); it.play() } } }
     fun next() { controller?.seekToNextMediaItem() }
     /** Back to the start of the song, or the song before when near its start (like every player). */

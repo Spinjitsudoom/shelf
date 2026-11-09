@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -19,7 +20,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 
 /** Talks to one Shelf server's API (src/shelf/app.py), signed in with [tokenProvider]'s token. */
-class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> String?, private val client: OkHttpClient) : LibrarySource {
+class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> String?, private val client: OkHttpClient) : LibrarySource, LikesApi {
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false }
 
     suspend fun ping(): String {
@@ -49,6 +50,10 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     override suspend fun mixes(): List<MixSummary> = call("api/mixes", ListSerializer(MixSummary.serializer()))
     override suspend fun mix(key: String): MixDetail = call(url("api/mixes").newBuilder().addPathSegment(key).build(), MixDetail.serializer())
 
+    override suspend fun likeIds(): List<Int> = call("api/likes/ids", ListSerializer(Int.serializer()))
+    override suspend fun like(trackId: Int) { send("PUT", "api/likes/$trackId") }
+    override suspend fun unlike(trackId: Int) { send("DELETE", "api/likes/$trackId") }
+
     /** A listen, for history, mixes and recommendations. */
     suspend fun played(trackId: Int) {
         call("api/tracks/$trackId/played", JsonObject.serializer(), ByteArray(0).toRequestBody(null))
@@ -60,14 +65,19 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
 
     fun streamUrl(trackId: Int, quality: String): String = url("api/tracks/$trackId/stream?q=$quality").toString()
 
+    /** A request whose answer isn't needed (PUT, DELETE, PATCH, POST): errors still throw. */
+    private suspend fun send(method: String, path: String, body: String? = null) {
+        call(url(path), JsonObject.serializer(), (body ?: "{}").toRequestBody(JSON), method)
+    }
+
     private fun url(path: String): HttpUrl = base.resolve(path) ?: throw IllegalArgumentException(path)
 
     private suspend fun <T> call(path: String, type: DeserializationStrategy<T>, post: RequestBody? = null): T = call(url(path), type, post)
 
-    private suspend fun <T> call(target: HttpUrl, type: DeserializationStrategy<T>, post: RequestBody? = null): T = withContext(Dispatchers.IO) {
+    private suspend fun <T> call(target: HttpUrl, type: DeserializationStrategy<T>, post: RequestBody? = null, method: String = "POST"): T = withContext(Dispatchers.IO) {
         val req = Request.Builder().url(target).apply {
             tokenProvider()?.let { header("Authorization", "Bearer $it") }
-            if (post != null) post(post)
+            if (post != null) method(method, post)
         }.build()
         val res = try { client.newCall(req).execute() } catch (e: IOException) { throw ShelfError.Offline(e) }
         res.use {

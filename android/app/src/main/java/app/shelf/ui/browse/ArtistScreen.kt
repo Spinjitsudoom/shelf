@@ -70,7 +70,7 @@ fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (
                 if (popular.isNotEmpty()) item { SectionTitle("Popular") }
                 itemsIndexed(popular) { i, t ->
                     TrackRow(null, t.title, t.album, fmtTime(t.duration), { onPlay(popular, i, ctx) },
-                        coverUrl = source.coverUrl(t.albumId, t.cover, 160), coverColor = albumColor(null, t.album))
+                        coverUrl = source.coverUrl(t.albumId, t.cover, 160), coverColor = albumColor(null, t.album), track = t)
                 }
                 if (a.albums.isNotEmpty()) item {
                     SectionTitle("Releases")

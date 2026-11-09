@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -100,8 +101,12 @@ fun ArtistLinks(credit: String, names: List<String>, onArtist: (String) -> Unit,
 
 /** One song in a list: number (or cover), title, artist, length. */
 @Composable
-fun TrackRow(number: String?, title: String, subtitle: String?, length: String, onClick: () -> Unit, coverUrl: String? = null, coverColor: Color = Color.Gray) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+fun TrackRow(number: String?, title: String, subtitle: String?, length: String, onClick: () -> Unit, coverUrl: String? = null, coverColor: Color = Color.Gray,
+             track: app.shelf.data.Track? = null, removeFromPlaylist: (() -> Unit)? = null) {
+    val actions = LocalSongActions.current
+    val menu = if (track != null && actions != null) ({ actions.open(track, removeFromPlaylist) }) else null
+    Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = menu).padding(start = 16.dp, end = if (menu != null) 2.dp else 16.dp, top = 9.dp, bottom = 9.dp),
+        verticalAlignment = Alignment.CenterVertically) {
         if (number != null) {
             Text(number, style = MaterialTheme.typography.bodyMedium, color = Shelf.colors.ink2, modifier = Modifier.width(30.dp))
         } else {
@@ -115,6 +120,11 @@ fun TrackRow(number: String?, title: String, subtitle: String?, length: String, 
         }
         Spacer(Modifier.width(10.dp))
         Text(length, style = MaterialTheme.typography.bodySmall, color = Shelf.colors.ink2)
+        if (menu != null) {
+            androidx.compose.material3.IconButton(onClick = menu) {
+                Icon(painterResource(R.drawable.ic_more), contentDescription = "More for $title", tint = Shelf.colors.ink2)
+            }
+        }
     }
 }
 

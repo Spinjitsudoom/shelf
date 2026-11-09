@@ -72,7 +72,8 @@ import androidx.media3.common.Player
 /** Now Playing: the album's colour behind it, the case with its CD turning, and every control. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConnection, onArtist: (String) -> Unit, onContext: (String) -> Unit, onClose: () -> Unit) {
+fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConnection, onArtist: (String) -> Unit, onContext: (String) -> Unit, onClose: () -> Unit,
+                     liked: Boolean = false, onLike: () -> Unit = {}) {
     val t = state.current ?: return onClose()
     // The album's own colour (the song doesn't carry it), fetched once per album.
     val color by produceState(fallbackColor(t.album), t.albumId) {
@@ -101,8 +102,16 @@ fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConne
             modifier = Modifier.fillMaxWidth().aspectRatio(1f),
         )
         Spacer(Modifier.weight(1f))
-        Text(t.title, style = MaterialTheme.typography.headlineSmall, color = Shelf.colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        ArtistLinks(t.artist, t.artists, onArtist, style = MaterialTheme.typography.bodyLarge)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(t.title, style = MaterialTheme.typography.headlineSmall, color = Shelf.colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                ArtistLinks(t.artist, t.artists, onArtist, style = MaterialTheme.typography.bodyLarge)
+            }
+            IconButton(onClick = onLike) {
+                Icon(painterResource(if (liked) R.drawable.ic_heart_filled else R.drawable.ic_heart),
+                    if (liked) "Remove from Favourites" else "Add to Favourites", tint = if (liked) Shelf.colors.cobalt else Shelf.colors.ink2)
+            }
+        }
         Spacer(Modifier.height(12.dp))
         Scrubber(state, player)
         Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

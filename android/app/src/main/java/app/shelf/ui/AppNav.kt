@@ -25,6 +25,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -78,11 +82,20 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     val onPlay: OnPlay = { tracks, index, ctx -> player?.play(tracks, index, ctx) }
     val cover = { t: app.shelf.data.Track -> source.coverUrl(t.albumId, t.cover, 160) }
     BackHandler(enabled = nowPlaying) { nowPlaying = false }
+    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val say: (String) -> Unit = { msg -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(msg) } }
+    val likes by container.likes.ids.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { container.likes.refresh() }
+    var menu by remember { mutableStateOf<Pair<app.shelf.data.Track, (() -> Unit)?>?>(null) }
+    val actions = remember { app.shelf.ui.common.SongActions(open = { t, remove -> menu = t to remove }) }
+    CompositionLocalProvider(app.shelf.ui.common.LocalSongActions provides actions) {
     Box(Modifier.fillMaxSize()) {
     val entry by nav.currentBackStackEntryAsState()
     val current = entry?.destination?.route
     Scaffold(
         containerColor = Shelf.colors.tray,
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
         bottomBar = {
             Column {
                 if (player != null && playing.current != null) {
@@ -132,10 +145,28 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
         enter = slideInVertically { it }, exit = slideOutVertically { it }) {
         Box(Modifier.fillMaxSize().background(Shelf.colors.tray)) {
             NowPlayingScreen(playing, source, player!!,
+                liked = playing.current?.id in likes,
+                onLike = { playing.current?.let { t -> container.likes.toggle(t.id, say) } },
                 onArtist = { nowPlaying = false; nav.navigate(Routes.artist(it)) },
                 onContext = { nowPlaying = false; nav.navigate(it) },
                 onClose = { nowPlaying = false })
         }
+    }
+    menu?.let { (t, remove) ->
+        val liked = t.id in likes
+        val items = buildList {
+            add(app.shelf.ui.common.MenuItem("Play next", R.drawable.ic_next_up) { player?.playNext(listOf(t)); say("“${t.title}” plays next") })
+            add(app.shelf.ui.common.MenuItem("Add to queue", R.drawable.ic_queue) { player?.addToQueue(listOf(t)); say("Added “${t.title}” to the queue") })
+            add(app.shelf.ui.common.MenuItem(if (liked) "Remove from Favourites" else "Add to Favourites", R.drawable.ic_heart) {
+                container.likes.toggle(t.id, say); say(if (liked) "Removed from Favourites" else "Added to Favourites") })
+            if (remove != null) add(app.shelf.ui.common.MenuItem("Remove from this playlist", R.drawable.ic_trash) { remove() })
+            add(app.shelf.ui.common.MenuItem("Go to album", R.drawable.ic_album_go) { nowPlaying = false; nav.navigate(Routes.album(t.albumId)) })
+            t.artists.ifEmpty { listOf(t.artist) }.forEach { a ->
+                add(app.shelf.ui.common.MenuItem("Go to $a", R.drawable.ic_artists) { nowPlaying = false; nav.navigate(Routes.artist(a)) })
+            }
+        }
+        app.shelf.ui.common.SongMenu(t, source.coverUrl(t.albumId, t.cover, 160), items) { menu = null }
+    }
     }
     }
 }

@@ -27,6 +27,9 @@ class AppContainer(context: Context) {
         }
         .build()
 
+    /** Favourites, for every heart in the app. */
+    val likes = app.shelf.data.LikesStore({ api }, kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main))
+
     private var cachedFor: String? = null
     private var cached: ShelfApi? = null
 

@@ -58,6 +58,7 @@ fun pageTitleStyle(title: String): TextStyle {
 fun TrackListPage(
     color: Color, kind: String?, title: String, cover: @Composable () -> Unit, byline: (@Composable () -> Unit)?, facts: String,
     tracks: List<Track>, numbered: Boolean, coverUrl: (Track) -> String?, onTrack: (Int) -> Unit, onShuffle: () -> Unit, onBack: () -> Unit,
+    onRemove: ((Int) -> Unit)? = null,
 ) {
     val discs = numbered && tracks.map { it.discNo ?: 1 }.distinct().size > 1
     Box(Modifier.fillMaxSize()) {
@@ -100,6 +101,7 @@ fun TrackListPage(
                     onClick = { onTrack(i) },
                     coverUrl = coverUrl(t),
                     coverColor = app.shelf.ui.covers.fallbackColor(t.album),
+                    track = t, removeFromPlaylist = onRemove?.let { { it(i) } },
                 )
             }
             item { Spacer(Modifier.height(24.dp)) }
