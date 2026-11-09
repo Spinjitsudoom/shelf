@@ -67,6 +67,8 @@ object Routes {
     fun artist(name: String) = "artist/${android.net.Uri.encode(name)}"
     fun playlist(id: Int) = "playlist/$id"
     fun mix(key: String) = "mix/${android.net.Uri.encode(key)}"
+    fun trackRadio(id: Int) = "radio/track/$id"
+    fun artistRadio(name: String) = "radio/artist/${android.net.Uri.encode(name)}"
 }
 
 private data class Tab(val route: String, val label: String, val icon: Int)
@@ -89,6 +91,11 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     val likes by container.likes.ids.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { container.likes.refresh() }
     var menu by remember { mutableStateOf<Pair<app.shelf.data.Track, (() -> Unit)?>?>(null) }
+    var adding by remember { mutableStateOf<app.shelf.data.Track?>(null) }
+    var playlists by remember { mutableStateOf<List<app.shelf.data.PlaylistSummary>?>(null) }
+    val api = container.api
+    val failed = "Couldn’t save that. Check the connection and try again."
+    LaunchedEffect(adding) { if (adding != null) playlists = try { source.playlists() } catch (e: app.shelf.data.ShelfError) { emptyList() } }
     val actions = remember { app.shelf.ui.common.SongActions(open = { t, remove -> menu = t to remove }) }
     CompositionLocalProvider(app.shelf.ui.common.LocalSongActions provides actions) {
     Box(Modifier.fillMaxSize()) {
@@ -127,15 +134,29 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             }
             composable(Routes.SEARCH) { app.shelf.ui.search.SearchScreen(container.api!!, onPlay, openAlbum, openArtist) }
             composable(Routes.LIBRARY) {
-                LibraryScreen(source, { nav.navigate(Routes.FAVOURITES) }, { nav.navigate(Routes.playlist(it)) }, openAlbum, openArtist, signedOut)
+                LibraryScreen(source, { nav.navigate(Routes.FAVOURITES) }, { nav.navigate(Routes.playlist(it)) }, openAlbum, openArtist, signedOut,
+                    onNewPlaylist = api?.let { a -> { name: String -> scope.launch {
+                        try { val p = a.createPlaylist(name); nav.navigate(Routes.playlist(p.id)) } catch (e: app.shelf.data.ShelfError) { say(failed) }
+                    } } })
             }
             composable(Routes.FAVOURITES) { FavouritesScreen(source, onPlay, back, signedOut) }
             composable("album/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
                 AlbumScreen(it.arguments!!.getInt("id"), source, onPlay, openArtist, back, signedOut)
             }
-            composable("artist/{name}") { ArtistScreen(it.arguments!!.getString("name")!!, source, onPlay, openAlbum, back, signedOut) }
+            composable("artist/{name}") {
+                val name = it.arguments!!.getString("name")!!
+                ArtistScreen(name, source, onPlay, openAlbum, back, signedOut, onRadio = api?.let { { nav.navigate(Routes.artistRadio(name)) } })
+            }
             composable("playlist/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
-                PlaylistScreen(it.arguments!!.getInt("id"), source, onPlay, back, signedOut)
+                PlaylistScreen(it.arguments!!.getInt("id"), source, onPlay, back, signedOut, api = api, say = say)
+            }
+            if (api != null) {
+                composable("radio/track/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
+                    app.shelf.ui.browse.RadioScreen(it.arguments!!.getInt("id"), null, api, onPlay, back, signedOut)
+                }
+                composable("radio/artist/{name}") {
+                    app.shelf.ui.browse.RadioScreen(null, it.arguments!!.getString("name")!!, api, onPlay, back, signedOut)
+                }
             }
             composable("mix/{key}") { MixScreen(it.arguments!!.getString("key")!!, source, onPlay, back, signedOut) }
             composable(Routes.SETTINGS) {
@@ -161,6 +182,10 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             add(app.shelf.ui.common.MenuItem("Add to queue", R.drawable.ic_queue) { player?.addToQueue(listOf(t)); say("Added “${t.title}” to the queue") })
             add(app.shelf.ui.common.MenuItem(if (liked) "Remove from Favourites" else "Add to Favourites", R.drawable.ic_heart) {
                 container.likes.toggle(t.id, say); say(if (liked) "Removed from Favourites" else "Added to Favourites") })
+            if (api != null) {
+                add(app.shelf.ui.common.MenuItem("Add to playlist…", R.drawable.ic_playlist) { playlists = null; adding = t })
+                add(app.shelf.ui.common.MenuItem("Song radio", R.drawable.ic_radio) { nowPlaying = false; nav.navigate(Routes.trackRadio(t.id)) })
+            }
             if (remove != null) add(app.shelf.ui.common.MenuItem("Remove from this playlist", R.drawable.ic_trash) { remove() })
             add(app.shelf.ui.common.MenuItem("Go to album", R.drawable.ic_album_go) { nowPlaying = false; nav.navigate(Routes.album(t.albumId)) })
             t.artists.ifEmpty { listOf(t.artist) }.forEach { a ->
@@ -168,6 +193,12 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             }
         }
         app.shelf.ui.common.SongMenu(t, source.coverUrl(t.albumId, t.cover, 160), items) { menu = null }
+    }
+    adding?.let { t ->
+        if (api != null) app.shelf.ui.common.AddToPlaylistSheet(playlists, { p -> p.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 160) } },
+            onPick = { p -> scope.launch { try { api.addToPlaylist(p.id, listOf(t.id)); say("Added to ${p.name}") } catch (e: app.shelf.data.ShelfError) { say(failed) } } },
+            onNew = { name -> scope.launch { try { api.createPlaylist(name, listOf(t.id)); say("Added to $name") } catch (e: app.shelf.data.ShelfError) { say(failed) } } },
+            onDismiss = { adding = null })
     }
     }
     }

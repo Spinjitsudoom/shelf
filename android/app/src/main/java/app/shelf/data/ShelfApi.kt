@@ -9,7 +9,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
@@ -55,6 +57,25 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     override suspend fun unlike(trackId: Int) { send("DELETE", "api/likes/$trackId") }
 
     suspend fun search(q: String): SearchResults = call(url("api/search").newBuilder().addQueryParameter("q", q).build(), SearchResults.serializer())
+
+    // ---- playlists ----
+    suspend fun createPlaylist(name: String, trackIds: List<Int> = emptyList()): PlaylistSummary =
+        call("api/playlists", PlaylistSummary.serializer(), body { put("name", name); putJsonArray("trackIds") { trackIds.forEach { add(it) } } })
+    suspend fun editPlaylist(id: Int, name: String? = null, description: String? = null) =
+        send("PATCH", "api/playlists/$id", buildJsonObject { name?.let { put("name", it) }; description?.let { put("description", it) } }.toString())
+    suspend fun deletePlaylist(id: Int) = send("DELETE", "api/playlists/$id")
+    suspend fun addToPlaylist(id: Int, trackIds: List<Int>): PlaylistSummary =
+        call("api/playlists/$id/tracks", PlaylistSummary.serializer(), body { putJsonArray("trackIds") { trackIds.forEach { add(it) } } })
+    suspend fun removeFromPlaylist(id: Int, entryId: Int) = send("DELETE", "api/playlists/$id/tracks/$entryId")
+    suspend fun reorderPlaylist(id: Int, entryIds: List<Int>) =
+        send("PUT", "api/playlists/$id/order", buildJsonObject { putJsonArray("entryIds") { entryIds.forEach { add(it) } } }.toString())
+
+    /** Song or artist radio: the seed, then songs from across the library that fit it. */
+    suspend fun radio(track: Int? = null, artist: String? = null): MixDetail = call(url("api/radio").newBuilder().apply {
+        track?.let { addQueryParameter("track", it.toString()) }; artist?.let { addQueryParameter("artist", it) }
+    }.build(), MixDetail.serializer())
+
+    private fun body(build: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit) = buildJsonObject(build).toString().toRequestBody(JSON)
 
     /** A listen, for history, mixes and recommendations. */
     suspend fun played(trackId: Int) {

@@ -45,7 +45,8 @@ import app.shelf.ui.theme.ArchivoDisplay
 import app.shelf.ui.theme.Shelf as Theme
 
 @Composable
-fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (Int) -> Unit, onBack: () -> Unit, signedOut: SignedOutHandler) {
+fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (Int) -> Unit, onBack: () -> Unit, signedOut: SignedOutHandler,
+                 onRadio: (() -> Unit)? = null) {
     val (state, retry) = rememberLoad(name) { source.artist(name) }
     LoadContent(state, retry, signedOut) { a ->
         val color = a.albums.firstOrNull()?.let { albumColor(it.color, it.title) } ?: albumColor(null, a.name)
@@ -63,6 +64,9 @@ fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (
                             Button(onClick = { if (a.popular.isNotEmpty()) onPlay(a.popular, 0, ctx) }, enabled = a.popular.isNotEmpty(),
                                 colors = ButtonDefaults.buttonColors(containerColor = Theme.colors.cobalt, contentColor = Theme.colors.cobaltInk)) {
                                 Icon(painterResource(R.drawable.ic_play), null, Modifier.size(20.dp)); Spacer(Modifier.size(8.dp)); Text("Play")
+                            }
+                            if (onRadio != null) androidx.compose.material3.OutlinedButton(onClick = onRadio) {
+                                Icon(painterResource(R.drawable.ic_radio), null, Modifier.size(20.dp), tint = Theme.colors.ink); Spacer(Modifier.size(8.dp)); Text("Radio", color = Theme.colors.ink)
                             }
                         }
                     }

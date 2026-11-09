@@ -31,6 +31,7 @@ data class Track(
     val album: String = "", val albumId: Int, val albumArtist: String? = null, val cover: String? = null,
     val trackNo: Int? = null, val discNo: Int? = null, val duration: Double = 0.0, val codec: String? = null,
     val bits: Int? = null, val sampleRate: Int? = null, val lufs: Double? = null, val peak: Double? = null,
+    val entryId: Int? = null, // its place in a playlist (to remove or move it)
 )
 
 @Serializable data class ArtistSummary(val name: String, val albums: Int = 0, val tracks: Int = 0, val coverAlbumId: Int? = null, val cover: String? = null)

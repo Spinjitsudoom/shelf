@@ -59,6 +59,7 @@ fun TrackListPage(
     color: Color, kind: String?, title: String, cover: @Composable () -> Unit, byline: (@Composable () -> Unit)?, facts: String,
     tracks: List<Track>, numbered: Boolean, coverUrl: (Track) -> String?, onTrack: (Int) -> Unit, onShuffle: () -> Unit, onBack: () -> Unit,
     onRemove: ((Int) -> Unit)? = null,
+    actions: (@Composable () -> Unit)? = null,
 ) {
     val discs = numbered && tracks.map { it.discNo ?: 1 }.distinct().size > 1
     Box(Modifier.fillMaxSize()) {
@@ -82,6 +83,7 @@ fun TrackListPage(
                         OutlinedIconButton(onClick = onShuffle, enabled = tracks.isNotEmpty()) {
                             Icon(painterResource(R.drawable.ic_shuffle), contentDescription = "Shuffle", tint = Shelf.colors.ink)
                         }
+                        actions?.invoke()
                     }
                 }
             }

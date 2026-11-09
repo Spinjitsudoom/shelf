@@ -116,4 +116,51 @@ class ShelfApiTest {
         assertNull(normalizeServer(""))
         assertNull(normalizeServer("http://"))
     }
+
+    private fun summary(id: Int, name: String) = """{"id":$id,"name":"$name","trackCount":0,"duration":0,"covers":[],"canEdit":true}"""
+
+    @Test fun createPlaylistSendsName() = runTest {
+        json(summary(7, "Road trip"))
+        assertEquals(7, api.createPlaylist("Road trip").id)
+        val req = server.takeRequest()
+        assertEquals("POST", req.method); assertEquals("/api/playlists", req.url.encodedPath)
+        assertEquals("Road trip", Json.parseToJsonElement(req.body!!.utf8()).jsonObject["name"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun addToPlaylistSendsTrackIds() = runTest {
+        json(summary(7, "Road trip"))
+        api.addToPlaylist(7, listOf(3, 4))
+        val req = server.takeRequest()
+        assertEquals("/api/playlists/7/tracks", req.url.encodedPath)
+        assertEquals("[3,4]", Json.parseToJsonElement(req.body!!.utf8()).jsonObject["trackIds"].toString())
+    }
+
+    @Test fun reorderSendsEntryIdsInNewOrder() = runTest {
+        assertEquals(listOf(20, 10, 30), moveItem(listOf(10, 20, 30), from = 1, to = 0))
+        assertEquals(listOf(20, 30, 10), moveItem(listOf(10, 20, 30), from = 0, to = 2))
+        json("""{"ok":true}""")
+        api.reorderPlaylist(7, listOf(20, 10, 30))
+        val req = server.takeRequest()
+        assertEquals("PUT", req.method); assertEquals("/api/playlists/7/order", req.url.encodedPath)
+        assertEquals("[20,10,30]", Json.parseToJsonElement(req.body!!.utf8()).jsonObject["entryIds"].toString())
+    }
+
+    @Test fun removeAndDeleteUseDelete() = runTest {
+        json("""{"ok":true}"""); api.removeFromPlaylist(7, 99)
+        server.takeRequest().let { assertEquals("DELETE", it.method); assertEquals("/api/playlists/7/tracks/99", it.url.encodedPath) }
+        json("""{"ok":true}"""); api.deletePlaylist(7)
+        server.takeRequest().let { assertEquals("DELETE", it.method); assertEquals("/api/playlists/7", it.url.encodedPath) }
+    }
+
+    @Test fun radioByTrackAndArtist() = runTest {
+        json(fixture("mix.json")); api.radio(track = 12)
+        assertEquals("12", server.takeRequest().url.queryParameter("track"))
+        json(fixture("mix.json")); api.radio(artist = "Black Sabbath")
+        assertEquals("Black Sabbath", server.takeRequest().url.queryParameter("artist"))
+    }
+
+    @Test fun playlistTracksCarryEntryIds() = runTest {
+        json("""{"id":1,"name":"P","tracks":[{"id":5,"title":"T","artist":"A","albumId":2,"entryId":44}]}""")
+        assertEquals(44, api.playlist(1).tracks.first().entryId)
+    }
 }

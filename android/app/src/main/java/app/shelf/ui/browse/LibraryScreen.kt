@@ -1,5 +1,6 @@
 package app.shelf.ui.browse
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,7 +53,9 @@ private enum class Filter(val label: String) { Playlists("Playlists"), Albums("A
 
 @Composable
 fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (Int) -> Unit, onAlbum: (Int) -> Unit, onArtist: (String) -> Unit,
-                  signedOut: SignedOutHandler) {
+                  signedOut: SignedOutHandler, onNewPlaylist: ((String) -> Unit)? = null) {
+    var naming by rememberSaveable { mutableStateOf(false) }
+    if (naming && onNewPlaylist != null) app.shelf.ui.common.NameDialog("New playlist", "", "Create", onNewPlaylist, { naming = false })
     val (state, retry) = rememberLoad("library") {
         coroutineScope {
             val p = async { source.playlists() }; val a = async { source.albums("recent") }; val r = async { source.artists() }
@@ -77,6 +80,13 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
                 Spacer(Modifier.height(8.dp))
             }
             if (filter == null || filter == Filter.Playlists) {
+                if (onNewPlaylist != null) item {
+                    LibraryRow("New playlist", "Make a playlist", { naming = true }) {
+                        Box(Modifier.fillMaxSize().background(Theme.colors.sleeve), contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_plus), null, tint = Theme.colors.ink)
+                        }
+                    }
+                }
                 item { LibraryRow("Favourites", "Playlist", onFavourites) { FavouritesCover() } }
                 items(d.playlists, key = { "p${it.id}" }) { p ->
                     LibraryRow(p.name, "Playlist, ${plural(p.trackCount, "song")}", { onPlaylist(p.id) }) {
