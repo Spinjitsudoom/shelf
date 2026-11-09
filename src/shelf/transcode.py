@@ -51,6 +51,62 @@ async def transcode(cache_dir: Path, src: Path, mtime: float, kbps: int, cache_l
     return target
 
 
+async def stream_transcode(cache_dir: Path, src: Path, mtime: float, kbps: int, cache_limit_mb: int):
+    """Convert a song while sending it: yields the MP4 as ffmpeg writes it, so playback starts
+    within a moment instead of after the whole song is converted. The bytes are kept too, and
+    become the cached copy (served with seeking from then on) only if the conversion finishes.
+    A fragmented MP4 is used because a normal one needs the whole song before its first byte.
+    If the same song is already being converted for someone else, this one isn't kept."""
+    target = _target(cache_dir, src, mtime, kbps)
+    lock = _locks.setdefault(target.name, asyncio.Lock())
+    keep = not lock.locked()
+    if keep:
+        await lock.acquire()
+    tmp = target.with_suffix(f".{id(lock)}.part") if keep else None
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(src),
+        "-map", "0:a:0", "-vn", "-c:a", "aac", "-b:a", f"{kbps}k",
+        "-movflags", "+frag_keyframe+empty_moov+default_base_moof", "-f", "mp4", "pipe:1",
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, **procs.no_window(),
+    )
+    out = open(tmp, "wb") if tmp else None
+    ok = False
+    try:
+        while chunk := await proc.stdout.read(64 * 1024):
+            if out:
+                out.write(chunk)
+            yield chunk
+        err = await proc.stderr.read()
+        await proc.wait()
+        if proc.returncode != 0:
+            raise RuntimeError(f"ffmpeg failed for {src}: {err.decode(errors='replace')[:500]}")
+        ok = True
+    finally:
+        if proc.returncode is None:  # the listener went away mid-song
+            proc.kill()
+            await proc.wait()
+        if out:
+            out.close()
+            if ok:
+                tmp.replace(target)
+            else:
+                tmp.unlink(missing_ok=True)
+        if keep:
+            lock.release()
+            _locks.pop(target.name, None)
+    if ok and keep:
+        _prune(cache_dir, cache_limit_mb)
+
+
+def cached(cache_dir: Path, src: Path, mtime: float, kbps: int) -> Path | None:
+    """The finished conversion of a song, if there is one."""
+    target = _target(cache_dir, src, mtime, kbps)
+    if target.exists():
+        target.touch()
+        return target
+    return None
+
+
 def cache_size(cache_dir: Path) -> int:
     return sum(p.stat().st_size for p in cache_dir.glob("*.m4a"))
 

@@ -18,7 +18,7 @@ from contextvars import ContextVar
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response, WebSocket
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -1720,12 +1720,26 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             return FileResponse(path, media_type=mime, headers={"Cache-Control": "private, max-age=86400"})
         # Formats a browser can't play are sent as the best AAC tier instead.
         kbps = transcode.QUALITIES.get(q, transcode.QUALITIES["veryhigh"])
+        out = transcode.cached(cfg.transcode_dir, path, mtime, kbps)
+        if out:  # converted before: served whole, with seeking
+            return FileResponse(out, media_type="audio/mp4", headers={"Cache-Control": "private, max-age=86400"})
+        # The first time: sent while it's converted, so it starts at once.
+        gen = transcode.stream_transcode(cfg.transcode_dir, path, mtime, kbps, cfg.transcode_cache_mb)
         try:
-            out = await transcode.transcode(cfg.transcode_dir, path, mtime, kbps, cfg.transcode_cache_mb)
-        except RuntimeError as e:
+            first = await gen.__anext__()
+        except (RuntimeError, StopAsyncIteration) as e:
             log.error("%s", e)
             raise HTTPException(500, "Could not convert this track")
-        return FileResponse(out, media_type="audio/mp4", headers={"Cache-Control": "private, max-age=86400"})
+
+        async def body():
+            yield first
+            try:
+                async for chunk in gen:
+                    yield chunk
+            except RuntimeError as e:
+                log.error("%s", e)
+
+        return StreamingResponse(body(), media_type="audio/mp4", headers={"Cache-Control": "no-store"})
 
     @app.get("/api/tracks/{track_id}/lyrics")
     def track_lyrics(track_id: int, response: Response):
