@@ -191,23 +191,12 @@ private fun Scrubber(state: PlayerUi, player: PlayerConnection) {
     }
 }
 
-/** The jewel case, with its CD half out to the right, turning while the music plays (unless the phone asks for less motion). */
+/** The jewel case (or sleeve), with its CD (or record) out to the right, turning while the music plays. */
 @Composable
 private fun CaseWithDisc(t: Track, url: String?, spinning: Boolean) {
-    val reduceMotion = Settings.Global.getFloat(LocalContext.current.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-    val angle by if (spinning && !reduceMotion) rememberInfiniteTransition(label = "disc")
-        .animateFloat(0f, 360f, infiniteRepeatable(tween(7000, easing = LinearEasing), RepeatMode.Restart), label = "spin")
-    else remember { mutableStateOf(0f) }
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
         val case = maxWidth * 0.86f
-        Canvas(Modifier.size(case * 0.94f).offset(x = maxWidth - case * 0.94f, y = case * 0.03f).rotate(angle)) {
-            val r = size.minDimension / 2
-            drawCircle(Brush.sweepGradient(listOf(Color(0xffd9dde4), Color(0xfff2f4f8), Color(0xffbfc6d2), Color(0xffe9ecf1), Color(0xffcfd5de), Color(0xffd9dde4))), r)
-            for (k in 1..6) drawCircle(Color.Black.copy(alpha = .05f), r * (0.38f + k * 0.09f), style = Stroke(1f))
-            drawCircle(Color(0xff9aa2b0), r * 0.18f)
-            drawCircle(Color(0xffe6e9ef), r * 0.07f)
-            drawCircle(Color.White.copy(alpha = .35f), r * 0.98f, Offset(center.x, center.y), style = Stroke(2f))
-        }
+        Disc(url, spinning, Modifier.size(case * 0.94f).offset(x = maxWidth - case * 0.94f, y = case * 0.03f), labelColor = fallbackColor(t.album))
         CaseCover(url, t.album, fallbackColor(t.album), Modifier.size(case))
     }
 }
