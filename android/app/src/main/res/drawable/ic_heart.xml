@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- From the web app's icon set (src/shelf/web/index.html, i-heart). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="M12 20.2s-7.6-4.6-7.6-10.3A4.4 4.4 0 0 1 12 7.2a4.4 4.4 0 0 1 7.6 2.7c0 5.7-7.6 10.3-7.6 10.3Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineJoin="round" />
+</vector>

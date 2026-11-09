@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- From the web app's icon set (src/shelf/web/index.html, i-prev). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="M20 5.3v13.4a.7.7 0 0 1-1.1.6l-10-6.7a.7.7 0 0 1 0-1.2l10-6.7a.7.7 0 0 1 1.1.6Z"
+        android:fillColor="#FFFFFFFF" />
+    <path android:pathData="M5.0,5.0h1.0a1.0,1.0 0 0 1 1.0,1.0v12.0a1.0,1.0 0 0 1 -1.0,1.0h-1.0a1.0,1.0 0 0 1 -1.0,-1.0v-12.0a1.0,1.0 0 0 1 1.0,-1.0z"
+        android:fillColor="#FFFFFFFF" />
+</vector>

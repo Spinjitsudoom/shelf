@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- From the web app's icon set (src/shelf/web/index.html, i-queue). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="M3 6h13M3 12h13M3 18h8"
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" />
+    <path android:pathData="M15 15.5v5.2a.5.5 0 0 0 .8.4l4.2-2.6a.5.5 0 0 0 0-.8l-4.2-2.6a.5.5 0 0 0-.8.4Z"
+        android:fillColor="#FFFFFFFF" />
+</vector>
