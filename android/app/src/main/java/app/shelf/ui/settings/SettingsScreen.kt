@@ -40,7 +40,9 @@ import app.shelf.ui.theme.Shelf
 private val QUALITIES = listOf("original" to "Original", "veryhigh" to "320 kbps", "high" to "192 kbps", "normal" to "128 kbps", "low" to "96 kbps")
 
 @Composable
-fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: () -> Unit, onSignOut: () -> Unit, onBack: () -> Unit) {
+fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: () -> Unit, onSignOut: () -> Unit, onBack: () -> Unit,
+                   onAdmin: () -> Unit = {}) {
+    val admin by produceState(false, container.store.server) { value = runCatching { container.api?.session()?.user?.admin == true }.getOrDefault(false) }
     val s by container.settings.settings.collectAsStateWithLifecycle()
     val serverVersion by produceState("", container.store.server) { value = runCatching { container.api?.ping() ?: "" }.getOrDefault("") }
     fun set(t: (Settings) -> Settings) = container.settings.update(t)
@@ -73,6 +75,8 @@ fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: 
                     OutlinedButton(onClick = onChangeServer) { Text("Change server", color = Shelf.colors.ink) }
                     OutlinedButton(onClick = onSignOut) { Text("Sign out", color = Shelf.colors.ink) }
                 }
+                // Admins: users, adding music, CD ripping and server updates, from the web app.
+                if (admin) OutlinedButton(onClick = onAdmin) { Text("Admin dashboard", color = Shelf.colors.ink) }
             }
         }
         item { Section("About") }

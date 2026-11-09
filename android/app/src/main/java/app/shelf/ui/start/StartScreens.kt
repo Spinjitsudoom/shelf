@@ -116,6 +116,7 @@ fun SignInScreen(state: StartViewModel.UiState, onSignIn: (String, String) -> Un
     var user by rememberSaveable { mutableStateOf("") }
     var pass by rememberSaveable { mutableStateOf("") }
     StartFrame("Sign in", "to ${state.address}") {
+        state.note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Shelf.colors.cobalt) }
         Field(user, { user = it }, "Username", KeyboardOptions(imeAction = ImeAction.Next, autoCorrectEnabled = false), {})
         Field(pass, { pass = it }, "Password", KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
             { onSignIn(user, pass) }, password = true)

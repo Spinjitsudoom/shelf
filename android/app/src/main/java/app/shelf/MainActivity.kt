@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -53,8 +54,12 @@ class MainActivity : ComponentActivity() {
                         StartViewModel.Step.Checking -> Unit
                         StartViewModel.Step.Server -> ServerScreen(state, start::submitServer)
                         StartViewModel.Step.SignIn -> SignInScreen(state, start::signIn, start::changeServer)
-                        StartViewModel.Step.Done -> AppNav(container, signedOut = start::signedOut, player = player,
-                            onChangeServer = start::changeServer, onSignOut = start::signOut)
+                        StartViewModel.Step.Done -> {
+                            var onboard by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(app.shelf.ui.start.needsOnboarding(this@MainActivity)) }
+                            if (onboard) app.shelf.ui.start.Onboarding { onboard = false }
+                            else AppNav(container, signedOut = start::signedOut, player = player,
+                                onChangeServer = start::changeServer, onSignOut = start::signOut)
+                        }
                     }
                 }
             } }

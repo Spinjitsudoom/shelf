@@ -63,6 +63,7 @@ object Routes {
     const val FAVOURITES = "favourites"
     const val SETTINGS = "settings"
     const val SEARCH = "search"
+    const val ADMIN = "web/admin"
     fun album(id: Int) = "album/$id"
     fun artist(name: String) = "artist/${android.net.Uri.encode(name)}"
     fun playlist(id: Int) = "playlist/$id"
@@ -163,7 +164,11 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             }
             composable("mix/{key}") { MixScreen(it.arguments!!.getString("key")!!, source, onPlay, back, signedOut) }
             composable(Routes.SETTINGS) {
-                app.shelf.ui.settings.SettingsScreen(container, app.shelf.BuildConfig.VERSION_NAME, onChangeServer, onSignOut, back)
+                app.shelf.ui.settings.SettingsScreen(container, app.shelf.BuildConfig.VERSION_NAME, onChangeServer, onSignOut, back,
+                    onAdmin = { nav.navigate(Routes.ADMIN) })
+            }
+            composable(Routes.ADMIN) {
+                app.shelf.ui.web.WebPageScreen(container.store.server ?: "", container.store.token, "#/admin", back)
             }
         }
     }

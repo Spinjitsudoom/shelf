@@ -19,7 +19,8 @@ import kotlinx.coroutines.launch
 class StartViewModel(private val store: ServerStore, private val apiFor: (String) -> ShelfApi) : ViewModel() {
     enum class Step { Checking, Server, SignIn, Done }
 
-    data class UiState(val step: Step = Step.Checking, val address: String = "", val busy: Boolean = false, val error: String? = null)
+    data class UiState(val step: Step = Step.Checking, val address: String = "", val busy: Boolean = false, val error: String? = null,
+                       val note: String? = null)
 
     private val _state = MutableStateFlow(UiState(address = store.server?.let(::shown) ?: ""))
     val state: StateFlow<UiState> = _state
@@ -30,7 +31,12 @@ class StartViewModel(private val store: ServerStore, private val apiFor: (String
     fun start() {
         val server = store.server
         if (server == null) { _state.update { it.copy(step = Step.Server) }; return }
-        if (store.token == null) { _state.update { it.copy(step = Step.SignIn) }; return }
+        if (store.token == null) {
+            // Installed over the WebView app: it saved the server, but its sign-in and downloads stayed in the web page.
+            val note = if (!store.native) "Shelf has a new look. Sign in once more. Anything downloaded in the old app needs downloading again." else null
+            _state.update { it.copy(step = Step.SignIn, note = note) }
+            return
+        }
         work {
             val signedIn = try { apiFor(server).session().signedIn } catch (e: ShelfError.Offline) { true }
             if (signedIn) {
@@ -71,7 +77,8 @@ class StartViewModel(private val store: ServerStore, private val apiFor: (String
                 val (token, user) = apiFor(server).login(username.trim(), password)
                 store.token = token
                 store.username = user.username
-                _state.update { it.copy(step = Step.Done) }
+                store.native = true
+                _state.update { it.copy(step = Step.Done, note = null) }
             } catch (e: ShelfError.SignedOut) {
                 fail("Wrong username or password.")
             } catch (e: ShelfError.Offline) {

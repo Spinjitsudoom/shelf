@@ -125,4 +125,27 @@ class StartViewModelTest {
         vm.start(); settle()
         assertEquals(StartViewModel.Step.Server, vm.state.value.step)
     }
+
+    @Test fun upgradeNoteAfterWebViewApp() {
+        // The WebView app saved the server (same key) but its sign-in lived in the web page.
+        store.server = "http://$host"
+        vm = StartViewModel(store) { url -> ShelfApi("$url/".toHttpUrl(), { store.token }, OkHttpClient()) }
+        vm.start()
+        settle()
+        assertEquals(StartViewModel.Step.SignIn, vm.state.value.step)
+        assertEquals("Shelf has a new look. Sign in once more. Anything downloaded in the old app needs downloading again.", vm.state.value.note)
+    }
+
+    @Test fun noUpgradeNoteOnFreshInstall() {
+        vm.start()
+        settle()
+        assertNull(vm.state.value.note)
+        // Signed out on purpose after signing in here: no note either.
+        store.server = "http://$host"
+        store.native = true
+        vm = StartViewModel(store) { url -> ShelfApi("$url/".toHttpUrl(), { store.token }, OkHttpClient()) }
+        vm.start()
+        settle()
+        assertNull(vm.state.value.note)
+    }
 }
