@@ -32,10 +32,12 @@ import java.net.URL;
  * What's playing, outside the app: the media notification (also on the lock screen), and the
  * media session that headphones, Bluetooth and car displays talk to.
  *
- * The music itself plays in the web view. While it plays on this phone, this runs as a
- * foreground service holding wake and Wi-Fi locks, so the phone doesn't sleep or close the app
- * mid-song. When this phone is the remote for another device, the notification shows and
- * controls that device instead, without keeping anything awake.
+ * The music itself plays in the web view. While music plays, this runs as a foreground
+ * service holding wake and Wi-Fi locks, so the phone doesn't sleep or close the app mid-song.
+ * That's also true when this phone is the remote for another device that's playing: the
+ * notification shows and controls that device, and stays connected with the screen locked so
+ * it follows along as the songs change (as Spotify's does). Once the music is paused, here
+ * or there, the locks are let go and the phone can sleep.
  */
 public class PlaybackService extends Service {
     private static final String CHANNEL = "playback";
@@ -55,6 +57,8 @@ public class PlaybackService extends Service {
         long at; // SystemClock.elapsedRealtime() when `position` was measured
 
         boolean playsHere() { return playing && device.isEmpty(); }
+        /** Music is playing, here or on the device this phone controls: stay awake and connected. */
+        boolean keepAwake() { return playing; }
     }
 
     static Commands commands;
@@ -205,7 +209,7 @@ public class PlaybackService extends Service {
 
         Notification n = notification(s);
         NowPlayingWidget.push(this, s, widgetArt);
-        boolean fg = s.playsHere();
+        boolean fg = s.keepAwake();
         if (fg || mustStartForeground) {
             try {
                 if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
@@ -290,7 +294,7 @@ public class PlaybackService extends Service {
             .setDeleteIntent(commandIntent("dismiss"))
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setShowWhen(false)
-            .setOngoing(s.playsHere())
+            .setOngoing(s.keepAwake())
             .setColor(0xFF2C4FD0)
             .addAction(new Notification.Action(R.drawable.ic_prev, "Previous", commandIntent("prev")))
             .addAction(s.playing
