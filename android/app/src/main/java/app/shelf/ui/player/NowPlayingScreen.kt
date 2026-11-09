@@ -73,13 +73,14 @@ import androidx.media3.common.Player
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConnection, onArtist: (String) -> Unit, onContext: (String) -> Unit, onClose: () -> Unit,
-                     liked: Boolean = false, onLike: () -> Unit = {}) {
+                     liked: Boolean = false, onLike: () -> Unit = {}, lyrics: (suspend (Int) -> app.shelf.data.Lyrics)? = null) {
     val t = state.current ?: return onClose()
     // The album's own colour (the song doesn't carry it), fetched once per album.
     val color by produceState(fallbackColor(t.album), t.albumId) {
         value = runCatching { source.album(t.albumId) }.getOrNull()?.let { albumColor(it.color, it.title) } ?: fallbackColor(t.album)
     }
     var queueOpen by remember { mutableStateOf(false) }
+    var showLyrics by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val cover = { tr: Track -> source.coverUrl(tr.albumId, tr.cover, 640) }
 
     Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(color.copy(alpha = .85f), Shelf.colors.tray), endY = 2400f))
@@ -91,10 +92,14 @@ fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConne
                 Text("Playing from", style = MaterialTheme.typography.labelSmall, color = Shelf.colors.ink2)
                 Text(state.context?.label ?: t.album, style = MaterialTheme.typography.titleSmall, color = Shelf.colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            if (lyrics != null) IconButton(onClick = { showLyrics = !showLyrics }) {
+                Icon(painterResource(R.drawable.ic_mic), if (showLyrics) "Hide lyrics" else "Lyrics", tint = if (showLyrics) Shelf.colors.cobalt else Shelf.colors.ink)
+            }
             IconButton(onClick = { queueOpen = true }) { Icon(painterResource(R.drawable.ic_queue), "Queue", tint = Shelf.colors.ink) }
         }
         Spacer(Modifier.height(18.dp))
-        SwipeToSkip(
+        if (showLyrics && lyrics != null) LyricsPanel(t.id, state.positionMs, lyrics, player::seekTo, Modifier.fillMaxWidth().aspectRatio(1f))
+        else SwipeToSkip(
             previous = state.previous?.let { p -> { CaseWithDisc(p, cover(p), false) } },
             current = { CaseWithDisc(t, cover(t), state.playing) },
             next = state.next?.let { n -> { CaseWithDisc(n, cover(n), false) } },

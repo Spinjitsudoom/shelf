@@ -163,4 +163,15 @@ class ShelfApiTest {
         json("""{"id":1,"name":"P","tracks":[{"id":5,"title":"T","artist":"A","albumId":2,"entryId":44}]}""")
         assertEquals(44, api.playlist(1).tracks.first().entryId)
     }
+
+    @Test fun lyricsParseEveryKind() = runTest {
+        json("""{"kind":"synced","lines":[{"t":1.5,"text":"Hello"}],"source":"file"}""")
+        json("""{"kind":"plain","text":"Words","source":"lrclib"}""")
+        json("""{"kind":"none","source":null,"searchedOnline":true}""")
+        val synced = api.lyrics(7)
+        assertEquals("/api/tracks/7/lyrics", server.takeRequest().url.encodedPath)
+        assertEquals(listOf(LyricLine(1.5, "Hello")), synced.lines)
+        assertEquals("Words", api.lyrics(7).text)
+        assertEquals("none", api.lyrics(7).kind)
+    }
 }

@@ -172,7 +172,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                 onLike = { playing.current?.let { t -> container.likes.toggle(t.id, say) } },
                 onArtist = { nowPlaying = false; nav.navigate(Routes.artist(it)) },
                 onContext = { nowPlaying = false; nav.navigate(it) },
-                onClose = { nowPlaying = false })
+                onClose = { nowPlaying = false },
+                lyrics = api?.let { a -> { id: Int -> a.lyrics(id) } })
         }
     }
     menu?.let { (t, remove) ->

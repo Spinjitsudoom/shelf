@@ -77,3 +77,11 @@ data class MixDetail(
 data class SearchResults(val artists: List<SearchArtist> = emptyList(), val albums: List<Album> = emptyList(), val tracks: List<Track> = emptyList()) {
     val isEmpty get() = artists.isEmpty() && albums.isEmpty() && tracks.isEmpty()
 }
+
+/** One timed line of lyrics: [t] seconds into the song. */
+@Serializable
+data class LyricLine(val t: Double, val text: String = "")
+
+/** A song's lyrics: [kind] is synced (timed [lines]), plain ([text]), instrumental, or none. */
+@Serializable
+data class Lyrics(val kind: String = "none", val lines: List<LyricLine> = emptyList(), val text: String? = null)
