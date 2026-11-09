@@ -89,6 +89,9 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val say: (String) -> Unit = { msg -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(msg) } }
     val likes by container.likes.ids.collectAsStateWithLifecycle()
+    val connectUi by container.connect.ui.collectAsStateWithLifecycle()
+    val playingOn = if (connectUi.remote) connectUi.activeDevice?.name?.ifBlank { "Web browser" } else null
+    var devicesOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { container.likes.refresh() }
     var menu by remember { mutableStateOf<Pair<app.shelf.data.Track, (() -> Unit)?>?>(null) }
     var adding by remember { mutableStateOf<app.shelf.data.Track?>(null) }
@@ -107,7 +110,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
         bottomBar = {
             Column {
                 if (player != null && playing.current != null) {
-                    MiniPlayer(playing, cover, player::toggle, player::next, player::previous) { nowPlaying = true }
+                    MiniPlayer(playing, cover, player::toggle, player::next, player::previous, { nowPlaying = true }, device = playingOn)
                 }
                 NavigationBar(containerColor = Shelf.colors.sleeve) {
                     TABS.forEach { tab ->
@@ -173,7 +176,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                 onArtist = { nowPlaying = false; nav.navigate(Routes.artist(it)) },
                 onContext = { nowPlaying = false; nav.navigate(it) },
                 onClose = { nowPlaying = false },
-                lyrics = api?.let { a -> { id: Int -> a.lyrics(id) } })
+                lyrics = api?.let { a -> { id: Int -> a.lyrics(id) } },
+                device = playingOn, onDevices = { devicesOpen = true })
         }
     }
     menu?.let { (t, remove) ->
@@ -195,6 +199,19 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
         }
         app.shelf.ui.common.SongMenu(t, source.coverUrl(t.albumId, t.cover, 160), items) { menu = null }
     }
+    if (devicesOpen) app.shelf.ui.player.DevicesSheet(connectUi, onPick = { id ->
+        val u = connectUi
+        val playingNowhere = u.activeId == null || u.devices.none { it.id == u.activeId }
+        if (!u.connected) say("Can’t reach the server to see your other devices")
+        else if (id != u.activeId && !(id == u.selfId && playingNowhere)) {
+            // This phone's queue goes along when the server has none (nothing's playing anywhere else).
+            val snap = if (!u.remote && playing.queue.isNotEmpty()) app.shelf.connect.Snapshot(playing.queue, playing.index.coerceAtLeast(0),
+                playing.positionMs / 1000.0, playing.playing, playing.shuffle,
+                when (playing.repeat) { androidx.media3.common.Player.REPEAT_MODE_ALL -> "all"; androidx.media3.common.Player.REPEAT_MODE_ONE -> "one"; else -> "off" },
+                playing.context?.let { app.shelf.connect.WebContext(it.label, app.shelf.connect.webHref(it.route)) }) else null
+            container.connect.send(app.shelf.connect.transferMessage(id, snap))
+        }
+    }, onDismiss = { devicesOpen = false })
     adding?.let { t ->
         if (api != null) app.shelf.ui.common.AddToPlaylistSheet(playlists, { p -> p.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 160) } },
             onPick = { p -> scope.launch { try { api.addToPlaylist(p.id, listOf(t.id)); say("Added to ${p.name}") } catch (e: app.shelf.data.ShelfError) { say(failed) } } },

@@ -50,4 +50,14 @@ class ConnectMessagesTest {
         assertNull(nativeRoute("#/"))
         assertNull(nativeRoute(null))
     }
+
+    @Test fun transferMessageShape() {
+        val m = transferMessage("pc12345678", Snapshot(listOf(app.shelf.data.Track(1, "A", "B", albumId = 2)), 0, 12.5, true, context = WebContext("Album", "#/album/2")))
+        assertEquals("transfer", m["type"].toString().trim('"'))
+        assertEquals("pc12345678", m["to"].toString().trim('"'))
+        val snap = m["snapshot"] as kotlinx.serialization.json.JsonObject
+        assertEquals("12.5", snap["position"].toString())
+        assertEquals("#/album/2", (snap["context"] as kotlinx.serialization.json.JsonObject)["href"].toString().trim('"'))
+        assertEquals(null, transferMessage("pc12345678", null)["snapshot"])
+    }
 }

@@ -116,3 +116,10 @@ fun nativeRoute(href: String?): String? {
     val path = href?.removePrefix("#/")?.substringBefore('?')?.takeIf { it.isNotBlank() && href.startsWith("#/") } ?: return null
     return if (path == "liked") "favourites" else path
 }
+
+/** Move the music to device [to], with this phone's queue when the server doesn't know one. */
+fun transferMessage(to: String, snapshot: Snapshot?): JsonObject = JsonObject(buildMap {
+    put("type", JsonPrimitive("transfer"))
+    put("to", JsonPrimitive(to))
+    if (snapshot != null) put("snapshot", snapshotJson(snapshot))
+})

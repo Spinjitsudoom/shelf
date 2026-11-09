@@ -73,7 +73,8 @@ import androidx.media3.common.Player
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConnection, onArtist: (String) -> Unit, onContext: (String) -> Unit, onClose: () -> Unit,
-                     liked: Boolean = false, onLike: () -> Unit = {}, lyrics: (suspend (Int) -> app.shelf.data.Lyrics)? = null) {
+                     liked: Boolean = false, onLike: () -> Unit = {}, lyrics: (suspend (Int) -> app.shelf.data.Lyrics)? = null,
+                     device: String? = null, onDevices: (() -> Unit)? = null) {
     val t = state.current ?: return onClose()
     // The album's own colour (the song doesn't carry it), fetched once per album.
     val color by produceState(fallbackColor(t.album), t.albumId) {
@@ -135,6 +136,13 @@ fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConne
                     if (state.repeat == Player.REPEAT_MODE_ONE) Text("1", style = MaterialTheme.typography.labelSmall, color = Shelf.colors.cobalt)
                 }
             }
+        }
+        if (onDevices != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onDevices) {
+                Icon(painterResource(R.drawable.ic_devices), "Play on another device", tint = if (device != null) Shelf.colors.cobalt else Shelf.colors.ink2)
+            }
+            if (device != null) Text("Playing on $device", style = MaterialTheme.typography.labelLarge, color = Shelf.colors.cobalt,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable(onClick = onDevices))
         }
         Spacer(Modifier.height(10.dp))
     }

@@ -35,11 +35,13 @@ import app.shelf.ui.theme.Shelf
 
 /** The song playing, above the bottom bar: swipe it to skip, tap it for Now Playing. */
 @Composable
-fun MiniPlayer(state: PlayerUi, coverUrl: (Track) -> String?, onToggle: () -> Unit, onNext: () -> Unit, onPrevious: () -> Unit, onOpen: () -> Unit) {
+fun MiniPlayer(state: PlayerUi, coverUrl: (Track) -> String?, onToggle: () -> Unit, onNext: () -> Unit, onPrevious: () -> Unit, onOpen: () -> Unit,
+               device: String? = null) {
     val t = state.current ?: return
     val shape = RoundedCornerShape(10.dp)
     Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).clip(shape).background(Shelf.colors.sleeve)
         .clickable(onClick = onOpen).testTag("mini-player")) {
+        androidx.compose.foundation.layout.Column {
         Row(Modifier.fillMaxWidth().height(60.dp).padding(start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             SwipeToSkip(
                 previous = state.previous?.let { p -> { SongLine(p, coverUrl) } },
@@ -52,6 +54,13 @@ fun MiniPlayer(state: PlayerUi, coverUrl: (Track) -> String?, onToggle: () -> Un
                 Icon(painterResource(if (state.playing) R.drawable.ic_pause else R.drawable.ic_play),
                     contentDescription = if (state.playing) "Pause" else "Play", tint = Shelf.colors.ink)
             }
+        }
+        // Another device is playing: say which one.
+        if (device != null) Row(Modifier.padding(start = 12.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.ic_devices), null, tint = Shelf.colors.cobalt, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(6.dp))
+            androidx.compose.material3.Text("Playing on $device", style = androidx.compose.material3.MaterialTheme.typography.labelMedium, color = Shelf.colors.cobalt, maxLines = 1)
+        }
         }
         // how far into the song
         val p = if (state.durationMs > 0) (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
