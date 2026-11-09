@@ -161,7 +161,7 @@ Studio needed; it expects a JDK and the Android SDK in `~/.local/share/android-b
 set `JAVA_HOME` and `ANDROID_HOME`):
 
 ```bash
-bash android/build.sh --install            # or --install <device serial>
+bash android-legacy/build.sh --install     # or --install <device serial>
 ```
 
 Requirements: [uv](https://docs.astral.sh/uv/) and `ffmpeg` on the PATH.
@@ -478,7 +478,8 @@ The other pieces:
 
 | Folder | What | Build it |
 |---|---|---|
-| [android/](android/) | The Android player (a WebView app, no Gradle) | `bash android/build.sh` |
+| [android-legacy/](android-legacy/) | Today's Android player (a WebView app, no Gradle) | `bash android-legacy/build.sh` |
+| [android/](android/) | The native Android app, in progress ("Shelf Preview"; see [the design](docs/superpowers/specs/2026-11-09-native-android-design.md)) | `cd android && ./gradlew assembleRelease` |
 | [desktop/](desktop/) | The Windows and Linux player (Electron) | `cd desktop && npm ci && npx electron-builder --linux deb` (or `--win nsis`) |
 | [packaging/flatpak/](packaging/flatpak/) | The player as a Flatpak | see the comment at the top of the manifest |
 | [packaging/windows/](packaging/windows/) | Shelf Server for Windows (PyInstaller, Inno Setup) | see [the release workflow](.github/workflows/release.yml) |

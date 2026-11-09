@@ -58,8 +58,8 @@ jobs:
           VERSION_NAME: ${{ needs.version.outputs.version }}
           VERSION_CODE: ${{ needs.version.outputs.code }}
         run: |
-          bash android/build.sh
-          mkdir -p out && cp android/build/shelf.apk "out/Shelf-${VERSION_NAME}.apk"
+          bash android-legacy/build.sh
+          mkdir -p out && cp android-legacy/build/shelf.apk "out/Shelf-${VERSION_NAME}.apk"
       - uses: actions/upload-artifact@v7
         with:
           name: android

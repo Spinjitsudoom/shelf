@@ -15,7 +15,11 @@ data/
 *.db
 
 # Android build output and signing keys
-android/build/
+android-legacy/build/
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/local.properties
 *.apk
 *.keystore
 *.jks
@@ -29,3 +33,4 @@ desktop/dist/
 build-dir/
 repo/
 *.flatpak
+.superpowers/
