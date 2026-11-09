@@ -116,17 +116,13 @@ class PlaybackService : MediaLibraryService() {
         super.onDestroy()
     }
 
-    /** Full quality on Wi-Fi; smaller (192 kbps AAC) on mobile data. */
-    private fun quality(): String {
-        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        return if (cm.isActiveNetworkMetered) "high" else "original"
-    }
+    private fun metered(): Boolean = (getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).isActiveNetworkMetered
 
     /** The playable version of items handed over by a screen (they come without a stream address). */
     private fun playable(items: List<MediaItem>): List<MediaItem> {
         val a = api ?: return emptyList()
-        val q = quality()
-        return items.mapNotNull { item -> item.track()?.toMediaItem(a, q, item.playContext()) }
+        val m = metered()
+        return items.mapNotNull { item -> item.track()?.let { t -> t.toMediaItem(a, streamQuality(t.codec, m), item.playContext()) } }
     }
 
     private fun save() {
@@ -140,9 +136,9 @@ class PlaybackService : MediaLibraryService() {
     private fun snapshotItems(): MediaItemsWithStartPosition? {
         val s = store.load() ?: return null
         val a = api ?: return null
-        val q = quality()
+        val m = metered()
         if (s.tracks.isEmpty()) return null
-        return MediaItemsWithStartPosition(s.tracks.map { it.toMediaItem(a, q, s.context) },
+        return MediaItemsWithStartPosition(s.tracks.map { it.toMediaItem(a, streamQuality(it.codec, m), s.context) },
             s.index.coerceIn(0, s.tracks.lastIndex), s.positionMs)
     }
 
