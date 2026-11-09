@@ -67,6 +67,8 @@ public class PlaybackService extends Service {
     private static Bitmap widgetArt; // the cover, small enough for a home-screen widget
 
     static State current() { return state; }
+    /** Where the music is now, in seconds (what the notification's seek bar shows). */
+    static double positionNow() { return state == null ? 0 : position(state); }
     static Bitmap currentArt() { return widgetArt; }
 
     /** The web player's latest state; null when nothing is loaded (or signed out). */
@@ -88,6 +90,14 @@ public class PlaybackService extends Service {
     }
 
     private final Handler main = new Handler(Looper.getMainLooper());
+    /** Swiped away and then paused: after a while, let the music (and the app) go, as Spotify does. */
+    private static final long IDLE_RELEASE_MS = 10 * 60 * 1000L;
+    private final Runnable idleRelease = new Runnable() {
+        public void run() {
+            State s = state;
+            if (MainActivity.detached() && (s == null || !s.keepAwake())) MainActivity.release();
+        }
+    };
     private MediaSession session;
     private NotificationManager notifications;
     private PowerManager.WakeLock wake;
@@ -210,6 +220,8 @@ public class PlaybackService extends Service {
         Notification n = notification(s);
         NowPlayingWidget.push(this, s, widgetArt);
         boolean fg = s.keepAwake();
+        main.removeCallbacks(idleRelease);
+        if (!fg && MainActivity.detached()) main.postDelayed(idleRelease, IDLE_RELEASE_MS);
         if (fg || mustStartForeground) {
             try {
                 if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
@@ -371,6 +383,7 @@ public class PlaybackService extends Service {
 
     @Override
     public void onDestroy() {
+        main.removeCallbacks(idleRelease);
         if (running == this) running = null;
         if (wake.isHeld()) wake.release();
         if (wifi.isHeld()) wifi.release();

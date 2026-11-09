@@ -11,6 +11,8 @@
     <!-- Updating itself from Shelf's GitHub releases (Android asks before installing). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Asking (once) to be left out of battery saving, so music isn't stopped in the background. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- Home servers are usually plain http on the local network. -->
     <application
