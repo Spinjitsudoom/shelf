@@ -31,7 +31,17 @@ class MainActivity : ComponentActivity() {
         val container = (application as ShelfApp).container
         val player = PlayerConnection(this) { container.api }.also { this.player = it }
         setContent {
-            ShelfTheme {
+            val settings by container.settings.settings.collectAsStateWithLifecycle()
+            val dark = when (settings.theme) { "light" -> false; "system" -> androidx.compose.foundation.isSystemInDarkTheme(); else -> true }
+            // The status and navigation bar icons follow Shelf's theme, not the phone's.
+            androidx.compose.runtime.LaunchedEffect(dark) {
+                val clear = android.graphics.Color.TRANSPARENT
+                enableEdgeToEdge(
+                    statusBarStyle = if (dark) androidx.activity.SystemBarStyle.dark(clear) else androidx.activity.SystemBarStyle.light(clear, clear),
+                    navigationBarStyle = if (dark) androidx.activity.SystemBarStyle.dark(clear) else androidx.activity.SystemBarStyle.light(clear, clear),
+                )
+            }
+            androidx.compose.runtime.CompositionLocalProvider(app.shelf.settings.LocalSettings provides settings) { ShelfTheme(dark = dark) {
                 val start: StartViewModel = viewModel(factory = viewModelFactory {
                     initializer { StartViewModel(container.store, container::apiFor) }
                 })
@@ -42,10 +52,11 @@ class MainActivity : ComponentActivity() {
                         StartViewModel.Step.Checking -> Unit
                         StartViewModel.Step.Server -> ServerScreen(state, start::submitServer)
                         StartViewModel.Step.SignIn -> SignInScreen(state, start::signIn, start::changeServer)
-                        StartViewModel.Step.Done -> AppNav(container, signedOut = start::signedOut, player = player)
+                        StartViewModel.Step.Done -> AppNav(container, signedOut = start::signedOut, player = player,
+                            onChangeServer = start::changeServer, onSignOut = start::signOut)
                     }
                 }
-            }
+            } }
         }
     }
 

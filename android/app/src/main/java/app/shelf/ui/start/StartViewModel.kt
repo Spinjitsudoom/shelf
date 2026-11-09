@@ -84,6 +84,12 @@ class StartViewModel(private val store: ServerStore, private val apiFor: (String
 
     fun changeServer() = _state.update { it.copy(step = Step.Server, error = null) }
 
+    /** Signing out on purpose: forget the sign-in, keep the server. */
+    fun signOut() {
+        store.signOut()
+        _state.update { it.copy(step = Step.SignIn, error = null) }
+    }
+
     /** Signed out by the server while using the app: back to sign-in, same server. */
     fun signedOut() {
         store.signOut()

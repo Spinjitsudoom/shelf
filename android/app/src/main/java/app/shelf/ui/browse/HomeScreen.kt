@@ -47,16 +47,22 @@ private fun greeting(name: String?): String {
 }
 
 @Composable
-fun HomeScreen(source: LibrarySource, username: String?, onAlbum: (Int) -> Unit, onMix: (String) -> Unit, onPlayAlbum: (Int) -> Unit, signedOut: SignedOutHandler) {
+fun HomeScreen(source: LibrarySource, username: String?, onAlbum: (Int) -> Unit, onMix: (String) -> Unit, onPlayAlbum: (Int) -> Unit, signedOut: SignedOutHandler,
+               onSettings: () -> Unit = {}) {
     val (state, retry) = rememberLoad("home") {
         coroutineScope { val h = async { source.home() }; val m = async { source.mixes() }; HomeData(h.await(), m.await()) }
     }
     LoadContent(state, retry, signedOut) { d ->
         LazyColumn(Modifier.fillMaxSize()) {
             item {
-                Column(Modifier.statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 6.dp)) {
-                    Text("Home", style = MaterialTheme.typography.displayMedium, color = Theme.colors.ink)
-                    Text(greeting(username), style = MaterialTheme.typography.bodyLarge, color = Theme.colors.ink2)
+                Row(Modifier.statusBarsPadding().padding(start = 16.dp, end = 4.dp, top = 18.dp, bottom = 6.dp), verticalAlignment = Alignment.Top) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Home", style = MaterialTheme.typography.displayMedium, color = Theme.colors.ink)
+                        Text(greeting(username), style = MaterialTheme.typography.bodyLarge, color = Theme.colors.ink2)
+                    }
+                    androidx.compose.material3.IconButton(onClick = onSettings) {
+                        androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_settings), "Settings", tint = Theme.colors.ink)
+                    }
                 }
             }
             d.home.recent.firstOrNull()?.let { a ->

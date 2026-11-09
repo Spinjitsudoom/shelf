@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 /** The app's shared pieces: where the server is, the sign-in, and one HTTP client for everything. */
 class AppContainer(context: Context) {
     val store = ServerStore(context.getSharedPreferences("shelf", Context.MODE_PRIVATE))
+    val settings = app.shelf.settings.SettingsStore(context.getSharedPreferences("settings", Context.MODE_PRIVATE))
 
     /** One client for the API, covers (Coil) and music (ExoPlayer). It signs requests to the chosen
      * server, and only that server, with the token. */

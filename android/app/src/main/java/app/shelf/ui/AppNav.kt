@@ -57,6 +57,7 @@ object Routes {
     const val HOME = "home"
     const val LIBRARY = "library"
     const val FAVOURITES = "favourites"
+    const val SETTINGS = "settings"
     fun album(id: Int) = "album/$id"
     fun artist(name: String) = "artist/${android.net.Uri.encode(name)}"
     fun playlist(id: Int) = "playlist/$id"
@@ -68,7 +69,8 @@ private val TABS = listOf(Tab(Routes.HOME, "Home", R.drawable.ic_home), Tab(Rout
 
 /** The signed-in app: screens, the mini player above the bottom bar, and the bar itself. */
 @Composable
-fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerConnection? = null) {
+fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerConnection? = null,
+           onChangeServer: () -> Unit = {}, onSignOut: () -> Unit = {}) {
     val source: LibrarySource = container.api ?: return
     val nav = rememberNavController()
     val playing by (player?.state ?: kotlinx.coroutines.flow.MutableStateFlow(PlayerUi())).collectAsStateWithLifecycle()
@@ -106,7 +108,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             val openArtist = { name: String -> nav.navigate(Routes.artist(name)) }
             val back: () -> Unit = { nav.popBackStack() }
             composable(Routes.HOME) {
-                HomeScreen(source, container.store.username, openAlbum, { nav.navigate(Routes.mix(it)) }, openAlbum, signedOut)
+                HomeScreen(source, container.store.username, openAlbum, { nav.navigate(Routes.mix(it)) }, openAlbum, signedOut,
+                    onSettings = { nav.navigate(Routes.SETTINGS) })
             }
             composable(Routes.LIBRARY) {
                 LibraryScreen(source, { nav.navigate(Routes.FAVOURITES) }, { nav.navigate(Routes.playlist(it)) }, openAlbum, openArtist, signedOut)
@@ -120,6 +123,9 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                 PlaylistScreen(it.arguments!!.getInt("id"), source, onPlay, back, signedOut)
             }
             composable("mix/{key}") { MixScreen(it.arguments!!.getString("key")!!, source, onPlay, back, signedOut) }
+            composable(Routes.SETTINGS) {
+                app.shelf.ui.settings.SettingsScreen(container, app.shelf.BuildConfig.VERSION_NAME, onChangeServer, onSignOut, back)
+            }
         }
     }
     AnimatedVisibility(nowPlaying && player != null && playing.current != null,

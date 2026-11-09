@@ -88,6 +88,7 @@ class PlaybackService : MediaLibraryService() {
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 item?.track()?.let { counter.onTrackStarted(it.id, it.duration) }
+                level(item)
                 save()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) { save() }
@@ -98,6 +99,8 @@ class PlaybackService : MediaLibraryService() {
             .setBitmapLoader(artworkLoader(this, app.container.okHttp)).build()
         setMediaNotificationProvider(DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(R.drawable.ic_stat) })
         restore(play = false)
+        level(player.currentMediaItem)
+        scope.launch { app.container.settings.settings.collect { level(player.currentMediaItem) } }
         main.post(tick)
     }
 
@@ -119,11 +122,23 @@ class PlaybackService : MediaLibraryService() {
 
     private fun metered(): Boolean = (getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).isActiveNetworkMetered
 
+    /** The quality to stream a song in, from the settings: Wi-Fi's choice, or mobile data's ("auto": streamQuality). */
+    private fun qualityFor(codec: String?): String {
+        val s = app.container.settings.settings.value
+        return if (!metered()) s.wifiQuality else if (s.dataQuality == "auto") streamQuality(codec, true) else s.dataQuality
+    }
+
+    /** Volume levelling: set for each song as it starts (and again when the setting changes). */
+    private fun level(item: MediaItem?) {
+        val s = app.container.settings.settings.value
+        val t = item?.track()
+        player.volume = if (s.normalize && t != null) volumeFor(gainDb(t.lufs, t.peak, s.loudness)) else 1f
+    }
+
     /** The playable version of items handed over by a screen (they come without a stream address). */
     private fun playable(items: List<MediaItem>): List<MediaItem> {
         val a = api ?: return emptyList()
-        val m = metered()
-        return items.mapNotNull { item -> item.track()?.let { t -> t.toMediaItem(a, streamQuality(t.codec, m), item.playContext()) } }
+        return items.mapNotNull { item -> item.track()?.let { t -> t.toMediaItem(a, qualityFor(t.codec), item.playContext()) } }
     }
 
     private fun save() {
@@ -137,9 +152,8 @@ class PlaybackService : MediaLibraryService() {
     private fun snapshotItems(): MediaItemsWithStartPosition? {
         val s = store.load() ?: return null
         val a = api ?: return null
-        val m = metered()
         if (s.tracks.isEmpty()) return null
-        return MediaItemsWithStartPosition(s.tracks.map { it.toMediaItem(a, streamQuality(it.codec, m), s.context) },
+        return MediaItemsWithStartPosition(s.tracks.map { it.toMediaItem(a, qualityFor(it.codec), s.context) },
             s.index.coerceIn(0, s.tracks.lastIndex), s.positionMs)
     }
 

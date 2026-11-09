@@ -34,7 +34,8 @@ import coil3.compose.AsyncImage
  * The same look as the web app's .case.
  */
 @Composable
-fun CaseCover(url: String?, title: String, color: Color, modifier: Modifier = Modifier, vinyl: Boolean = false) {
+fun CaseCover(url: String?, title: String, color: Color, modifier: Modifier = Modifier,
+              vinyl: Boolean = app.shelf.settings.LocalSettings.current.format == "vinyl") {
     val shape = RoundedCornerShape(if (vinyl) 1.5.dp else 3.dp)
     BoxWithConstraints(
         modifier
