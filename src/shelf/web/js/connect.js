@@ -53,6 +53,7 @@ export function detectDevice() {
 export const deviceName = () => settings.get("deviceName")?.trim() || detectDevice().name;
 
 const MIRRORED = ["track", "state", "time"];
+const HOLD_MS = 10 * 60_000; // how long a remote stays a remote without a connection
 
 export class Controller extends EventTarget {
   constructor(local) {
@@ -71,6 +72,11 @@ export class Controller extends EventTarget {
     this._sentQueueSig = "";
     this._queueRev = 0;
     this._reportTimer = 0;
+    // Remote control survives a dropped connection: a phone in a pocket loses it without
+    // anyone noticing. Until this time, this device still counts as the remote, and button
+    // presses reconnect at once and are sent when the server answers.
+    this._remoteHold = 0;
+    this._pending = [];
 
     for (const type of MIRRORED) {
       local.addEventListener(type, () => { if (!this.remoteMode) this._emit(type); });
@@ -135,6 +141,7 @@ export class Controller extends EventTarget {
       if (this._ws !== ws) return;
       this._ws = null;
       const was = this.connected;
+      if (was && this.remoteMode) this._remoteHold = Date.now() + HOLD_MS;
       this.connected = false;
       if (was) this._modeChanged();
       this._retryLater();
@@ -146,12 +153,22 @@ export class Controller extends EventTarget {
     const delay = Math.min(15000, 1000 * 2 ** this._retry++);
     clearTimeout(this._retryTimer);
     this._retryTimer = setTimeout(() => {
-      if (this._wanted && !this._ws && document.visibilityState !== "hidden") this._connect();
+      // In the background, only a remote keeps trying (the lock screen's buttons need it).
+      if (this._wanted && !this._ws && (document.visibilityState !== "hidden" || this._holding)) this._connect();
     }, delay);
   }
 
+  get _holding() { return !this.connected && this._remoteHold > Date.now(); }
+
   _send(msg) {
-    if (this._ws?.readyState === WebSocket.OPEN) this._ws.send(JSON.stringify(msg));
+    if (this._ws?.readyState === WebSocket.OPEN) return this._ws.send(JSON.stringify(msg));
+    // A command while the connection is down: keep it, reconnect now, send it on "welcome".
+    if (msg.type === "cmd" && this._wanted) {
+      this._pending.push({ msg, at: Date.now() });
+      if (this._pending.length > 30) this._pending.shift();
+      this._retry = 0;
+      if (!this._ws) this._connect();
+    }
   }
 
   _onMessage(msg) {
@@ -161,6 +178,8 @@ export class Controller extends EventTarget {
         this._retry = 0;
         this._setRemote(msg.state, msg.queue);
         this._setDevices(msg);
+        this._remoteHold = 0;
+        this._flushPending();
         // Already playing here (say, the server restarted): say so.
         if (this.local.playing && this.activeId !== this.selfId) this._send({ type: "claim" });
         if (this.activeId === this.selfId) this._report(true, true);
@@ -192,6 +211,14 @@ export class Controller extends EventTarget {
         toast(msg.text);
         break;
     }
+  }
+
+  /** Send the commands pressed while the connection was down, if there's still a device to
+   * control (and they're recent: a pause from ten minutes ago is no longer wanted). */
+  _flushPending() {
+    const fresh = this._pending.filter((p) => Date.now() - p.at < 60_000);
+    this._pending = [];
+    if (this.remoteMode) for (const p of fresh) this._ws?.send(JSON.stringify(p.msg));
   }
 
   _setDevices({ devices, active }) {
@@ -300,7 +327,8 @@ export class Controller extends EventTarget {
 
   /** Another device is playing, and it's connected, so the buttons here control it. */
   get remoteMode() {
-    return this.connected && !!this.activeId && this.activeId !== this.selfId && this.devices.some((d) => d.id === this.activeId);
+    const other = !!this.activeId && this.activeId !== this.selfId && this.devices.some((d) => d.id === this.activeId);
+    return other && (this.connected || this._holding);
   }
   get activeDevice() { return this.devices.find((d) => d.id === this.activeId) ?? null; }
   get self() { return this.devices.find((d) => d.id === this.selfId) ?? { id: this.selfId, ...this._me() }; }
