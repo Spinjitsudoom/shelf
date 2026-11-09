@@ -139,7 +139,7 @@ private fun Cd(angle: Float, modifier: Modifier) {
     }
 }
 
-private const val LABEL = 0.34f // the label's radius, as a share of the record's
+private const val LABEL = 0.17f // the label's radius, as a share of the record's (a third of its width, as on a real LP)
 
 @Composable
 private fun Record(labelUrl: String?, labelColor: Color, angle: Float, modifier: Modifier) {
@@ -150,12 +150,12 @@ private fun Record(labelUrl: String?, labelColor: Color, angle: Float, modifier:
                 val r = size.minDimension / 2
                 drawCircle(Color(0xff1c1c1f), r)
                 // Fine grooves, with the gaps between songs and a smooth run-out band by the label.
-                var g = r * 0.43f
+                var g = r * 0.26f
                 val step = 1.3f * density
                 while (g < r * 0.965f) { drawCircle(Color(0xff121214), g, style = Stroke(.55f * density)); g += step }
-                for (gap in listOf(0.58f, 0.72f, 0.85f)) drawCircle(Color(0xff26262a), r * gap, style = Stroke(r * 0.008f))
-                drawCircle(Color(0xff161618), r * 0.395f, style = Stroke(r * 0.07f))
-                drawCircle(Color.White.copy(alpha = .05f), r * 0.43f, style = Stroke(r * 0.005f))
+                for (gap in listOf(0.44f, 0.6f, 0.77f)) drawCircle(Color(0xff26262a), r * gap, style = Stroke(r * 0.008f))
+                drawCircle(Color(0xff161618), r * 0.215f, style = Stroke(r * 0.09f))
+                drawCircle(Color.White.copy(alpha = .05f), r * 0.26f, style = Stroke(r * 0.005f))
                 drawCircle(Color.White.copy(alpha = .16f), r * 0.976f, style = Stroke(r * 0.01f))
                 drawCircle(Color.Black.copy(alpha = .5f), r * 0.993f, style = Stroke(r * 0.014f))
                 drawCircle(labelColor, r * LABEL)
@@ -169,7 +169,7 @@ private fun Record(labelUrl: String?, labelColor: Color, angle: Float, modifier:
             drawCircle(Color.Black.copy(alpha = .35f), r * LABEL, style = Stroke(1f * density))
             drawCircle(Brush.sweepGradient(0f to Color.Transparent, .06f to Color.Transparent, .1f to Color.White.copy(alpha = .13f), .15f to Color.Transparent,
                 .56f to Color.Transparent, .6f to Color.White.copy(alpha = .13f), .65f to Color.Transparent, 1f to Color.Transparent),
-                radius = r * 0.705f, style = Stroke(r * 0.55f))
+                radius = r * 0.63f, style = Stroke(r * 0.7f))
             // The spindle hole goes right through.
             drawCircle(Color.Black, r * 0.028f, blendMode = BlendMode.Clear)
         }
