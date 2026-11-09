@@ -1190,6 +1190,9 @@ function syncPlayer() {
 
 function markPlayingRow() {
   const t = player.current;
+  // A mix tape's reels turn while that mix plays.
+  const from = player.playing ? player.context?.href : null;
+  view.querySelectorAll(".mix-tape").forEach((el) => el.classList.toggle("rolling", !!from && el.dataset.href === from));
   view.querySelectorAll(".track-row.playing").forEach((r) => {
     if (r.dataset.queueIndex) return;
     r.classList.remove("playing", "paused");

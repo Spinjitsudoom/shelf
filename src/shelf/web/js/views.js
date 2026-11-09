@@ -1106,15 +1106,34 @@ export async function downloadsView(el) {
 // ---------- made for you ----------
 
 /** A mix's cover: its albums, with a band in the mix's colour carrying its name. */
-export function mixCover(m, { cls = "", size = 160 } = {}) {
-  const c = m.covers || [];
-  const img = (x, sz) => `<img src="${coverUrl(x.albumId, x.cover, sz)}" alt="" loading="lazy" decoding="async">`;
-  const art = c.length >= 4 ? `<span class="mix-art grid">${c.slice(0, 4).map((x) => img(x, size)).join("")}</span>`
-    : c.length ? `<span class="mix-art">${img(c[0], size * 2)}</span>` : `<span class="mix-art empty"></span>`;
-  const label = m.kind === "daily" ? m.name.replace("Shelf Mix ", "Shelf Mix<br>") : esc(m.name);
-  const len = m.kind === "daily" ? 0 : m.name.length; // long names (radio for a long song title) set smaller
-  const fit = len > 26 ? " longer" : len > 16 ? " long" : "";
-  return `<span class="mix-cover ${cls}" style="--mix:${esc(m.color)}">${art}<span class="mix-band${fit}"><span>${label}</span></span></span>`;
+// A mix is a tape: a cassette with a hand-written label in the mix's colour, lying on the
+// card insert that shows its albums. The reels turn while it plays (and when pointed at).
+const TAPE_SHELL = `<svg class="tape-shell" viewBox="0 0 200 126" aria-hidden="true">
+  <rect class="t-body" x="1" y="1" width="198" height="124" rx="9"/>
+  <path class="t-foot" d="M40 125 49 97h102l9 28z"/>
+  <g class="t-screw"><circle cx="9" cy="9" r="3"/><circle cx="191" cy="9" r="3"/><circle cx="9" cy="117" r="3"/><circle cx="191" cy="117" r="3"/><circle cx="100" cy="117" r="2.6"/></g>
+  <g class="t-hole"><circle cx="64" cy="111" r="4.2"/><circle cx="136" cy="111" r="4.2"/><rect x="93" y="101" width="14" height="7" rx="2"/></g>
+  <rect class="t-paper" x="13" y="8" width="174" height="82" rx="4"/>
+  <rect class="t-band" x="13" y="48" width="174" height="30"/>
+  <path class="t-rule" d="M24 41h152"/>
+  <text class="t-side" x="21" y="24">A</text>
+  <text class="t-print" x="179" y="22" text-anchor="end">C90</text>
+  <rect class="t-window" x="48" y="52" width="104" height="22" rx="11"/>
+  <circle class="t-pack" cx="72" cy="63" r="10.5"/><circle class="t-pack" cx="128" cy="63" r="7.2"/>
+  <g class="t-reel" style="--x:72px"><circle cx="72" cy="63" r="5.6"/><path d="M72 58.6v2M72 65.4v2M68.2 60.8l1.7 1M74.1 64.2l1.7 1M68.2 65.2l1.7-1M74.1 61.8l1.7-1"/></g>
+  <g class="t-reel" style="--x:128px"><circle cx="128" cy="63" r="5.6"/><path d="M128 58.6v2M128 65.4v2M124.2 60.8l1.7 1M130.1 64.2l1.7 1M124.2 65.2l1.7-1M130.1 61.8l1.7-1"/></g>
+  <rect class="t-glass" x="48" y="52" width="104" height="9" rx="4.5"/>
+</svg>`;
+
+export function mixCover(m, { cls = "", size = 160, href = m.key ? `#/mix/${m.key}` : "" } = {}) {
+  const c = (m.covers || []).slice(0, 4);
+  const img = (x) => `<img src="${coverUrl(x.albumId, x.cover, Math.min(size, 160))}" alt="" loading="lazy" decoding="async">`;
+  const len = m.name.length; // long names (radio for a long song title) are written smaller
+  const fit = len > 30 ? " longer" : len > 14 ? " long" : "";
+  return `<span class="mix-cover mix-tape ${cls}" style="--mix:${esc(m.color)}" data-href="${esc(href)}">
+    <span class="tape-card">${c.map(img).join("")}</span>
+    <span class="tape">${TAPE_SHELL}<span class="tape-title${fit}"><span>${esc(m.name)}</span></span></span>
+  </span>`;
 }
 
 function mixCard(m) {
@@ -1146,7 +1165,7 @@ export async function mixView(el, route) {
       <section class="album-hero pl-hero">
         <div class="album-hero-inner">
           <a class="back-link" href="#/" data-action="back"><svg><use href="#i-back"/></svg>Back</a>
-          ${mixCover(m, { cls: "pl-cover-lg", size: 320 })}
+          ${mixCover(m, { cls: "pl-cover-lg", size: 320, href })}
           <div>
             <p class="hero-kind">${kind}</p>
             <h1 class="album-title${titleFit(m.name)}">${esc(m.name)}</h1>

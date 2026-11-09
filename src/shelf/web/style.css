@@ -1760,22 +1760,62 @@ body.offline .toast { bottom: calc(var(--player-h) + 70px); }
 
 /* ---------- made for you ---------- */
 
+/* Mix tapes: the card insert in the mix's colour with its albums along the top, and the
+   cassette lying on it, a little askew. Sizes are in cqw so it scales from a card to a hero. */
 .mix-cover {
   position: relative; display: block; width: 100%; aspect-ratio: 1; overflow: hidden; border-radius: 6px;
-  background: var(--mix); box-shadow: var(--shadow); container-type: inline-size;
+  container-type: inline-size; box-shadow: var(--shadow);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(0, 0, 0, .14)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 7px),
+    var(--mix);
 }
-.mix-art { position: absolute; inset: 0 0 30% 0; display: grid; }
-.mix-art.grid { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-.mix-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.mix-band {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 30%;
-  display: flex; align-items: center; padding: 0 9%;
-  background: var(--mix); color: #fff;
-  font-weight: 850; font-stretch: 118%; letter-spacing: -.01em; line-height: .98;
-  font-size: 18px; font-size: 10.5cqw;
+.tape-card {
+  position: absolute; left: 6%; right: 6%; top: 7%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.4cqw;
 }
-/* the band's top edge: a thin light line, like a sticker on the case */
-.mix-band::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: rgba(255, 255, 255, .35); }
+.tape-card img {
+  display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 1.2cqw;
+  box-shadow: 0 .6cqw 1.6cqw rgba(0, 0, 0, .28);
+}
+.tape {
+  position: absolute; left: 6%; width: 88%; bottom: 5%; aspect-ratio: 200 / 126;
+  transform: rotate(-3.5deg); transform-origin: 50% 60%;
+  filter: drop-shadow(0 1.6cqw 2.2cqw rgba(0, 0, 0, .42));
+  transition: transform .35s cubic-bezier(.2, .8, .2, 1);
+}
+.mix-card .card-art:hover .tape, .mix-tape.rolling .tape { transform: rotate(-1.5deg) translateY(-1.2cqw); }
+.tape-shell { display: block; width: 100%; height: 100%; overflow: visible; }
+.t-body { fill: #25272e; stroke: rgba(255, 255, 255, .08); stroke-width: 1; }
+.t-foot { fill: #30333b; }
+.t-screw circle { fill: #7d8290; }
+.t-hole > * { fill: #121317; }
+.t-paper { fill: #f3eedf; }
+.t-band { fill: var(--mix); }
+.t-rule { stroke: rgba(40, 32, 20, .22); stroke-width: .8; }
+.t-side { fill: rgba(40, 32, 20, .55); font: 800 11px var(--font); }
+.t-print { fill: rgba(40, 32, 20, .4); font: 700 7px var(--font); letter-spacing: .06em; }
+.t-window { fill: #17181d; stroke: rgba(0, 0, 0, .35); stroke-width: 1; }
+.t-pack { fill: #4b3427; }
+.t-reel circle { fill: #e8e3d6; }
+.t-reel path { stroke: #17181d; stroke-width: 1.6; stroke-linecap: round; }
+.t-reel { transform-box: fill-box; transform-origin: center; animation: reel 2.4s linear infinite paused; }
+.t-glass { fill: rgba(255, 255, 255, .07); }
+.mix-tape.rolling .t-reel, .mix-card .card-art:hover .t-reel { animation-play-state: running; }
+@keyframes reel { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .t-reel { animation: none; } .tape { transition: none; } }
+
+/* The label, written by hand on the line above the window. */
+.tape-title {
+  position: absolute; left: 13%; right: 9%; top: 8%; height: 24.5%;
+  display: flex; align-items: flex-end;
+  color: #1d2a5c; font-family: "Caveat", "Segoe Print", "Comic Sans MS", cursive; font-weight: 700;
+  font-size: 14cqw; line-height: .9; letter-spacing: .005em;
+  transform: rotate(-1deg);
+}
+.tape-title > span { display: block; width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding-bottom: .04em; }
+.tape-title.long { font-size: 10.5cqw; }
+.tape-title.longer { font-size: 8.4cqw; line-height: .92; right: 17%; } /* clear of the printed "C90" */
+.tape-title.longer > span { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .mix-card .card-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
 
 /* ---------- people: friend activity, blends, sharing ---------- */
@@ -2092,12 +2132,6 @@ input.range.balance::-webkit-slider-runnable-track {
 }
 input.range.balance::-moz-range-progress { background: transparent; }
 
-/* made-for-you covers with long names: smaller type, never more than two lines */
-.mix-band.long { font-size: 8.4cqw; }
-.mix-band.longer { font-size: 6.8cqw; }
-.mix-band.long > span, .mix-band.longer > span {
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding-bottom: .06em;
-}
 
 .album-title.long { font-size: clamp(26px, 3.4vw, 44px); }
 .album-title.longer { font-size: clamp(22px, 2.6vw, 34px); }
