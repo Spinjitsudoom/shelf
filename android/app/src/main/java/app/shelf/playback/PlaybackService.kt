@@ -94,7 +94,8 @@ class PlaybackService : MediaLibraryService() {
         })
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        session = MediaLibrarySession.Builder(this, player, Callback()).setSessionActivity(open).build()
+        session = MediaLibrarySession.Builder(this, player, Callback()).setSessionActivity(open)
+            .setBitmapLoader(artworkLoader(this, app.container.okHttp)).build()
         setMediaNotificationProvider(DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(R.drawable.ic_stat) })
         restore(play = false)
         main.post(tick)
