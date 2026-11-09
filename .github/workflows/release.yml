@@ -127,7 +127,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3
       - name: Python libraries (as locked) and the packaging tools
         run: |
           uv export --frozen --no-dev --no-hashes --no-emit-project -o "$env:RUNNER_TEMP\requirements.txt"
