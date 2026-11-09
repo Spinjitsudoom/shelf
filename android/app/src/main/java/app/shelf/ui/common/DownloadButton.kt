@@ -30,7 +30,7 @@ fun DownloadButton(item: Downloadable) {
     var removing by remember { mutableStateOf(false) }
     val saved = items.any { it.key == item.key }
     val done = saved && (progress[item.key] ?: 0f) >= 1f
-    // A downloaded playlist (or Favourites) that changed on the server: bring the phone's copy up to date.
+    // Bring the phone's copy up to date (a changed playlist) and retry songs that failed.
     LaunchedEffect(item, saved) { if (saved) downloads.sync(item) }
     OutlinedIconButton(onClick = { if (saved) removing = true else downloads.download(item) }) {
         when {

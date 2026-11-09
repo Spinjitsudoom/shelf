@@ -69,4 +69,15 @@ class DownloadIndexTest {
         assertEquals("Road trip", OfflineSource(FakeLibrary(), index).playlist(9).name)
         assertEquals(3, OfflineSource(FakeLibrary(), index).likes().size)
     }
+
+    @Test fun failedOrChangedDownloadsAreFetchedAgain() {
+        val done = mapOf(1 to Download.STATE_COMPLETED, 2 to Download.STATE_COMPLETED, 3 to Download.STATE_COMPLETED)
+        assertFalse("not downloaded: leave it", needsFetch(null, album, done))
+        assertFalse("all there: nothing to do", needsFetch(album, album, done))
+        assertTrue("a song failed: try it again", needsFetch(album, album, done + (3 to Download.STATE_FAILED)))
+        assertTrue("a song's download went missing", needsFetch(album, album, done - 3))
+        assertFalse("still downloading: leave it", needsFetch(album, album, done + (3 to Download.STATE_DOWNLOADING)))
+        assertTrue("a song was added", needsFetch(album, album.copy(tracks = album.tracks + t(4)), done))
+        assertTrue("renamed", needsFetch(playlist, playlist.copy(name = "Road trip 2"), mapOf(2 to Download.STATE_COMPLETED, 7 to Download.STATE_COMPLETED)))
+    }
 }

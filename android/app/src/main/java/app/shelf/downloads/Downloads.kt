@@ -105,11 +105,8 @@ class Downloads(private val context: Context, okHttp: OkHttpClient, private val 
         publish()
     }
 
-    /** Keep a downloaded collection in step with the server's (a playlist with songs added or taken out). */
-    fun sync(item: Downloadable) {
-        val old = index.get(item.kind, item.id) ?: return
-        if (old.tracks.map { it.id } != item.tracks.map { it.id } || old.name != item.name) download(item)
-    }
+    /** Keep a downloaded collection in step with the server's (songs added or taken out), and try songs that failed again. */
+    fun sync(item: Downloadable) { if (needsFetch(index.get(item.kind, item.id), item, states)) download(item) }
 
     /** Delete a collection's download (keeping songs another downloaded collection has). */
     fun remove(kind: String, id: Int) {

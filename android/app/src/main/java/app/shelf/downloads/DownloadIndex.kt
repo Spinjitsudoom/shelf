@@ -69,3 +69,13 @@ fun progressOf(item: Downloadable, states: Map<Int, Int>, percents: Map<Int, Flo
     }
     return (sum / item.tracks.size).toFloat()
 }
+
+/**
+ * Whether a downloaded collection needs fetching again: its songs or name changed on the server,
+ * or a song's download failed or went missing. Not while songs are still on their way.
+ */
+fun needsFetch(old: Downloadable?, new: Downloadable, states: Map<Int, Int>): Boolean {
+    if (old == null) return false
+    if (old.tracks.map { it.id } != new.tracks.map { it.id } || old.name != new.name) return true
+    return new.tracks.any { states[it.id] == null || states[it.id] == Download.STATE_FAILED }
+}
