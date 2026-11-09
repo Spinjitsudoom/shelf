@@ -100,9 +100,9 @@ fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConne
         Spacer(Modifier.height(18.dp))
         if (showLyrics && lyrics != null) LyricsPanel(t.id, state.positionMs, lyrics, player::seekTo, Modifier.fillMaxWidth().aspectRatio(1f))
         else SwipeToSkip(
-            previous = state.previous?.let { p -> { CaseWithDisc(p, cover(p), false) } },
-            current = { CaseWithDisc(t, cover(t), state.playing) },
-            next = state.next?.let { n -> { CaseWithDisc(n, cover(n), false) } },
+            previous = state.previous?.let { p -> { Deck(p, cover(p), false, Modifier.fillMaxSize()) } },
+            current = { Deck(t, cover(t), state.playing, Modifier.fillMaxSize()) },
+            next = state.next?.let { n -> { Deck(n, cover(n), false, Modifier.fillMaxSize()) } },
             onPrevious = player::previous, onNext = player::next,
             modifier = Modifier.fillMaxWidth().aspectRatio(1f),
         )
@@ -191,12 +191,3 @@ private fun Scrubber(state: PlayerUi, player: PlayerConnection) {
     }
 }
 
-/** The jewel case (or sleeve), with its CD (or record) out to the right, turning while the music plays. */
-@Composable
-private fun CaseWithDisc(t: Track, url: String?, spinning: Boolean) {
-    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
-        val case = maxWidth * 0.86f
-        Disc(url, spinning, Modifier.size(case * 0.94f).offset(x = maxWidth - case * 0.94f, y = case * 0.03f), labelColor = fallbackColor(t.album))
-        CaseCover(url, t.album, fallbackColor(t.album), Modifier.size(case))
-    }
-}

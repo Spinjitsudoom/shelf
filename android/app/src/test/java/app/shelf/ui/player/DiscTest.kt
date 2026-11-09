@@ -33,4 +33,20 @@ class DiscTest {
         rule.onNodeWithTag("disc-record").assertExists()
         rule.onNodeWithTag("disc-cd").assertDoesNotExist()
     }
+
+    private fun deck(format: String, playing: Boolean) = rule.setContent {
+        ShelfTheme { CompositionLocalProvider(LocalSettings provides Settings(format = format)) {
+            Deck(app.shelf.data.Track(1, "Song", "Band", album = "Album", albumId = 1), null, playing, Modifier.size(300.dp))
+        } }
+    }
+
+    @Test fun vinylDeckHasATonearm() {
+        deck("vinyl", playing = true)
+        rule.onNodeWithTag("tonearm").assertExists()
+    }
+
+    @Test fun cdDeckHasNoTonearm() {
+        deck("cd", playing = true)
+        rule.onNodeWithTag("tonearm").assertDoesNotExist()
+    }
 }
