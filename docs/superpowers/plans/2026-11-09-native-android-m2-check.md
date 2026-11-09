@@ -15,4 +15,4 @@ Checked on 2026-11-09 by the owner on their Redmi 9 (MIUI, Android 10), with She
 
 Also fixed before the check, from the review: a song whose download failed left its album half done for good. Now opening the album or playlist again tries those songs again (`failedOrChangedDownloadsAreFetchedAgain`).
 
-Not done: the web app's tonearm. On the phone the record sits mostly behind the sleeve, so the arm would rest on the sleeve.
+The owner then asked for the web app's tonearm (preview.8). As on the web, the record now stays in its sleeve while paused. On play, the sleeve moves left, the record slides out, and the arm swings onto it; on pause it all goes back. The vinyl deck is a little smaller than the CD one, so the arm's pivot fits on screen. `Deck` has the tests `vinylDeckHasATonearm` and `cdDeckHasNoTonearm`, and an off-screen render was checked by eye for both playing and paused.
