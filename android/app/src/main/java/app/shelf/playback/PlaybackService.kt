@@ -23,6 +23,9 @@ import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
 import app.shelf.MainActivity
 import app.shelf.R
 import app.shelf.ShelfApp
+import app.shelf.NowPlayingWidget
+import app.shelf.WidgetState
+import coil3.toBitmap
 import app.shelf.data.ShelfApi
 import app.shelf.data.Track
 import app.shelf.connect.ConnectBridge
@@ -121,11 +124,39 @@ class PlaybackService : MediaLibraryService() {
         remote = RemotePlayer(mainLooper, connect, { api })
         bridge = ConnectBridge(connect, player, ::playableItem,
             onVolume = { level(player.currentMediaItem) },
-            onMode = { isRemote -> session.player = if (isRemote) remote else player })
+            onMode = { isRemote -> session.player = if (isRemote) remote else player; pushWidget() })
         bridge.attach()
+        val widget = object : Player.Listener {
+            override fun onEvents(p: Player, events: Player.Events) { if (p === session.player) pushWidget() }
+        }
+        player.addListener(widget)
+        remote.addListener(widget)
         connect.listener = bridge
         connect.start()
         scope.launch { connect.ui.collect { remote.refresh(); bridge.onUi(it) } }
+    }
+
+    private var widgetArtFor: String? = null
+    private var widgetArt: android.graphics.Bitmap? = null
+
+    /** The home-screen widget: what's playing (here or on the device being controlled), and its cover. */
+    private fun pushWidget() {
+        val p = session.player
+        val t = p.currentMediaItem?.track()
+        val device = if (p === remote) app.container.connect.ui.value.activeDevice?.name?.ifBlank { "Web browser" } else null
+        val state = t?.let { WidgetState(it, p.playWhenReady && p.playbackState != Player.STATE_ENDED, device) }
+        val url = t?.let { api?.coverUrl(it.albumId, it.cover, 160) }
+        if (url != widgetArtFor) {
+            widgetArtFor = url
+            widgetArt = null
+            if (url != null) scope.launch {
+                val result = coil3.SingletonImageLoader.get(this@PlaybackService)
+                    .execute(coil3.request.ImageRequest.Builder(this@PlaybackService).data(url).size(160).build())
+                val bmp = (result as? coil3.request.SuccessResult)?.image?.toBitmap()
+                if (widgetArtFor == url && bmp != null) { widgetArt = bmp; pushWidget() }
+            }
+        }
+        NowPlayingWidget.push(this, state, widgetArt)
     }
 
     /** A song ready to play here (from its download, or streamed in the quality the settings choose). */
@@ -144,6 +175,7 @@ class PlaybackService : MediaLibraryService() {
         app.container.connect.listener = null
         app.container.connect.stop()
         remote.release()
+        NowPlayingWidget.push(this, null, null)
         main.removeCallbacksAndMessages(null)
         scope.cancel()
         session.release()

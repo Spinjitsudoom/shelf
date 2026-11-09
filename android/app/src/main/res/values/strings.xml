@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">Shelf Preview</string>
     <string name="downloads_channel">Downloads</string>
+    <string name="widget_description">What\'s playing, with play, pause and skip</string>
 </resources>
