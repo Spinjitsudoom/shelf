@@ -16,6 +16,9 @@
     "dist:deb": "electron-builder --linux deb --publish never",
     "dist:dir": "electron-builder --linux dir --publish never"
   },
+  "dependencies": {
+    "electron-updater": "6.8.11"
+  },
   "devDependencies": {
     "electron": "44.9.3",
     "electron-builder": "26.18.0"
@@ -60,6 +63,13 @@
     },
     "deb": {
       "artifactName": "shelf_${version}_${arch}.${ext}"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Spinjitsudoom",
+        "repo": "shelf"
+      }
+    ]
   }
 }

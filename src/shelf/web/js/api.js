@@ -106,6 +106,8 @@ export const api = {
   signOutUser: (id) => request("POST", `users/${id}/signout`),
   deleteUser: (id) => request("DELETE", `users/${id}`),
   adminOverview: () => request("GET", "admin/overview"),
+  checkUpdate: () => request("POST", "admin/update/check"),
+  updateServer: () => request("POST", "admin/update"),
   clearSignins: (address) => request("DELETE", `admin/signins${address ? `?address=${encodeURIComponent(address)}` : ""}`),
   logout: () => { invalidate(); return request("POST", "logout"); },
   library: () => request("GET", "library"),

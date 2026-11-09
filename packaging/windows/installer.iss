@@ -28,6 +28,7 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=force
+RestartApplications=no
 
 [Files]
 Source: "..\..\dist\Shelf Server\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
@@ -38,6 +39,19 @@ Name: "{group}\Open Shelf"; Filename: "http://localhost:4533/"
 
 [Run]
 Filename: "{app}\Shelf Server.exe"; Description: "Start Shelf Server"; Flags: nowait postinstall skipifsilent
+; An update (run silently by Shelf itself): start it again in the background.
+Filename: "{app}\Shelf Server.exe"; Parameters: "--background"; Flags: nowait; Check: WizardSilent
+
+[Code]
+// Shelf Server must be closed before its files are replaced.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Code: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM "Shelf Server.exe" /IM shelf-server.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Sleep(1000);
+  Result := '';
+end;
 
 [UninstallRun]
 Filename: "taskkill.exe"; Parameters: "/F /IM shelf-server.exe /IM ""Shelf Server.exe"""; Flags: runhidden; RunOnceId: "StopShelf"

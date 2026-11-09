@@ -138,12 +138,35 @@ function signinPart(list) {
       </li>`).join("")}</ul>` : ""}`;
 }
 
+/** A newer Shelf is out: say so, with the button that updates this server. */
+function updatePart(u) {
+  if (!u?.available) return "";
+  const how = {
+    script: "Updating keeps your settings and library, and Shelf restarts by itself.",
+    git: "Updating pulls the new code into this folder and restarts Shelf.",
+    windows: "Updating installs the new version over this one and starts Shelf Server again.",
+    manual: "This copy of Shelf can’t update itself: install the new version the way you installed this one.",
+  }[u.kind];
+  return `
+    <section class="update-banner" aria-live="polite">
+      <div>
+        <h2>Shelf ${esc(u.latest)} is out</h2>
+        <p>This server runs ${esc(u.current)}. ${how}</p>
+      </div>
+      <div class="update-actions">
+        ${u.url ? `<a class="btn" href="${esc(u.url)}" target="_blank" rel="noopener">What’s new</a>` : ""}
+        ${u.kind !== "manual" ? `<button class="btn btn-primary" type="button" data-admin="update-now"${u.updating ? " disabled" : ""}>${u.updating ? "Updating…" : "Update now"}</button>` : ""}
+      </div>
+    </section>`;
+}
+
 function page(o, dirs, me) {
   const lib = o.library;
   const week = o.week;
   return `
     <div class="page settings admin">
       <header class="page-head"><h1 class="page-title">Admin</h1></header>
+      ${updatePart(o.update)}
       <div class="stats">
         <div class="stat"><b>${lib.tracks.toLocaleString()}</b><span>songs</span></div>
         <div class="stat"><b>${lib.albums}</b><span>albums</span></div>
@@ -172,7 +195,9 @@ function page(o, dirs, me) {
 
       ${libraryPart(o, dirs)}
 
-      <p class="about">Shelf server ${esc(o.version)}</p>
+      <p class="about">Shelf server ${esc(o.version)}${o.update?.checkedAt && !o.update.available
+        ? `, up to date (checked ${esc(ago(o.update.checkedAt))})` : ""}
+        <button class="link-btn" type="button" data-admin="update-check">Check for updates</button></p>
     </div>`;
 }
 
@@ -627,6 +652,31 @@ export async function adminView(el, session, { dialog }) {
     d.showModal();
   }
 
+  /** Update this server, then wait for it to come back as the new version and reload. */
+  async function updateNow(b) {
+    b.disabled = true;
+    b.textContent = "Updating…";
+    try {
+      const r = await api.updateServer();
+      toast(r.message);
+      const want = r.latest;
+      const started = Date.now();
+      const poll = async () => {
+        try {
+          const ping = await fetch("api/ping", { cache: "no-store" }).then((x) => x.json());
+          if (ping.version === want) { toast(`Shelf is now ${want}`); setTimeout(() => location.reload(), 800); return; }
+        } catch { /* restarting */ }
+        if (Date.now() - started < 10 * 60_000) setTimeout(poll, 3000);
+        else toast("The update is taking a while. Check the server, then reload this page.");
+      };
+      setTimeout(poll, 4000);
+    } catch (err) {
+      toast(err.message);
+      b.disabled = false;
+      b.textContent = "Update now";
+    }
+  }
+
   const onClick = (e) => {
     const b = e.target.closest("[data-admin]");
     if (!b || !el.contains(b)) return;
@@ -638,6 +688,13 @@ export async function adminView(el, session, { dialog }) {
         .catch((err) => toast(err.message));
     }
     if (b.dataset.admin === "person-add") addPerson().catch((err) => toast(err.message));
+    if (b.dataset.admin === "update-check") {
+      api.checkUpdate().then((u) => {
+        toast(u.error ?? (u.available ? `Shelf ${u.latest} is out` : `Shelf ${u.current} is the latest version`));
+        return refresh();
+      }).catch((err) => toast(err.message));
+    }
+    if (b.dataset.admin === "update-now") updateNow(b);
     if (b.dataset.admin === "person-menu") personMenu(b);
   };
   el.addEventListener("click", onClick);

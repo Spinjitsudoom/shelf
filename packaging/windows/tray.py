@@ -23,6 +23,8 @@ from pathlib import Path
 import pystray
 from PIL import Image
 
+from shelf import updates
+
 APP_DIR = Path(sys.executable).parent
 BUNDLE = Path(getattr(sys, "_MEIPASS", APP_DIR))
 DATA = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "Shelf"
@@ -177,6 +179,33 @@ def main() -> None:
         server.stop()
         icon.stop()
 
+    # New versions: look every six hours, say so once, and offer the update in the menu.
+    upd = updates.Updates()
+    told: set[str] = set()
+
+    def watch_updates() -> None:
+        time.sleep(60)
+        while True:
+            info = upd.check()
+            if info["available"] and info["latest"] not in told:
+                told.add(info["latest"])
+                icon.update_menu()
+                try:
+                    icon.notify(f"Shelf {info['latest']} is out. Choose “Update” in the Shelf Server menu.", "Shelf Server")
+                except Exception:
+                    pass
+            time.sleep(updates.CHECK_EVERY)
+
+    def update_now(icon, _item) -> None:
+        try:
+            msg = upd.update(restart=None)
+        except ValueError as e:
+            msg = str(e)
+        try:
+            icon.notify(msg, "Shelf Server")
+        except Exception:
+            pass
+
     icon = pystray.Icon(
         "shelf",
         Image.open(BUNDLE / "icon.png"),
@@ -184,6 +213,8 @@ def main() -> None:
         menu=pystray.Menu(
             pystray.MenuItem("Open Shelf", lambda *_: open_shelf(), default=True),
             pystray.MenuItem(lambda _i: f"On other devices: {lan_address()}:{port()}", None, enabled=False),
+            pystray.MenuItem(lambda _i: f"Update to Shelf {upd.state['latest']}", update_now,
+                             visible=lambda _i: upd.state["available"] and not upd.state["updating"]),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Start with Windows", lambda *_: set_autostart(not autostart()),
                              checked=lambda _i: autostart()),
@@ -193,6 +224,7 @@ def main() -> None:
             pystray.MenuItem("Quit Shelf Server", quit_all),
         ),
     )
+    threading.Thread(target=watch_updates, daemon=True).start()
     icon.run()
 
 

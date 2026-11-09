@@ -33,6 +33,8 @@ class Config:
     artist_info: bool = True
     # Measure each song's tempo and key in the background (about 2 s of CPU per song).
     analyze_tempo: bool = True
+    # Ask GitHub every six hours whether a newer Shelf is out (the admin dashboard says so).
+    check_updates: bool = True
     secret_key: str = ""
 
     @property
@@ -78,6 +80,7 @@ def load_config(path: Path | None = None) -> Config:
     cfg.transcode_cache_mb = int(raw.get("transcode_cache_mb", cfg.transcode_cache_mb))
     online = env.get("SHELF_ONLINE_LYRICS")
     cfg.analyze_tempo = bool(raw.get("analyze_tempo", True))
+    cfg.check_updates = bool(raw.get("check_updates", True))
     info = env.get("SHELF_ARTIST_INFO")
     cfg.artist_info = info.lower() not in ("0", "false", "no", "off") if info else bool(raw.get("artist_info", True))
     videos = env.get("SHELF_MUSIC_VIDEOS")

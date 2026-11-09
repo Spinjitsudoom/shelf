@@ -20,6 +20,7 @@ finish-args:
   - --device=dri             # drawing with the graphics card
   - --talk-name=org.freedesktop.Notifications
   - --own-name=org.mpris.MediaPlayer2.chromium.*  # the desktop's player controls
+  - --talk-name=org.freedesktop.Flatpak  # to install its own updates (flatpak-spawn --host)
 modules:
   - name: shelf
     buildsystem: simple

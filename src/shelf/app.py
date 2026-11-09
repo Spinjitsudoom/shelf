@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, covers, credits, dj, folders, local_llm, loudness, lyrics, mixes, peaks, releases, ripper, scrobble, sound, transcode, uploads, videos
+from . import analysis, covers, credits, updates, dj, folders, local_llm, loudness, lyrics, mixes, peaks, releases, ripper, scrobble, sound, transcode, uploads, videos
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -377,6 +377,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     scanner = ScanManager(cfg)
     scrobbler = scrobble.Scrobbler(cfg.db_path)
     new_releases = releases.Releases(cfg.db_path, enabled=cfg.artist_info)
+    new_version = updates.Updates(enabled=cfg.check_updates)
     cd = ripper.Ripper(on_done=scanner.trigger)
     dj_voice = dj.Voice(Path(os.environ.get("SHELF_TTS_DIR") or cfg.data_dir / "tts"), cfg.data_dir / "dj-voice")
     natural = dj.Chatterbox(Path(os.environ.get("SHELF_CHATTERBOX_DIR") or cfg.data_dir / "tts-chatterbox"))
@@ -396,7 +397,9 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             scanner.start()
             scrobbler.start()
             new_releases.start()
+            new_version.start()
         yield
+        new_version.stop()
         scanner.stop()
         scrobbler.stop()
         new_releases.stop()
@@ -668,7 +671,23 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             "signins": auth.failures(),
             "devices": sum(len(h.devices) for h in hubs.values()),
             "version": __version__,
+            "update": new_version.info(),
         }
+
+    @app.post("/api/admin/update/check")
+    def update_check():
+        """Look for a newer Shelf now (it also looks every six hours)."""
+        admin_only()
+        return new_version.check()
+
+    @app.post("/api/admin/update")
+    def update_now():
+        """Update this server to the latest release; it restarts itself."""
+        admin_only()
+        try:
+            return {"message": new_version.update(updates.restart_in_place), **new_version.info()}
+        except ValueError as e:
+            raise HTTPException(409, str(e))
 
     # ---------- library ----------
 

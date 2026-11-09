@@ -65,6 +65,7 @@ else
 fi
 [ -f "$TMP/src/pyproject.toml" ] || fail "That download doesn't look like Shelf."
 rm -rf "$APP" && mkdir -p "$(dirname "$APP")" && mv "$TMP/src" "$APP"
+touch "$APP/.installed-by-install-sh"  # so Shelf knows it can update itself with this script
 
 say "Setting up Shelf's Python and libraries (the first time takes a minute)…"
 (cd "$APP" && UV_PROJECT_ENVIRONMENT="$VENV" UV_LINK_MODE=copy "$UV" sync --frozen --no-dev --quiet)

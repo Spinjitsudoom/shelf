@@ -44,6 +44,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        Updater.schedule(this);  // look for new versions of the app in the background
+        Updater.checkSoon(this);
         prefs = getSharedPreferences("shelf", MODE_PRIVATE);
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.parseColor("#1a1d24"));

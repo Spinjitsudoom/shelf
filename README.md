@@ -105,6 +105,21 @@ Each player asks for your server's address the first time (like `192.168.1.20:45
 you sign in. The desktop players work with the keyboard's media keys and the desktop's own
 playback controls.
 
+## Updates
+
+Everything keeps itself up to date from the [releases page](https://github.com/Spinjitsudoom/shelf/releases):
+
+- **The server** checks every six hours. When a new version is out, the admin dashboard
+  (and on Windows, the tray icon) says so, with an **Update now** button: nothing changes
+  until you press it. It updates the way it was installed (the Linux install script, the
+  Windows installer, or `git pull` for a copy run from the source) and restarts itself.
+  `check_updates = false` in config.toml turns the check off.
+- **The Android app** checks in the background, downloads the new version and shows a
+  notification; tap it, and Android asks you to confirm the update.
+- **The desktop players** download updates in the background. The Windows and .deb players
+  install them when you close Shelf (the .deb asks for your password); the Flatpak installs
+  the new bundle straight away, for the next time you open Shelf.
+
 ## Accounts
 
 Everyone signs in with a username and password. The music is shared; each person has their

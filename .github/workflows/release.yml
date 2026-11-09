@@ -83,7 +83,11 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: desktop-windows
-          path: desktop/dist/*.exe
+          # latest.yml and the blockmap tell installed players about the update.
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.exe.blockmap
+            desktop/dist/latest.yml
 
   desktop-linux:
     name: Desktop player (Linux .deb and Flatpak)
@@ -117,6 +121,7 @@ jobs:
           path: |
             desktop/dist/*.deb
             desktop/dist/*.flatpak
+            desktop/dist/latest-linux.yml
 
   server-windows:
     name: Server (Windows installer)

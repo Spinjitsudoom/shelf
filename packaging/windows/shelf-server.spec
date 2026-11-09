@@ -16,8 +16,9 @@ server = Analysis(
 )
 tray = Analysis(
     [ROOT + "/packaging/windows/tray.py"],
+    pathex=[ROOT + "/src"],
     datas=[(ROOT + "/desktop/build/icon.png", ".")],
-    hiddenimports=["pystray._win32"],
+    hiddenimports=["pystray._win32", "shelf.updates"],
     excludes=["tkinter"],
 )
 

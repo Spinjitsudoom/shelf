@@ -6,6 +6,7 @@
 // Windows' media overlay and Linux's desktop player controls (MPRIS) all work with it.
 
 const { app, BrowserWindow, ipcMain, Menu, net, session, shell } = require("electron");
+const updater = require("./updater");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -165,6 +166,7 @@ if (!app.requestSingleInstanceLock()) {
     });
     buildMenu();
     createWindow();
+    updater.start();
   });
   app.on("window-all-closed", () => app.quit());
 }

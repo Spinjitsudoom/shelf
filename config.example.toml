@@ -34,6 +34,10 @@ music_videos = true
 # albums by your artists that aren't on the shelf yet (sends the artists' names).
 artist_info = true
 
+# Ask GitHub every six hours whether a newer Shelf has been released, so the admin
+# dashboard can offer to update (sends only the request itself).
+check_updates = true
+
 # Measure each song's tempo (BPM) and key in the background, for playlist columns and
 # recommendations, and how each song sounds, for "sounds like" in recommendations, radio and
 # mixes. About 3.5 seconds of processor time per song, once.
