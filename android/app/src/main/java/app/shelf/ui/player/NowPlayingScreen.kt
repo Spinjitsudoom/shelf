@@ -161,13 +161,29 @@ fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConne
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Scrubber(state: PlayerUi, player: PlayerConnection) {
     var dragging by remember { mutableStateOf<Float?>(null) }
     val dur = state.durationMs.coerceAtLeast(1)
     val value = dragging ?: (state.positionMs.toFloat() / dur).coerceIn(0f, 1f)
+    val ink = Shelf.colors.ink
+    // A thin line with a round handle that grows while it's held.
     Slider(value = value, onValueChange = { dragging = it }, onValueChangeFinished = { dragging?.let { player.seekTo((it * dur).toLong()) }; dragging = null },
-        colors = SliderDefaults.colors(thumbColor = Shelf.colors.ink, activeTrackColor = Shelf.colors.ink, inactiveTrackColor = Shelf.colors.ink.copy(alpha = .22f)))
+        modifier = Modifier.height(28.dp),
+        thumb = {
+            Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(if (dragging != null) 18.dp else 12.dp).background(ink, CircleShape))
+            }
+        },
+        track = { st ->
+            Canvas(Modifier.fillMaxWidth().height(4.dp)) {
+                val y = size.height / 2; val w = 3.dp.toPx()
+                val frac = ((st.value - st.valueRange.start) / (st.valueRange.endInclusive - st.valueRange.start)).coerceIn(0f, 1f)
+                drawLine(ink.copy(alpha = .22f), Offset(0f, y), Offset(size.width, y), w, androidx.compose.ui.graphics.StrokeCap.Round)
+                drawLine(ink, Offset(0f, y), Offset(size.width * frac, y), w, androidx.compose.ui.graphics.StrokeCap.Round)
+            }
+        })
     Row(Modifier.fillMaxWidth()) {
         Text(fmtTime(value * dur / 1000.0), style = MaterialTheme.typography.labelSmall, color = Shelf.colors.ink2)
         Spacer(Modifier.weight(1f))
