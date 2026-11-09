@@ -28,6 +28,14 @@ data class ConnectUi(
     val activeDevice get() = devices.firstOrNull { it.id == activeId }
 }
 
+/** What the player side uses of Connect (a fake in tests). */
+interface RemoteLink {
+    val ui: StateFlow<ConnectUi>
+    fun cmd(name: String, vararg args: JsonElement)
+    fun send(msg: JsonObject)
+    fun optimistic(change: (RemoteState) -> RemoteState)
+}
+
 /** What the player side hears from Connect (on the main thread). */
 interface ConnectListener {
     fun onConnected() {}
@@ -51,10 +59,10 @@ class ConnectClient(
     private val clock: () -> Long = System::currentTimeMillis,
     private val post: (Runnable) -> Unit = { main.post(it) },
     private val schedule: (Long, () -> Unit) -> Unit = { delay, run -> main.postDelayed(run, delay) },
-) {
+) : RemoteLink {
     private val http = okHttp.newBuilder().readTimeout(0, TimeUnit.MILLISECONDS).pingInterval(20, TimeUnit.SECONDS).build()
     private val _ui = MutableStateFlow(ConnectUi(selfId = identity.id))
-    val ui: StateFlow<ConnectUi> = _ui
+    override val ui: StateFlow<ConnectUi> = _ui
     var listener: ConnectListener? = null
 
     private var started = false
@@ -144,10 +152,10 @@ class ConnectClient(
     }
 
     /** Send a message now, if connected (reports aren't worth keeping). */
-    fun send(msg: JsonObject) { post { if (_ui.value.connected) socket?.send(msg.toString()) } }
+    override fun send(msg: JsonObject) { post { if (_ui.value.connected) socket?.send(msg.toString()) } }
 
     /** Control the playing device. Held for up to a minute while the connection is down. */
-    fun cmd(name: String, vararg args: JsonElement) {
+    override fun cmd(name: String, vararg args: JsonElement) {
         val msg = JsonObject(mapOf("type" to JsonPrimitive("cmd"), "name" to JsonPrimitive(name), "args" to JsonArray(args.toList())))
         post {
             if (_ui.value.connected && socket != null) socket?.send(msg.toString()) else held.addLast(clock() to msg)
@@ -155,6 +163,6 @@ class ConnectClient(
     }
 
     /** Show a control's effect straight away, before the playing device confirms it. */
-    fun optimistic(change: (RemoteState) -> RemoteState) =
+    override fun optimistic(change: (RemoteState) -> RemoteState) =
         _ui.update { u -> u.state?.let { s -> u.copy(state = change(s), at = clock()) } ?: u }
 }

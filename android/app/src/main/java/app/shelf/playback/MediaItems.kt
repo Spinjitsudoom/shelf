@@ -20,14 +20,18 @@ fun Track.toMediaItem(api: ShelfApi, quality: String, context: PlayContext?, dow
 
 /** The same item without its stream address (what a screen hands the player service, which
  * adds the address itself). */
-fun Track.toControllerItem(source: LibrarySource, context: PlayContext?): MediaItem {
+fun Track.toControllerItem(source: LibrarySource, context: PlayContext?): MediaItem =
+    toControllerItem(source.coverUrl(albumId, cover, 512), context)
+
+/** The same, with the cover's address given (or none). */
+fun Track.toControllerItem(coverUrl: String?, context: PlayContext?): MediaItem {
     val extras = Bundle().apply {
         putString(TRACK, json.encodeToString(Track.serializer(), this@toControllerItem))
         context?.let { putString(CONTEXT, json.encodeToString(PlayContext.serializer(), it)) }
     }
     val meta = MediaMetadata.Builder()
         .setTitle(title).setArtist(artist).setAlbumTitle(album).setAlbumArtist(albumArtist)
-        .setArtworkUri(source.coverUrl(albumId, cover, 512)?.toUri())
+        .setArtworkUri(coverUrl?.toUri())
         .setDurationMs((duration * 1000).toLong())
         .setTrackNumber(trackNo).setDiscNumber(discNo)
         .setIsPlayable(true).setIsBrowsable(false).setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)

@@ -24,6 +24,9 @@ import app.shelf.MainActivity
 import app.shelf.R
 import app.shelf.ShelfApp
 import app.shelf.data.ShelfApi
+import app.shelf.data.Track
+import app.shelf.connect.ConnectBridge
+import app.shelf.connect.RemotePlayer
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +50,8 @@ class PlaybackService : MediaLibraryService() {
     private lateinit var player: ExoPlayer
     private lateinit var session: MediaLibrarySession
     private lateinit var store: QueueStore
+    private lateinit var remote: RemotePlayer
+    private lateinit var bridge: ConnectBridge
     private val main = Handler(Looper.getMainLooper())
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var lastSave = 0L
@@ -67,6 +72,7 @@ class PlaybackService : MediaLibraryService() {
                 counter.onPosition(player.currentPosition / 1000.0)
                 if (System.currentTimeMillis() - lastSave > 10_000) save()
             }
+            bridge.tick()
             main.postDelayed(this, 1000)
         }
     }
@@ -100,10 +106,31 @@ class PlaybackService : MediaLibraryService() {
             .setBitmapLoader(artworkLoader(this, app.container.okHttp)).build()
         setMediaNotificationProvider(DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(R.drawable.ic_stat) })
         restore(play = false)
+        startConnect()
         level(player.currentMediaItem)
         scope.launch { app.container.settings.settings.collect { level(player.currentMediaItem) } }
         main.post(tick)
     }
+
+    /**
+     * Shelf Connect: this phone plays for the user's other devices (reporting and taking their
+     * commands), or, while another device plays, the session's player becomes a remote for it.
+     */
+    private fun startConnect() {
+        val connect = app.container.connect
+        remote = RemotePlayer(mainLooper, connect, { api })
+        bridge = ConnectBridge(connect, player, ::playableItem,
+            onVolume = { level(player.currentMediaItem) },
+            onMode = { isRemote -> session.player = if (isRemote) remote else player })
+        bridge.attach()
+        connect.listener = bridge
+        connect.start()
+        scope.launch { connect.ui.collect { remote.refresh(); bridge.onUi(it) } }
+    }
+
+    /** A song ready to play here (from its download, or streamed in the quality the settings choose). */
+    private fun playableItem(t: Track, context: PlayContext?): MediaItem =
+        api?.let { t.toMediaItem(it, qualityFor(t.codec), context, downloads.uriFor(t.id)) } ?: t.toControllerItem(null as String?, context)
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession = session
 
@@ -114,6 +141,9 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onDestroy() {
         save()
+        app.container.connect.listener = null
+        app.container.connect.stop()
+        remote.release()
         main.removeCallbacksAndMessages(null)
         scope.cancel()
         session.release()
@@ -133,7 +163,9 @@ class PlaybackService : MediaLibraryService() {
     private fun level(item: MediaItem?) {
         val s = app.container.settings.settings.value
         val t = item?.track()
-        player.volume = if (s.normalize && t != null) volumeFor(gainDb(t.lufs, t.peak, s.loudness)) else 1f
+        val levelled = if (s.normalize && t != null) volumeFor(gainDb(t.lufs, t.peak, s.loudness)) else 1f
+        // The volume another device set for this phone (over Connect), on top of the levelling.
+        player.volume = levelled * (if (::bridge.isInitialized) bridge.userVolume else 1f)
     }
 
     /** The playable version of items handed over by a screen (they come without a stream address). */
