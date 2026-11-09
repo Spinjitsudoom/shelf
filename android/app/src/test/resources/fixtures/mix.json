@@ -1,0 +1,941 @@
+{
+ "key": "daily-1",
+ "kind": "daily",
+ "name": "Shelf Mix 1",
+ "description": "Black Sabbath and more",
+ "color": "#e8590c",
+ "covers": [
+  {
+   "albumId": 117,
+   "cover": "3684826e1a"
+  },
+  {
+   "albumId": 64,
+   "cover": "81ee27f819"
+  },
+  {
+   "albumId": 111,
+   "cover": "469a10c603"
+  },
+  {
+   "albumId": 118,
+   "cover": "20cfb848e8"
+  }
+ ],
+ "trackCount": 24,
+ "duration": 8271,
+ "tracks": [
+  {
+   "id": 902,
+   "title": "Behind The Wall Of Sleep - Live at the NEC, Birmingham, UK - December 1997",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Reunion",
+   "albumId": 117,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "3684826e1a",
+   "trackNo": 2,
+   "discNo": 1,
+   "duration": 246.7,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.2,
+   "peak": -5.1,
+   "bpm": 100,
+   "key": "E♭ major",
+   "camelot": "5B",
+   "mix": {
+    "start": 0.0,
+    "end": 246.5,
+    "intro": 0.0,
+    "outro": 246.5,
+    "firstBeat": 0.464,
+    "inPeriod": 0.441,
+    "outBeat": 245.934,
+    "outPeriod": 0.395
+   }
+  },
+  {
+   "id": 530,
+   "title": "War Pigs - 2009 Remaster",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Paranoid",
+   "albumId": 64,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "81ee27f819",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 475.04,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.1,
+   "peak": -2.9,
+   "bpm": 90,
+   "key": "E minor",
+   "camelot": "9A",
+   "mix": {
+    "start": 0.0,
+    "end": 473.25,
+    "intro": 2.5,
+    "outro": 471.25,
+    "firstBeat": 0.488,
+    "inPeriod": 0.534,
+    "outBeat": 471.123,
+    "outPeriod": 0.488
+   }
+  },
+  {
+   "id": 825,
+   "title": "Stonehenge - Extended Version",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Born Again (Deluxe Edition)",
+   "albumId": 111,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "469a10c603",
+   "trackNo": 2,
+   "discNo": 2,
+   "duration": 283.53,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -21.0,
+   "peak": -6.7,
+   "bpm": 73,
+   "key": "D minor",
+   "camelot": "7A",
+   "mix": {
+    "start": 0.25,
+    "end": 282.75,
+    "intro": 0.0,
+    "outro": 277.75,
+    "firstBeat": 0.325,
+    "inPeriod": 0.476,
+    "outBeat": 277.502,
+    "outPeriod": 0.824
+   }
+  },
+  {
+   "id": 932,
+   "title": "Megalomania - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Past Lives (Deluxe Edition)",
+   "albumId": 118,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "20cfb848e8",
+   "trackNo": 4,
+   "discNo": 2,
+   "duration": 593.71,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.7,
+   "peak": -5.5,
+   "bpm": 155,
+   "key": "F♯ minor",
+   "camelot": "11A",
+   "mix": {
+    "start": 0.0,
+    "end": 593.5,
+    "intro": 0.0,
+    "outro": 593.5,
+    "firstBeat": 0.476,
+    "inPeriod": 0.534,
+    "outBeat": 593.106,
+    "outPeriod": 0.372
+   }
+  },
+  {
+   "id": 944,
+   "title": "Black Sabbath - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Past Lives (Deluxe Edition)",
+   "albumId": 118,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "20cfb848e8",
+   "trackNo": 6,
+   "discNo": 2,
+   "duration": 503.67,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -17.6,
+   "peak": -6.0,
+   "bpm": 111,
+   "key": "F♯ minor",
+   "camelot": "11A",
+   "mix": {
+    "start": 0.0,
+    "end": 503.5,
+    "intro": 0.0,
+    "outro": 503.5,
+    "firstBeat": 0.383,
+    "inPeriod": 0.395,
+    "outBeat": 502.966,
+    "outPeriod": 0.418
+   }
+  },
+  {
+   "id": 918,
+   "title": "Paranoid - Live at the NEC, Birmingham, UK - December 1997",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Reunion",
+   "albumId": 117,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "3684826e1a",
+   "trackNo": 7,
+   "discNo": 2,
+   "duration": 267.55,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.9,
+   "peak": -4.9,
+   "bpm": 88,
+   "key": "E♭ minor",
+   "camelot": "2A",
+   "mix": {
+    "start": 0.0,
+    "end": 263.0,
+    "intro": 0.0,
+    "outro": 224.0,
+    "firstBeat": 0.697,
+    "inPeriod": 0.685,
+    "outBeat": 223.585,
+    "outPeriod": 0.673
+   }
+  },
+  {
+   "id": 800,
+   "title": "The Mob Rules - Live Mob Rules Tour",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Live Evil",
+   "albumId": 109,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "d707f38dd2",
+   "trackNo": 9,
+   "discNo": 1,
+   "duration": 252.84,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -17.8,
+   "peak": -5.7,
+   "bpm": 150,
+   "key": "A♭ major",
+   "camelot": "4B",
+   "mix": {
+    "start": 6.0,
+    "end": 252.75,
+    "intro": 14.5,
+    "outro": 252.75,
+    "firstBeat": 6.06,
+    "inPeriod": 0.418,
+    "outBeat": 252.192,
+    "outPeriod": 0.511
+   }
+  },
+  {
+   "id": 760,
+   "title": "The Sign of the Southern Cross",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Mob Rules",
+   "albumId": 107,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "a589438372",
+   "trackNo": 3,
+   "discNo": 1,
+   "duration": 467.88,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -18.2,
+   "peak": -3.0,
+   "bpm": 117,
+   "key": "E♭ minor",
+   "camelot": "2A",
+   "mix": {
+    "start": 0.0,
+    "end": 467.75,
+    "intro": 0.0,
+    "outro": 467.75,
+    "firstBeat": 0.522,
+    "inPeriod": 0.522,
+    "outBeat": 467.506,
+    "outPeriod": 0.511
+   }
+  },
+  {
+   "id": 767,
+   "title": "Turn Up the Night",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Mob Rules (Deluxe Edition)",
+   "albumId": 108,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "d88c948309",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 220.76,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.9,
+   "peak": -3.3,
+   "bpm": 91,
+   "key": "D♭ minor",
+   "camelot": "12A",
+   "mix": {
+    "start": 0.0,
+    "end": 219.5,
+    "intro": 3.0,
+    "outro": 215.75,
+    "firstBeat": 0.673,
+    "inPeriod": 0.662,
+    "outBeat": 215.644,
+    "outPeriod": 0.65
+   }
+  },
+  {
+   "id": 797,
+   "title": "Black Sabbath - Live - Mob Rules Tour",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Live Evil",
+   "albumId": 109,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "d707f38dd2",
+   "trackNo": 6,
+   "discNo": 1,
+   "duration": 518.87,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -20.8,
+   "peak": -6.2,
+   "bpm": 114,
+   "key": "F♯ major",
+   "camelot": "2B",
+   "mix": {
+    "start": 0.0,
+    "end": 518.75,
+    "intro": 0.0,
+    "outro": 518.75,
+    "firstBeat": 0.43,
+    "inPeriod": 0.395,
+    "outBeat": 518.147,
+    "outPeriod": 0.441
+   }
+  },
+  {
+   "id": 878,
+   "title": "Lost Forever - Alternative Studio Recording",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The Eternal Idol (Deluxe Edition)",
+   "albumId": 115,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "b90332b49a",
+   "trackNo": 3,
+   "discNo": 2,
+   "duration": 256.39,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.3,
+   "peak": -5.1,
+   "bpm": 89,
+   "key": "A♭ major",
+   "camelot": "4B",
+   "mix": {
+    "start": 0.5,
+    "end": 254.0,
+    "intro": 14.75,
+    "outro": 242.75,
+    "firstBeat": 0.755,
+    "inPeriod": 0.337,
+    "outBeat": 242.532,
+    "outPeriod": 0.685
+   }
+  },
+  {
+   "id": 737,
+   "title": "Heaven and Hell",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Heaven & Hell (Deluxe Edition)",
+   "albumId": 105,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "68c91b9575",
+   "trackNo": 4,
+   "discNo": 1,
+   "duration": 417.88,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -18.9,
+   "peak": -2.6,
+   "bpm": 89,
+   "key": "E♭ minor",
+   "camelot": "2A",
+   "mix": {
+    "start": 0.0,
+    "end": 407.25,
+    "intro": 0.0,
+    "outro": 356.25,
+    "firstBeat": 0.731,
+    "inPeriod": 0.685,
+    "outBeat": 356.171,
+    "outPeriod": 0.58
+   }
+  },
+  {
+   "id": 814,
+   "title": "Keep It Warm",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Born Again",
+   "albumId": 110,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "de8b47935b",
+   "trackNo": 9,
+   "discNo": 1,
+   "duration": 338.42,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.7,
+   "peak": -0.2,
+   "bpm": 134,
+   "key": "F major",
+   "camelot": "7B",
+   "mix": {
+    "start": 0.0,
+    "end": 333.25,
+    "intro": 0.0,
+    "outro": 323.25,
+    "firstBeat": 0.406,
+    "inPeriod": 0.453,
+    "outBeat": 323.129,
+    "outPeriod": 0.441
+   }
+  },
+  {
+   "id": 807,
+   "title": "Children of the Grave - Live - Mob Rules Tour",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Live Evil",
+   "albumId": 109,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "d707f38dd2",
+   "trackNo": 13,
+   "discNo": 1,
+   "duration": 350.33,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -17.2,
+   "peak": -4.7,
+   "bpm": 142,
+   "key": "E♭ major",
+   "camelot": "5B",
+   "mix": {
+    "start": 0.0,
+    "end": 350.25,
+    "intro": 0.0,
+    "outro": 350.25,
+    "firstBeat": 0.511,
+    "inPeriod": 0.43,
+    "outBeat": 349.495,
+    "outPeriod": 0.662
+   }
+  },
+  {
+   "id": 780,
+   "title": "N.I.B. - Live at the Hammersmith Odeon",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Mob Rules (Deluxe Edition)",
+   "albumId": 108,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "d88c948309",
+   "trackNo": 3,
+   "discNo": 2,
+   "duration": 316.29,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -16.9,
+   "peak": -4.8,
+   "bpm": 109,
+   "key": "E♭ minor",
+   "camelot": "2A",
+   "mix": {
+    "start": 0.0,
+    "end": 316.25,
+    "intro": 0.0,
+    "outro": 316.25,
+    "firstBeat": 0.557,
+    "inPeriod": 0.546,
+    "outBeat": 315.524,
+    "outPeriod": 0.557
+   }
+  },
+  {
+   "id": 736,
+   "title": "Lady Evil",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Heaven & Hell (Deluxe Edition)",
+   "albumId": 105,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "68c91b9575",
+   "trackNo": 3,
+   "discNo": 1,
+   "duration": 262.61,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -17.6,
+   "peak": -1.7,
+   "bpm": 123,
+   "key": "F♯ minor",
+   "camelot": "11A",
+   "mix": {
+    "start": 0.0,
+    "end": 261.75,
+    "intro": 0.0,
+    "outro": 259.75,
+    "firstBeat": 0.464,
+    "inPeriod": 0.488,
+    "outBeat": 259.297,
+    "outPeriod": 0.488
+   }
+  },
+  {
+   "id": 743,
+   "title": "Heaven and Hell - Live B-Side of Die Young",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Heaven & Hell (Deluxe Edition)",
+   "albumId": 105,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "68c91b9575",
+   "trackNo": 2,
+   "discNo": 2,
+   "duration": 439.04,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -17.5,
+   "peak": -2.3,
+   "bpm": 90,
+   "key": "E♭ major",
+   "camelot": "5B",
+   "mix": {
+    "start": 0.75,
+    "end": 437.0,
+    "intro": 4.0,
+    "outro": 429.5,
+    "firstBeat": 1.138,
+    "inPeriod": 0.627,
+    "outBeat": 428.873,
+    "outPeriod": 0.673
+   }
+  },
+  {
+   "id": 909,
+   "title": "Snowblind - Live at the NEC, Birmingham, UK - December 1997",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Reunion",
+   "albumId": 117,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "3684826e1a",
+   "trackNo": 9,
+   "discNo": 1,
+   "duration": 367.7,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.1,
+   "peak": -4.1,
+   "bpm": 118,
+   "key": "D♭ minor",
+   "camelot": "12A",
+   "mix": {
+    "start": 0.0,
+    "end": 364.25,
+    "intro": 0.0,
+    "outro": 353.0,
+    "firstBeat": 0.464,
+    "inPeriod": 0.499,
+    "outBeat": 352.641,
+    "outPeriod": 0.418
+   }
+  },
+  {
+   "id": 538,
+   "title": "Sabbath Bloody Sabbath (2009 Remaster)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Sabbath Bloody Sabbath",
+   "albumId": 65,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "1fc1129c96",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 344.63,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.9,
+   "peak": -3.6,
+   "bpm": 136,
+   "key": "D♭ minor",
+   "camelot": "12A",
+   "mix": {
+    "start": 0.0,
+    "end": 340.75,
+    "intro": 0.0,
+    "outro": 330.5,
+    "firstBeat": 0.418,
+    "inPeriod": 0.441,
+    "outBeat": 330.13,
+    "outPeriod": 0.418
+   }
+  },
+  {
+   "id": 533,
+   "title": "Paranoid - 2009 Remaster",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Paranoid",
+   "albumId": 64,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "81ee27f819",
+   "trackNo": 2,
+   "discNo": 1,
+   "duration": 167.76,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.4,
+   "peak": -2.7,
+   "bpm": 163,
+   "key": "E major",
+   "camelot": "12B",
+   "mix": {
+    "start": 0.0,
+    "end": 166.0,
+    "intro": 0.0,
+    "outro": 164.0,
+    "firstBeat": 0.418,
+    "inPeriod": 0.372,
+    "outBeat": 163.817,
+    "outPeriod": 0.372
+   }
+  },
+  {
+   "id": 903,
+   "title": "War Pigs - Live at the NEC, Birmingham, UK - December 1997",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Reunion",
+   "albumId": 117,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "3684826e1a",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 507.64,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -16.3,
+   "peak": -5.1,
+   "bpm": 100,
+   "key": "E♭ minor",
+   "camelot": "2A",
+   "mix": {
+    "start": 1.25,
+    "end": 507.5,
+    "intro": 5.0,
+    "outro": 507.5,
+    "firstBeat": 1.231,
+    "inPeriod": 0.604,
+    "outBeat": 507.094,
+    "outPeriod": 0.511
+   }
+  },
+  {
+   "id": 545,
+   "title": "Hole in the Sky - 2009 Remaster",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Sabotage",
+   "albumId": 66,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "877ef3d3fb",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 239.8,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.1,
+   "peak": -4.2,
+   "bpm": 117,
+   "key": "F♯ minor",
+   "camelot": "11A",
+   "mix": {
+    "start": 0.25,
+    "end": 239.75,
+    "intro": 9.5,
+    "outro": 239.75,
+    "firstBeat": 0.604,
+    "inPeriod": 0.522,
+    "outBeat": 239.282,
+    "outPeriod": 0.511
+   }
+  },
+  {
+   "id": 885,
+   "title": "After All (The Dead) - 2011 Remaster",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Dehumanizer",
+   "albumId": 116,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "274273fea4",
+   "trackNo": 2,
+   "discNo": 1,
+   "duration": 339.64,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -16.5,
+   "peak": -4.0,
+   "bpm": 143,
+   "key": "E♭ major",
+   "camelot": "5B",
+   "mix": {
+    "start": 0.75,
+    "end": 334.75,
+    "intro": 19.0,
+    "outro": 313.5,
+    "firstBeat": 0.964,
+    "inPeriod": 0.476,
+    "outBeat": 313.284,
+    "outPeriod": 0.418
+   }
+  },
+  {
+   "id": 968,
+   "title": "Band Introductions - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 7,
+   "discNo": 1,
+   "duration": 92.34,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -21.0,
+   "peak": -7.5,
+   "bpm": 148,
+   "key": "F minor",
+   "camelot": "4A",
+   "mix": {
+    "start": 0.0,
+    "end": 92.25,
+    "intro": 0.0,
+    "outro": 92.25,
+    "firstBeat": 0.511,
+    "inPeriod": 0.557,
+    "outBeat": 91.579,
+    "outPeriod": 0.395
+   }
+  }
+ ]
+}

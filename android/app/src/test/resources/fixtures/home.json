@@ -1,0 +1,477 @@
+{
+ "recent": [
+  {
+   "id": 64,
+   "title": "Paranoid",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1970,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2506.8,
+   "color": "#cd7d8d",
+   "cover": "81ee27f819",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": 1794138867.2184896
+  }
+ ],
+ "top": [],
+ "added": [
+  {
+   "id": 123,
+   "title": "Heaven and Hell (Remastered and Expanded Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2022,
+   "genre": null,
+   "trackCount": 5,
+   "duration": 1494.0,
+   "color": "#778e94",
+   "cover": "be6f9635db",
+   "addedAt": 1794253419.176035,
+   "lastPlayed": null
+  },
+  {
+   "id": 122,
+   "title": "The End (Live)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2017,
+   "genre": null,
+   "trackCount": 17,
+   "duration": 6477.9,
+   "color": "#857b6e",
+   "cover": "5b514b0fcb",
+   "addedAt": 1794246752.3509715,
+   "lastPlayed": null
+  },
+  {
+   "id": 121,
+   "title": "13 (Deluxe Version)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2013,
+   "genre": null,
+   "trackCount": 11,
+   "duration": 4129.6,
+   "color": "#714d30",
+   "cover": "b3bb527703",
+   "addedAt": 1794242818.2201266,
+   "lastPlayed": null
+  },
+  {
+   "id": 120,
+   "title": "13",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2013,
+   "genre": null,
+   "trackCount": 12,
+   "duration": 4570.2,
+   "color": "#714d30",
+   "cover": "1972c42659",
+   "addedAt": 1794237366.9168622,
+   "lastPlayed": null
+  },
+  {
+   "id": 118,
+   "title": "Past Lives (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2002,
+   "genre": null,
+   "trackCount": 18,
+   "duration": 7029.4,
+   "color": "#831312",
+   "cover": "20cfb848e8",
+   "addedAt": 1794221374.5712667,
+   "lastPlayed": null
+  },
+  {
+   "id": 117,
+   "title": "Reunion",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1998,
+   "genre": null,
+   "trackCount": 18,
+   "duration": 6458.5,
+   "color": "#455763",
+   "cover": "3684826e1a",
+   "addedAt": 1794215321.8342245,
+   "lastPlayed": null
+  },
+  {
+   "id": 116,
+   "title": "Dehumanizer",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1992,
+   "genre": null,
+   "trackCount": 18,
+   "duration": 5469.8,
+   "color": "#2c3c74",
+   "cover": "274273fea4",
+   "addedAt": 1794209272.3666704,
+   "lastPlayed": null
+  },
+  {
+   "id": 115,
+   "title": "The Eternal Idol (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1987,
+   "genre": null,
+   "trackCount": 19,
+   "duration": 5496.4,
+   "color": "#633e36",
+   "cover": "b90332b49a",
+   "addedAt": 1794203828.4138808,
+   "lastPlayed": null
+  },
+  {
+   "id": 114,
+   "title": "Seventh Star (2026 Remaster)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1986,
+   "genre": null,
+   "trackCount": 10,
+   "duration": 2339.3,
+   "color": "#6d473c",
+   "cover": "03c16a3927",
+   "addedAt": 1794201405.9374983,
+   "lastPlayed": null
+  },
+  {
+   "id": 113,
+   "title": "Seventh Star (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1986,
+   "genre": null,
+   "trackCount": 19,
+   "duration": 4985.9,
+   "color": "#4c2a25",
+   "cover": "04f1229aa9",
+   "addedAt": 1794195952.4570541,
+   "lastPlayed": null
+  },
+  {
+   "id": 111,
+   "title": "Born Again (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1983,
+   "genre": null,
+   "trackCount": 20,
+   "duration": 5895.3,
+   "color": "#e41f2b",
+   "cover": "469a10c603",
+   "addedAt": 1794189898.7651594,
+   "lastPlayed": null
+  },
+  {
+   "id": 110,
+   "title": "Born Again",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1983,
+   "genre": null,
+   "trackCount": 9,
+   "duration": 2464.8,
+   "color": "#f4452d",
+   "cover": "de8b47935b",
+   "addedAt": 1794187474.1302543,
+   "lastPlayed": null
+  },
+  {
+   "id": 109,
+   "title": "Live Evil",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1982,
+   "genre": null,
+   "trackCount": 14,
+   "duration": 4998.1,
+   "color": "#3f2021",
+   "cover": "d707f38dd2",
+   "addedAt": 1794182631.7789989,
+   "lastPlayed": null
+  },
+  {
+   "id": 108,
+   "title": "Mob Rules (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1981,
+   "genre": null,
+   "trackCount": 25,
+   "duration": 7654.5,
+   "color": "#d5947a",
+   "cover": "d88c948309",
+   "addedAt": 1794174758.4911664,
+   "lastPlayed": null
+  }
+ ],
+ "rediscover": [
+  {
+   "id": 61,
+   "title": "Black Sabbath",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1970,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2569.5,
+   "color": "#9c7b68",
+   "cover": "0ace87982c",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": null
+  },
+  {
+   "id": 105,
+   "title": "Heaven & Hell (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1980,
+   "genre": null,
+   "trackCount": 15,
+   "duration": 5126.8,
+   "color": "#7ba1c9",
+   "cover": "68c91b9575",
+   "addedAt": 1794159570.2674754,
+   "lastPlayed": null
+  },
+  {
+   "id": 101,
+   "title": "Technical Ecstasy",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1976,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2391.4,
+   "color": "#efc693",
+   "cover": "dfc8e30913",
+   "addedAt": 1794149417.860614,
+   "lastPlayed": null
+  },
+  {
+   "id": 121,
+   "title": "13 (Deluxe Version)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2013,
+   "genre": null,
+   "trackCount": 11,
+   "duration": 4129.6,
+   "color": "#714d30",
+   "cover": "b3bb527703",
+   "addedAt": 1794242818.2201266,
+   "lastPlayed": null
+  },
+  {
+   "id": 110,
+   "title": "Born Again",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1983,
+   "genre": null,
+   "trackCount": 9,
+   "duration": 2464.8,
+   "color": "#f4452d",
+   "cover": "de8b47935b",
+   "addedAt": 1794187474.1302543,
+   "lastPlayed": null
+  },
+  {
+   "id": 106,
+   "title": "Live At Last",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1980,
+   "genre": null,
+   "trackCount": 9,
+   "duration": 3451.2,
+   "color": "#af5b6b",
+   "cover": "a7db86e003",
+   "addedAt": 1794168705.180009,
+   "lastPlayed": null
+  },
+  {
+   "id": 120,
+   "title": "13",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2013,
+   "genre": null,
+   "trackCount": 12,
+   "duration": 4570.2,
+   "color": "#714d30",
+   "cover": "1972c42659",
+   "addedAt": 1794237366.9168622,
+   "lastPlayed": null
+  },
+  {
+   "id": 115,
+   "title": "The Eternal Idol (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1987,
+   "genre": null,
+   "trackCount": 19,
+   "duration": 5496.4,
+   "color": "#633e36",
+   "cover": "b90332b49a",
+   "addedAt": 1794203828.4138808,
+   "lastPlayed": null
+  },
+  {
+   "id": 68,
+   "title": "Vol. 4",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1972,
+   "genre": null,
+   "trackCount": 10,
+   "duration": 2569.2,
+   "color": "#e7bd8a",
+   "cover": "b144e83a33",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": null
+  },
+  {
+   "id": 67,
+   "title": "Sabotage (2021 Remaster)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1975,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2619.7,
+   "color": "#7c2827",
+   "cover": "7f1545aac7",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": null
+  },
+  {
+   "id": 123,
+   "title": "Heaven and Hell (Remastered and Expanded Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2022,
+   "genre": null,
+   "trackCount": 5,
+   "duration": 1494.0,
+   "color": "#778e94",
+   "cover": "be6f9635db",
+   "addedAt": 1794253419.176035,
+   "lastPlayed": null
+  },
+  {
+   "id": 65,
+   "title": "Sabbath Bloody Sabbath",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1973,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2541.1,
+   "color": "#efb884",
+   "cover": "1fc1129c96",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": null
+  },
+  {
+   "id": 116,
+   "title": "Dehumanizer",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1992,
+   "genre": null,
+   "trackCount": 18,
+   "duration": 5469.8,
+   "color": "#2c3c74",
+   "cover": "274273fea4",
+   "addedAt": 1794209272.3666704,
+   "lastPlayed": null
+  },
+  {
+   "id": 114,
+   "title": "Seventh Star (2026 Remaster)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1986,
+   "genre": null,
+   "trackCount": 10,
+   "duration": 2339.3,
+   "color": "#6d473c",
+   "cover": "03c16a3927",
+   "addedAt": 1794201405.9374983,
+   "lastPlayed": null
+  }
+ ],
+ "week": {
+  "plays": 2,
+  "seconds": 643
+ }
+}

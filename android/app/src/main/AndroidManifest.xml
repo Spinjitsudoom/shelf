@@ -5,6 +5,7 @@
 
     <!-- Home servers are usually plain http on the local network. -->
     <application
+        android:name=".ShelfApp"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"

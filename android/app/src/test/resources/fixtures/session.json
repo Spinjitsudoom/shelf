@@ -1,0 +1,15 @@
+{
+ "setup": false,
+ "signedIn": true,
+ "user": {
+  "id": 2,
+  "username": "Listener",
+  "admin": true,
+  "shareActivity": true,
+  "listenbrainz": null
+ },
+ "version": "0.6.0",
+ "features": {
+  "dj": false
+ }
+}

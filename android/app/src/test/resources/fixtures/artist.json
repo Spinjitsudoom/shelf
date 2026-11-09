@@ -1,0 +1,974 @@
+{
+ "name": "Black Sabbath",
+ "albums": [
+  {
+   "id": 123,
+   "title": "Heaven and Hell (Remastered and Expanded Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2022,
+   "genre": null,
+   "trackCount": 9,
+   "duration": 2776.9,
+   "color": "#778e94",
+   "cover": "be6f9635db",
+   "addedAt": 1794253419.176035,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 122,
+   "title": "The End (Live)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2017,
+   "genre": null,
+   "trackCount": 17,
+   "duration": 6477.9,
+   "color": "#857b6e",
+   "cover": "5b514b0fcb",
+   "addedAt": 1794246752.3509715,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 120,
+   "title": "13",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2013,
+   "genre": null,
+   "trackCount": 12,
+   "duration": 4570.2,
+   "color": "#714d30",
+   "cover": "1972c42659",
+   "addedAt": 1794237366.9168622,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 121,
+   "title": "13 (Deluxe Version)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2013,
+   "genre": null,
+   "trackCount": 11,
+   "duration": 4129.6,
+   "color": "#714d30",
+   "cover": "b3bb527703",
+   "addedAt": 1794242818.2201266,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 118,
+   "title": "Past Lives (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 2002,
+   "genre": null,
+   "trackCount": 18,
+   "duration": 7029.4,
+   "color": "#831312",
+   "cover": "20cfb848e8",
+   "addedAt": 1794221374.5712667,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 117,
+   "title": "Reunion",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1998,
+   "genre": null,
+   "trackCount": 18,
+   "duration": 6458.5,
+   "color": "#455763",
+   "cover": "3684826e1a",
+   "addedAt": 1794215321.8342245,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 116,
+   "title": "Dehumanizer",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1992,
+   "genre": null,
+   "trackCount": 18,
+   "duration": 5469.8,
+   "color": "#2c3c74",
+   "cover": "274273fea4",
+   "addedAt": 1794209272.3666704,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 115,
+   "title": "The Eternal Idol (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1987,
+   "genre": null,
+   "trackCount": 19,
+   "duration": 5496.4,
+   "color": "#633e36",
+   "cover": "b90332b49a",
+   "addedAt": 1794203828.4138808,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 114,
+   "title": "Seventh Star (2026 Remaster)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1986,
+   "genre": null,
+   "trackCount": 10,
+   "duration": 2339.3,
+   "color": "#6d473c",
+   "cover": "03c16a3927",
+   "addedAt": 1794201405.9374983,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 113,
+   "title": "Seventh Star (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1986,
+   "genre": null,
+   "trackCount": 19,
+   "duration": 4985.9,
+   "color": "#4c2a25",
+   "cover": "04f1229aa9",
+   "addedAt": 1794195952.4570541,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 110,
+   "title": "Born Again",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1983,
+   "genre": null,
+   "trackCount": 9,
+   "duration": 2464.8,
+   "color": "#f4452d",
+   "cover": "de8b47935b",
+   "addedAt": 1794187474.1302543,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 111,
+   "title": "Born Again (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1983,
+   "genre": null,
+   "trackCount": 20,
+   "duration": 5895.3,
+   "color": "#e41f2b",
+   "cover": "469a10c603",
+   "addedAt": 1794189898.7651594,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 109,
+   "title": "Live Evil",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1982,
+   "genre": null,
+   "trackCount": 14,
+   "duration": 4998.1,
+   "color": "#3f2021",
+   "cover": "d707f38dd2",
+   "addedAt": 1794182631.7789989,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 107,
+   "title": "Mob Rules",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1981,
+   "genre": null,
+   "trackCount": 9,
+   "duration": 2424.3,
+   "color": "#dbc582",
+   "cover": "a589438372",
+   "addedAt": 1794172336.0233624,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 108,
+   "title": "Mob Rules (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1981,
+   "genre": null,
+   "trackCount": 25,
+   "duration": 7654.5,
+   "color": "#d5947a",
+   "cover": "d88c948309",
+   "addedAt": 1794174758.4911664,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 104,
+   "title": "Heaven & Hell",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1980,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2389.0,
+   "color": "#7ba1c9",
+   "cover": "018dd00eb5",
+   "addedAt": 1794156796.6327803,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 105,
+   "title": "Heaven & Hell (Deluxe Edition)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1980,
+   "genre": null,
+   "trackCount": 15,
+   "duration": 5126.8,
+   "color": "#7ba1c9",
+   "cover": "68c91b9575",
+   "addedAt": 1794159570.2674754,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 106,
+   "title": "Live At Last",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1980,
+   "genre": null,
+   "trackCount": 9,
+   "duration": 3451.2,
+   "color": "#af5b6b",
+   "cover": "a7db86e003",
+   "addedAt": 1794168705.180009,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 103,
+   "title": "Never Say Die!",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1978,
+   "genre": null,
+   "trackCount": 9,
+   "duration": 2733.5,
+   "color": "#9d7562",
+   "cover": "0b58eff51e",
+   "addedAt": 1794153943.4985535,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 101,
+   "title": "Technical Ecstasy",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1976,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2391.4,
+   "color": "#efc693",
+   "cover": "dfc8e30913",
+   "addedAt": 1794149417.860614,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 102,
+   "title": "Technical Ecstasy (2021 Remaster)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1976,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2389.6,
+   "color": "#efc693",
+   "cover": "7eb90f5df9",
+   "addedAt": 1794151440.4025793,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 66,
+   "title": "Sabotage",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1975,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2627.7,
+   "color": "#7c2827",
+   "cover": "877ef3d3fb",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 67,
+   "title": "Sabotage (2021 Remaster)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1975,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2619.7,
+   "color": "#7c2827",
+   "cover": "7f1545aac7",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 65,
+   "title": "Sabbath Bloody Sabbath",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1973,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2541.1,
+   "color": "#efb884",
+   "cover": "1fc1129c96",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 68,
+   "title": "Vol. 4",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1972,
+   "genre": null,
+   "trackCount": 10,
+   "duration": 2569.2,
+   "color": "#e7bd8a",
+   "cover": "b144e83a33",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 69,
+   "title": "Vol. 4 (2021 Remaster)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1972,
+   "genre": null,
+   "trackCount": 10,
+   "duration": 2542.0,
+   "color": "#e7bd8a",
+   "cover": "4b36dce95f",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 63,
+   "title": "Master of Reality",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1971,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2059.9,
+   "color": "#643492",
+   "cover": "9cdacfbd2e",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 61,
+   "title": "Black Sabbath",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1970,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2569.5,
+   "color": "#9c7b68",
+   "cover": "0ace87982c",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 62,
+   "title": "Casino de Montreux, Switzerland - 31st August 1970 (Live)",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1970,
+   "genre": null,
+   "trackCount": 10,
+   "duration": 2755.6,
+   "color": "#777d80",
+   "cover": "3bc08596ea",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": null,
+   "plays": 0,
+   "kind": "album"
+  },
+  {
+   "id": 64,
+   "title": "Paranoid",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "year": 1970,
+   "genre": null,
+   "trackCount": 8,
+   "duration": 2506.8,
+   "color": "#cd7d8d",
+   "cover": "81ee27f819",
+   "addedAt": 1794134814.5818884,
+   "lastPlayed": 1794138867.2184896,
+   "plays": 2,
+   "kind": "album"
+  }
+ ],
+ "popular": [
+  {
+   "id": 533,
+   "title": "Paranoid - 2009 Remaster",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Paranoid",
+   "albumId": 64,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "81ee27f819",
+   "trackNo": 2,
+   "discNo": 1,
+   "duration": 167.76,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.4,
+   "peak": -2.7,
+   "bpm": 163,
+   "key": "E major",
+   "camelot": "12B",
+   "mix": {
+    "start": 0.0,
+    "end": 166.0,
+    "intro": 0.0,
+    "outro": 164.0,
+    "firstBeat": 0.418,
+    "inPeriod": 0.372,
+    "outBeat": 163.817,
+    "outPeriod": 0.372
+   },
+   "plays": 1
+  },
+  {
+   "id": 530,
+   "title": "War Pigs - 2009 Remaster",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Paranoid",
+   "albumId": 64,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "81ee27f819",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 475.04,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.1,
+   "peak": -2.9,
+   "bpm": 90,
+   "key": "E minor",
+   "camelot": "9A",
+   "mix": {
+    "start": 0.0,
+    "end": 473.25,
+    "intro": 2.5,
+    "outro": 471.25,
+    "firstBeat": 0.488,
+    "inPeriod": 0.534,
+    "outBeat": 471.123,
+    "outPeriod": 0.488
+   },
+   "plays": 1
+  },
+  {
+   "id": 978,
+   "title": "Neon Knights - 2021 Remaster",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Heaven and Hell (Remastered and Expanded Edition)",
+   "albumId": 123,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "be6f9635db",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 232.02,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.1,
+   "peak": -4.6,
+   "bpm": 96,
+   "key": "E♭ minor",
+   "camelot": "2A",
+   "mix": {
+    "start": 0.0,
+    "end": 227.0,
+    "intro": 0.0,
+    "outro": 217.5,
+    "firstBeat": 0.557,
+    "inPeriod": 0.627,
+    "outBeat": 217.014,
+    "outPeriod": 0.627
+   },
+   "plays": 0
+  },
+  {
+   "id": 962,
+   "title": "Black Sabbath - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 446.98,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.7,
+   "peak": -5.5,
+   "bpm": 115,
+   "key": "F major",
+   "camelot": "7B",
+   "mix": {
+    "start": 0.0,
+    "end": 446.75,
+    "intro": 0.0,
+    "outro": 420.75,
+    "firstBeat": 0.546,
+    "inPeriod": 0.522,
+    "outBeat": 420.46,
+    "outPeriod": 0.43
+   },
+   "plays": 0
+  },
+  {
+   "id": 938,
+   "title": "End Of The Beginning",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "13",
+   "albumId": 120,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "1972c42659",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 486.27,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.4,
+   "peak": -6.7,
+   "bpm": 123,
+   "key": "F minor",
+   "camelot": "4A",
+   "mix": {
+    "start": 0.75,
+    "end": 484.0,
+    "intro": 2.5,
+    "outro": 480.75,
+    "firstBeat": 0.755,
+    "inPeriod": 0.685,
+    "outBeat": 480.402,
+    "outPeriod": 0.511
+   },
+   "plays": 0
+  },
+  {
+   "id": 951,
+   "title": "End Of The Beginning",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "13 (Deluxe Version)",
+   "albumId": 121,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "b3bb527703",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 486.27,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.4,
+   "peak": -6.5,
+   "bpm": 123,
+   "key": "F minor",
+   "camelot": "4A",
+   "mix": {
+    "start": 0.75,
+    "end": 484.0,
+    "intro": 2.5,
+    "outro": 480.75,
+    "firstBeat": 0.755,
+    "inPeriod": 0.685,
+    "outBeat": 480.715,
+    "outPeriod": 0.511
+   },
+   "plays": 0
+  },
+  {
+   "id": 919,
+   "title": "Tomorrow's Dream - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Past Lives (Deluxe Edition)",
+   "albumId": 118,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "20cfb848e8",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 184.08,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.3,
+   "peak": -5.2,
+   "bpm": 120,
+   "key": "F♯ major",
+   "camelot": "2B",
+   "mix": {
+    "start": 1.0,
+    "end": 184.0,
+    "intro": 5.0,
+    "outro": 184.0,
+    "firstBeat": 1.103,
+    "inPeriod": 0.499,
+    "outBeat": 183.38,
+    "outPeriod": 0.499
+   },
+   "plays": 0
+  },
+  {
+   "id": 929,
+   "title": "Hand of Doom - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Past Lives (Deluxe Edition)",
+   "albumId": 118,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "20cfb848e8",
+   "trackNo": 1,
+   "discNo": 2,
+   "duration": 506.04,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -16.4,
+   "peak": -5.8,
+   "bpm": 151,
+   "key": "F♯ minor",
+   "camelot": "11A",
+   "mix": {
+    "start": 0.75,
+    "end": 506.0,
+    "intro": 11.5,
+    "outro": 506.0,
+    "firstBeat": 1.161,
+    "inPeriod": 0.65,
+    "outBeat": 505.513,
+    "outPeriod": 0.557
+   },
+   "plays": 0
+  },
+  {
+   "id": 903,
+   "title": "War Pigs - Live at the NEC, Birmingham, UK - December 1997",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Reunion",
+   "albumId": 117,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "3684826e1a",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 507.64,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -16.3,
+   "peak": -5.1,
+   "bpm": 100,
+   "key": "E♭ minor",
+   "camelot": "2A",
+   "mix": {
+    "start": 1.25,
+    "end": 507.5,
+    "intro": 5.0,
+    "outro": 507.5,
+    "firstBeat": 1.231,
+    "inPeriod": 0.604,
+    "outBeat": 507.094,
+    "outPeriod": 0.511
+   },
+   "plays": 0
+  },
+  {
+   "id": 912,
+   "title": "Sabbath Bloody Sabbath - Live at the NEC, Birmingham, UK - December 1997",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Reunion",
+   "albumId": 117,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "3684826e1a",
+   "trackNo": 1,
+   "discNo": 2,
+   "duration": 276.51,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.5,
+   "peak": -4.7,
+   "bpm": 135,
+   "key": "D♭ minor",
+   "camelot": "12A",
+   "mix": {
+    "start": 0.0,
+    "end": 276.25,
+    "intro": 8.0,
+    "outro": 276.25,
+    "firstBeat": 0.453,
+    "inPeriod": 0.464,
+    "outBeat": 275.876,
+    "outPeriod": 0.43
+   },
+   "plays": 0
+  }
+ ],
+ "appearsOn": [],
+ "playlists": [
+  {
+   "id": 2,
+   "name": "My Mix",
+   "description": "",
+   "trackCount": 1,
+   "duration": 167.8,
+   "covers": [
+    {
+     "albumId": 64,
+     "cover": "81ee27f819"
+    }
+   ],
+   "createdAt": 1794232769.0303967,
+   "updatedAt": 1794232856.0536382,
+   "mix": false,
+   "shared": 0,
+   "mine": true,
+   "canEdit": true,
+   "owner": {
+    "id": 2,
+    "username": "Etienne Axiak"
+   },
+   "following": false,
+   "followers": 0,
+   "artistCount": 1
+  }
+ ],
+ "stats": {
+  "albums": 30,
+  "songs": 363,
+  "duration": 114444,
+  "plays": 2,
+  "songsPlayed": 2,
+  "lastPlayed": 1794138867.2184896
+ }
+}

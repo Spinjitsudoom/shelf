@@ -1,0 +1,29 @@
+[
+ {
+  "key": "daily-1",
+  "kind": "daily",
+  "name": "Shelf Mix 1",
+  "description": "Black Sabbath and more",
+  "color": "#e8590c",
+  "covers": [
+   {
+    "albumId": 117,
+    "cover": "3684826e1a"
+   },
+   {
+    "albumId": 64,
+    "cover": "81ee27f819"
+   },
+   {
+    "albumId": 111,
+    "cover": "469a10c603"
+   },
+   {
+    "albumId": 118,
+    "cover": "20cfb848e8"
+   }
+  ],
+  "trackCount": 24,
+  "duration": 8271
+ }
+]

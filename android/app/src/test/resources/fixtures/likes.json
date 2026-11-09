@@ -1,0 +1,41 @@
+[
+ {
+  "id": 538,
+  "title": "Sabbath Bloody Sabbath (2009 Remaster)",
+  "artist": "Black Sabbath",
+  "artists": [
+   "Black Sabbath"
+  ],
+  "album": "Sabbath Bloody Sabbath",
+  "albumId": 65,
+  "albumArtist": "Black Sabbath",
+  "albumArtists": [
+   "Black Sabbath"
+  ],
+  "cover": "1fc1129c96",
+  "trackNo": 1,
+  "discNo": 1,
+  "duration": 344.63,
+  "codec": "mp3",
+  "mime": "audio/mpeg",
+  "bitrate": 320000,
+  "sampleRate": 44100,
+  "bits": null,
+  "lufs": -14.9,
+  "peak": -3.6,
+  "bpm": 136,
+  "key": "D♭ minor",
+  "camelot": "12A",
+  "mix": {
+   "start": 0.0,
+   "end": 340.75,
+   "intro": 0.0,
+   "outro": 330.5,
+   "firstBeat": 0.418,
+   "inPeriod": 0.441,
+   "outBeat": 330.13,
+   "outPeriod": 0.418
+  },
+  "addedAt": 1794146521.1684864
+ }
+]

@@ -1,0 +1,666 @@
+{
+ "id": 122,
+ "title": "The End (Live)",
+ "artist": "Black Sabbath",
+ "artists": [
+  "Black Sabbath"
+ ],
+ "year": 2017,
+ "genre": null,
+ "trackCount": 17,
+ "duration": 6477.9,
+ "color": "#857b6e",
+ "cover": "5b514b0fcb",
+ "addedAt": 1794246752.3509715,
+ "lastPlayed": null,
+ "albumLufs": -14.98,
+ "albumPeak": -5.3,
+ "tracks": [
+  {
+   "id": 962,
+   "title": "Black Sabbath - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 1,
+   "discNo": 1,
+   "duration": 446.98,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.7,
+   "peak": -5.5,
+   "bpm": 115,
+   "key": "F major",
+   "camelot": "7B",
+   "mix": {
+    "start": 0.0,
+    "end": 446.75,
+    "intro": 0.0,
+    "outro": 420.75,
+    "firstBeat": 0.546,
+    "inPeriod": 0.522,
+    "outBeat": 420.46,
+    "outPeriod": 0.43
+   }
+  },
+  {
+   "id": 963,
+   "title": "Fairies Wear Boots - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 2,
+   "discNo": 1,
+   "duration": 388.13,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.8,
+   "peak": -5.4,
+   "bpm": 144,
+   "key": "F major",
+   "camelot": "7B",
+   "mix": {
+    "start": 0.0,
+    "end": 388.0,
+    "intro": 0.0,
+    "outro": 365.75,
+    "firstBeat": 0.406,
+    "inPeriod": 0.418,
+    "outBeat": 365.575,
+    "outPeriod": 0.453
+   }
+  },
+  {
+   "id": 964,
+   "title": "Under The Sun / Every Day Comes And Goes - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 3,
+   "discNo": 1,
+   "duration": 424.49,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.8,
+   "peak": -5.7,
+   "bpm": 128,
+   "key": "C major",
+   "camelot": "8B",
+   "mix": {
+    "start": 0.0,
+    "end": 424.25,
+    "intro": 0.0,
+    "outro": 424.25,
+    "firstBeat": 0.372,
+    "inPeriod": 0.348,
+    "outBeat": 423.554,
+    "outPeriod": 0.476
+   }
+  },
+  {
+   "id": 965,
+   "title": "After Forever - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 4,
+   "discNo": 1,
+   "duration": 386.8,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.4,
+   "peak": -5.5,
+   "bpm": 91,
+   "key": "F major",
+   "camelot": "7B",
+   "mix": {
+    "start": 0.0,
+    "end": 386.5,
+    "intro": 0.0,
+    "outro": 386.5,
+    "firstBeat": 0.372,
+    "inPeriod": 0.372,
+    "outBeat": 386.055,
+    "outPeriod": 0.464
+   }
+  },
+  {
+   "id": 966,
+   "title": "Into The Void - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 5,
+   "discNo": 1,
+   "duration": 427.47,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.6,
+   "peak": -5.5,
+   "bpm": 144,
+   "key": "C major",
+   "camelot": "8B",
+   "mix": {
+    "start": 0.0,
+    "end": 427.25,
+    "intro": 0.0,
+    "outro": 427.25,
+    "firstBeat": 0.325,
+    "inPeriod": 0.325,
+    "outBeat": 426.763,
+    "outPeriod": 0.406
+   }
+  },
+  {
+   "id": 967,
+   "title": "Snowblind - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 6,
+   "discNo": 1,
+   "duration": 399.75,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.4,
+   "peak": -5.5,
+   "bpm": 108,
+   "key": "C minor",
+   "camelot": "5A",
+   "mix": {
+    "start": 0.0,
+    "end": 399.5,
+    "intro": 0.0,
+    "outro": 399.5,
+    "firstBeat": 0.615,
+    "inPeriod": 0.557,
+    "outBeat": 399.081,
+    "outPeriod": 0.569
+   }
+  },
+  {
+   "id": 968,
+   "title": "Band Introductions - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 7,
+   "discNo": 1,
+   "duration": 92.34,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -21.0,
+   "peak": -7.5,
+   "bpm": 148,
+   "key": "F minor",
+   "camelot": "4A",
+   "mix": {
+    "start": 0.0,
+    "end": 92.25,
+    "intro": 0.0,
+    "outro": 92.25,
+    "firstBeat": 0.511,
+    "inPeriod": 0.557,
+    "outBeat": 91.579,
+    "outPeriod": 0.395
+   }
+  },
+  {
+   "id": 970,
+   "title": "War Pigs - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 8,
+   "discNo": 1,
+   "duration": 512.16,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.6,
+   "peak": -5.7,
+   "bpm": 96,
+   "key": "D minor",
+   "camelot": "7A",
+   "mix": {
+    "start": 0.0,
+    "end": 512.0,
+    "intro": 0.0,
+    "outro": 512.0,
+    "firstBeat": 0.372,
+    "inPeriod": 0.557,
+    "outBeat": 511.698,
+    "outPeriod": 0.476
+   }
+  },
+  {
+   "id": 969,
+   "title": "Behind The Wall Of Sleep - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 9,
+   "discNo": 1,
+   "duration": 213.0,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.1,
+   "peak": -5.6,
+   "bpm": 96,
+   "key": "D minor",
+   "camelot": "7A",
+   "mix": {
+    "start": 0.0,
+    "end": 212.75,
+    "intro": 0.0,
+    "outro": 212.75,
+    "firstBeat": 0.546,
+    "inPeriod": 0.453,
+    "outBeat": 212.416,
+    "outPeriod": 0.615
+   }
+  },
+  {
+   "id": 971,
+   "title": "Bassically / N.I.B. - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 10,
+   "discNo": 1,
+   "duration": 396.36,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.0,
+   "peak": -5.4,
+   "bpm": 103,
+   "key": "D minor",
+   "camelot": "7A",
+   "mix": {
+    "start": 0.0,
+    "end": 395.0,
+    "intro": 0.0,
+    "outro": 385.5,
+    "firstBeat": 0.36,
+    "inPeriod": 0.337,
+    "outBeat": 385.451,
+    "outPeriod": 0.569
+   }
+  },
+  {
+   "id": 972,
+   "title": "Hand Of Doom - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 11,
+   "discNo": 1,
+   "duration": 425.9,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.4,
+   "peak": -5.4,
+   "bpm": 185,
+   "key": "C minor",
+   "camelot": "5A",
+   "mix": {
+    "start": 0.0,
+    "end": 425.75,
+    "intro": 0.0,
+    "outro": 425.75,
+    "firstBeat": 0.395,
+    "inPeriod": 0.604,
+    "outBeat": 425.286,
+    "outPeriod": 0.337
+   }
+  },
+  {
+   "id": 973,
+   "title": "Supernaut / Sabbath Bloody Sabbath / Megalomania - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 12,
+   "discNo": 1,
+   "duration": 208.12,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.8,
+   "peak": -5.9,
+   "bpm": 143,
+   "key": "G minor",
+   "camelot": "6A",
+   "mix": {
+    "start": 0.0,
+    "end": 208.0,
+    "intro": 0.0,
+    "outro": 208.0,
+    "firstBeat": 0.522,
+    "inPeriod": 0.499,
+    "outBeat": 207.447,
+    "outPeriod": 0.418
+   }
+  },
+  {
+   "id": 974,
+   "title": "Rat Salad / Drum Solo - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 13,
+   "discNo": 1,
+   "duration": 500.82,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -16.8,
+   "peak": -5.8,
+   "bpm": 178,
+   "key": "D minor",
+   "camelot": "7A",
+   "mix": {
+    "start": 0.0,
+    "end": 500.75,
+    "intro": 0.0,
+    "outro": 500.75,
+    "firstBeat": 0.546,
+    "inPeriod": 0.569,
+    "outBeat": 500.123,
+    "outPeriod": 0.395
+   }
+  },
+  {
+   "id": 975,
+   "title": "Iron Man - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 14,
+   "discNo": 1,
+   "duration": 473.29,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.0,
+   "peak": -5.3,
+   "bpm": 129,
+   "key": "D minor",
+   "camelot": "7A",
+   "mix": {
+    "start": 0.0,
+    "end": 473.0,
+    "intro": 0.0,
+    "outro": 446.75,
+    "firstBeat": 0.43,
+    "inPeriod": 0.464,
+    "outBeat": 446.286,
+    "outPeriod": 0.383
+   }
+  },
+  {
+   "id": 976,
+   "title": "Dirty Women - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 15,
+   "discNo": 1,
+   "duration": 502.57,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.6,
+   "peak": -5.6,
+   "bpm": 118,
+   "key": "E major",
+   "camelot": "12B",
+   "mix": {
+    "start": 0.0,
+    "end": 502.5,
+    "intro": 0.0,
+    "outro": 502.5,
+    "firstBeat": 0.546,
+    "inPeriod": 0.546,
+    "outBeat": 501.571,
+    "outPeriod": 0.65
+   }
+  },
+  {
+   "id": 977,
+   "title": "Children Of The Grave - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 16,
+   "discNo": 1,
+   "duration": 393.35,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.4,
+   "peak": -5.4,
+   "bpm": 144,
+   "key": "D♭ minor",
+   "camelot": "12A",
+   "mix": {
+    "start": 0.0,
+    "end": 393.25,
+    "intro": 0.0,
+    "outro": 393.25,
+    "firstBeat": 0.476,
+    "inPeriod": 0.441,
+    "outBeat": 392.615,
+    "outPeriod": 0.383
+   }
+  },
+  {
+   "id": 979,
+   "title": "Paranoid - Live",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "The End (Live)",
+   "albumId": 122,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "5b514b0fcb",
+   "trackNo": 17,
+   "discNo": 1,
+   "duration": 286.41,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -14.1,
+   "peak": -5.4,
+   "bpm": 162,
+   "key": "D minor",
+   "camelot": "7A",
+   "mix": {
+    "start": 0.0,
+    "end": 283.75,
+    "intro": 0.0,
+    "outro": 265.25,
+    "firstBeat": 0.534,
+    "inPeriod": 0.557,
+    "outBeat": 265.125,
+    "outPeriod": 0.534
+   }
+  }
+ ]
+}

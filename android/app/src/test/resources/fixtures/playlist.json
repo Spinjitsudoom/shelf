@@ -1,0 +1,71 @@
+{
+ "id": 2,
+ "name": "My Mix",
+ "description": "",
+ "trackCount": 1,
+ "duration": 167.8,
+ "covers": [
+  {
+   "albumId": 64,
+   "cover": "81ee27f819"
+  }
+ ],
+ "createdAt": 1794232769.0303967,
+ "updatedAt": 1794232856.0536382,
+ "mix": false,
+ "shared": 0,
+ "mine": true,
+ "canEdit": true,
+ "owner": {
+  "id": 2,
+  "username": "Listener"
+ },
+ "following": false,
+ "followers": 0,
+ "tracks": [
+  {
+   "id": 533,
+   "title": "Paranoid - 2009 Remaster",
+   "artist": "Black Sabbath",
+   "artists": [
+    "Black Sabbath"
+   ],
+   "album": "Paranoid",
+   "albumId": 64,
+   "albumArtist": "Black Sabbath",
+   "albumArtists": [
+    "Black Sabbath"
+   ],
+   "cover": "81ee27f819",
+   "trackNo": 2,
+   "discNo": 1,
+   "duration": 167.76,
+   "codec": "mp3",
+   "mime": "audio/mpeg",
+   "bitrate": 320000,
+   "sampleRate": 44100,
+   "bits": null,
+   "lufs": -15.4,
+   "peak": -2.7,
+   "bpm": 163,
+   "key": "E major",
+   "camelot": "12B",
+   "mix": {
+    "start": 0.0,
+    "end": 166.0,
+    "intro": 0.0,
+    "outro": 164.0,
+    "firstBeat": 0.418,
+    "inPeriod": 0.372,
+    "outBeat": 163.817,
+    "outPeriod": 0.372
+   },
+   "entryId": 15,
+   "addedAt": 1794232804.4056427,
+   "addedBy": "Listener",
+   "transition": {
+    "preset": "auto"
+   }
+  }
+ ]
+}

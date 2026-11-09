@@ -1,0 +1,27 @@
+[
+ {
+  "id": 2,
+  "name": "My Mix",
+  "description": "",
+  "trackCount": 1,
+  "duration": 167.8,
+  "covers": [
+   {
+    "albumId": 64,
+    "cover": "81ee27f819"
+   }
+  ],
+  "createdAt": 1794232769.0303967,
+  "updatedAt": 1794232856.0536382,
+  "mix": false,
+  "shared": 0,
+  "mine": true,
+  "canEdit": true,
+  "owner": {
+   "id": 2,
+   "username": "Listener"
+  },
+  "following": false,
+  "followers": 0
+ }
+]
