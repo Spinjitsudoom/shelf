@@ -19,7 +19,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 
 /** Talks to one Shelf server's API (src/shelf/app.py), signed in with [tokenProvider]'s token. */
-class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> String?, private val client: OkHttpClient) {
+class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> String?, private val client: OkHttpClient) : LibrarySource {
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false }
 
     suspend fun ping(): String {
@@ -38,16 +38,16 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
         return r.token to r.user
     }
 
-    suspend fun home(): Home = call("api/home", Home.serializer())
-    suspend fun albums(sort: String = "recent"): List<Album> = call("api/albums?sort=$sort", ListSerializer(Album.serializer()))
-    suspend fun album(id: Int): AlbumDetail = call("api/albums/$id", AlbumDetail.serializer())
-    suspend fun artists(): List<ArtistSummary> = call("api/artists", ListSerializer(ArtistSummary.serializer()))
-    suspend fun artist(name: String): ArtistPage = call(url("api/artist").newBuilder().addQueryParameter("name", name).build(), ArtistPage.serializer())
-    suspend fun playlists(): List<PlaylistSummary> = call("api/playlists", ListSerializer(PlaylistSummary.serializer()))
-    suspend fun playlist(id: Int): PlaylistDetail = call("api/playlists/$id", PlaylistDetail.serializer())
-    suspend fun likes(): List<Track> = call("api/likes", ListSerializer(Track.serializer()))
-    suspend fun mixes(): List<MixSummary> = call("api/mixes", ListSerializer(MixSummary.serializer()))
-    suspend fun mix(key: String): MixDetail = call(url("api/mixes").newBuilder().addPathSegment(key).build(), MixDetail.serializer())
+    override suspend fun home(): Home = call("api/home", Home.serializer())
+    override suspend fun albums(sort: String): List<Album> = call("api/albums?sort=$sort", ListSerializer(Album.serializer()))
+    override suspend fun album(id: Int): AlbumDetail = call("api/albums/$id", AlbumDetail.serializer())
+    override suspend fun artists(): List<ArtistSummary> = call("api/artists", ListSerializer(ArtistSummary.serializer()))
+    override suspend fun artist(name: String): ArtistPage = call(url("api/artist").newBuilder().addQueryParameter("name", name).build(), ArtistPage.serializer())
+    override suspend fun playlists(): List<PlaylistSummary> = call("api/playlists", ListSerializer(PlaylistSummary.serializer()))
+    override suspend fun playlist(id: Int): PlaylistDetail = call("api/playlists/$id", PlaylistDetail.serializer())
+    override suspend fun likes(): List<Track> = call("api/likes", ListSerializer(Track.serializer()))
+    override suspend fun mixes(): List<MixSummary> = call("api/mixes", ListSerializer(MixSummary.serializer()))
+    override suspend fun mix(key: String): MixDetail = call(url("api/mixes").newBuilder().addPathSegment(key).build(), MixDetail.serializer())
 
     /** A listen, for history, mixes and recommendations. */
     suspend fun played(trackId: Int) {
@@ -55,7 +55,7 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     }
 
     /** An album cover at `size` px, or null when the album has none. */
-    fun coverUrl(albumId: Int, version: String?, size: Int): String? =
+    override fun coverUrl(albumId: Int, version: String?, size: Int): String? =
         version?.let { url("api/albums/$albumId/cover?size=$size&v=$it").toString() }
 
     fun streamUrl(trackId: Int, quality: String): String = url("api/tracks/$trackId/stream?q=$quality").toString()

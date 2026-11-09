@@ -25,6 +25,15 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.shelf.AppContainer
+import app.shelf.data.LibrarySource
+import app.shelf.ui.browse.AlbumScreen
+import app.shelf.ui.browse.ArtistScreen
+import app.shelf.ui.browse.FavouritesScreen
+import app.shelf.ui.browse.HomeScreen
+import app.shelf.ui.browse.LibraryScreen
+import app.shelf.ui.browse.MixScreen
+import app.shelf.ui.browse.OnPlay
+import app.shelf.ui.browse.PlaylistScreen
 import app.shelf.R
 import app.shelf.ui.theme.Shelf
 
@@ -47,7 +56,8 @@ private val TABS = listOf(Tab(Routes.HOME, "Home", R.drawable.ic_home), Tab(Rout
 /** The signed-in app: screens, the mini player above the bottom bar, and the bar itself. */
 @Composable
 fun AppNav(container: AppContainer, signedOut: SignedOutHandler, miniPlayer: @Composable () -> Unit = {},
-           screens: AppScreens = AppScreens()) {
+           onPlay: OnPlay = { _, _, _ -> }) {
+    val source: LibrarySource = container.api ?: return
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val current = entry?.destination?.route
@@ -72,13 +82,24 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, miniPlayer: @Co
         },
     ) { inner ->
         NavHost(nav, startDestination = Routes.HOME, modifier = Modifier.padding(inner)) {
-            composable(Routes.HOME) { screens.home(nav, signedOut) }
-            composable(Routes.LIBRARY) { screens.library(nav, signedOut) }
-            composable(Routes.FAVOURITES) { screens.favourites(nav, signedOut) }
-            composable("album/{id}", listOf(navArgument("id") { type = NavType.IntType })) { screens.album(nav, signedOut, it.arguments!!.getInt("id")) }
-            composable("artist/{name}") { screens.artist(nav, signedOut, it.arguments!!.getString("name")!!) }
-            composable("playlist/{id}", listOf(navArgument("id") { type = NavType.IntType })) { screens.playlist(nav, signedOut, it.arguments!!.getInt("id")) }
-            composable("mix/{key}") { screens.mix(nav, signedOut, it.arguments!!.getString("key")!!) }
+            val openAlbum = { id: Int -> nav.navigate(Routes.album(id)) }
+            val openArtist = { name: String -> nav.navigate(Routes.artist(name)) }
+            val back: () -> Unit = { nav.popBackStack() }
+            composable(Routes.HOME) {
+                HomeScreen(source, container.store.username, openAlbum, { nav.navigate(Routes.mix(it)) }, openAlbum, signedOut)
+            }
+            composable(Routes.LIBRARY) {
+                LibraryScreen(source, { nav.navigate(Routes.FAVOURITES) }, { nav.navigate(Routes.playlist(it)) }, openAlbum, openArtist, signedOut)
+            }
+            composable(Routes.FAVOURITES) { FavouritesScreen(source, onPlay, back, signedOut) }
+            composable("album/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
+                AlbumScreen(it.arguments!!.getInt("id"), source, onPlay, openArtist, back, signedOut)
+            }
+            composable("artist/{name}") { ArtistScreen(it.arguments!!.getString("name")!!, source, onPlay, openAlbum, back, signedOut) }
+            composable("playlist/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
+                PlaylistScreen(it.arguments!!.getInt("id"), source, onPlay, back, signedOut)
+            }
+            composable("mix/{key}") { MixScreen(it.arguments!!.getString("key")!!, source, onPlay, back, signedOut) }
         }
     }
 }
@@ -90,20 +111,3 @@ private fun NavHostController.navigateTab(route: String) = navigate(route) {
     restoreState = true
 }
 
-/** The screens behind each route (filled in as they're built; placeholders until then). */
-class AppScreens(
-    val home: @Composable (NavHostController, SignedOutHandler) -> Unit = { _, _ -> Placeholder("Home") },
-    val library: @Composable (NavHostController, SignedOutHandler) -> Unit = { _, _ -> Placeholder("Library") },
-    val favourites: @Composable (NavHostController, SignedOutHandler) -> Unit = { _, _ -> Placeholder("Favourites") },
-    val album: @Composable (NavHostController, SignedOutHandler, Int) -> Unit = { _, _, _ -> Placeholder("Album") },
-    val artist: @Composable (NavHostController, SignedOutHandler, String) -> Unit = { _, _, _ -> Placeholder("Artist") },
-    val playlist: @Composable (NavHostController, SignedOutHandler, Int) -> Unit = { _, _, _ -> Placeholder("Playlist") },
-    val mix: @Composable (NavHostController, SignedOutHandler, String) -> Unit = { _, _, _ -> Placeholder("Mix") },
-)
-
-@Composable
-private fun Placeholder(name: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(name, style = MaterialTheme.typography.displaySmall, color = Shelf.colors.ink2)
-    }
-}
