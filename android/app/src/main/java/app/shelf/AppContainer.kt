@@ -26,14 +26,17 @@ class AppContainer(context: Context) {
         }
         .build()
 
-    private var apiFor: String? = null
+    private var cachedFor: String? = null
     private var cached: ShelfApi? = null
+
+    /** The API of any server address (checking one that was just typed, before it's saved). */
+    fun apiFor(server: String): ShelfApi = ShelfApi("$server/".toHttpUrl(), { store.token }, okHttp)
 
     /** The API for the chosen server (null before one is chosen). */
     val api: ShelfApi?
         get() {
             val s = store.server ?: return null
-            if (s != apiFor) { cached = ShelfApi("$s/".toHttpUrl(), { store.token }, okHttp); apiFor = s }
+            if (s != cachedFor) { cached = apiFor(s); cachedFor = s }
             return cached
         }
 }

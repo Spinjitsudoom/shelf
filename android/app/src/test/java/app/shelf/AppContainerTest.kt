@@ -28,4 +28,16 @@ class AppContainerTest {
         assertNull(other.takeRequest().headers["Authorization"])
         ours.close(); other.close()
     }
+
+    /** The first connect happens before any server is saved: checking a typed address must still work. */
+    @Test
+    fun apiForWorksBeforeAServerIsSaved() {
+        val server = MockWebServer().apply { start(InetAddress.getByName("127.0.0.1"), 0) }
+        server.enqueue(MockResponse.Builder().addHeader("Content-Type", "application/json").body("""{"app":"shelf","version":"0.6.0"}""").build())
+        val c = AppContainer(ApplicationProvider.getApplicationContext())
+        c.store.server = null
+        val version = kotlinx.coroutines.runBlocking { c.apiFor(server.url("/").toString().trimEnd('/')).ping() }
+        assertEquals("0.6.0", version)
+        server.close()
+    }
 }

@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             ShelfTheme {
                 val start: StartViewModel = viewModel(factory = viewModelFactory {
-                    initializer { StartViewModel(container.store) { container.api!! } }
+                    initializer { StartViewModel(container.store, container::apiFor) }
                 })
                 val state by start.state.collectAsStateWithLifecycle()
                 LaunchedEffect(Unit) { start.start() }
