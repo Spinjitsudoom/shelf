@@ -69,3 +69,10 @@ data class MixDetail(
 )
 
 @Serializable data class Home(val recent: List<Album> = emptyList(), val added: List<Album> = emptyList(), val rediscover: List<Album> = emptyList())
+
+@Serializable data class SearchArtist(val name: String, val albums: Int = 0)
+
+@Serializable
+data class SearchResults(val artists: List<SearchArtist> = emptyList(), val albums: List<Album> = emptyList(), val tracks: List<Track> = emptyList()) {
+    val isEmpty get() = artists.isEmpty() && albums.isEmpty() && tracks.isEmpty()
+}

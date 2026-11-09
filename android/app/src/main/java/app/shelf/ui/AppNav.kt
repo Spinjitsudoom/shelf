@@ -62,6 +62,7 @@ object Routes {
     const val LIBRARY = "library"
     const val FAVOURITES = "favourites"
     const val SETTINGS = "settings"
+    const val SEARCH = "search"
     fun album(id: Int) = "album/$id"
     fun artist(name: String) = "artist/${android.net.Uri.encode(name)}"
     fun playlist(id: Int) = "playlist/$id"
@@ -69,7 +70,7 @@ object Routes {
 }
 
 private data class Tab(val route: String, val label: String, val icon: Int)
-private val TABS = listOf(Tab(Routes.HOME, "Home", R.drawable.ic_home), Tab(Routes.LIBRARY, "Library", R.drawable.ic_library))
+private val TABS = listOf(Tab(Routes.HOME, "Home", R.drawable.ic_home), Tab(Routes.SEARCH, "Search", R.drawable.ic_search), Tab(Routes.LIBRARY, "Library", R.drawable.ic_library))
 
 /** The signed-in app: screens, the mini player above the bottom bar, and the bar itself. */
 @Composable
@@ -124,6 +125,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                 HomeScreen(source, container.store.username, openAlbum, { nav.navigate(Routes.mix(it)) }, openAlbum, signedOut,
                     onSettings = { nav.navigate(Routes.SETTINGS) })
             }
+            composable(Routes.SEARCH) { app.shelf.ui.search.SearchScreen(container.api!!, onPlay, openAlbum, openArtist) }
             composable(Routes.LIBRARY) {
                 LibraryScreen(source, { nav.navigate(Routes.FAVOURITES) }, { nav.navigate(Routes.playlist(it)) }, openAlbum, openArtist, signedOut)
             }

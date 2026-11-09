@@ -54,6 +54,8 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     override suspend fun like(trackId: Int) { send("PUT", "api/likes/$trackId") }
     override suspend fun unlike(trackId: Int) { send("DELETE", "api/likes/$trackId") }
 
+    suspend fun search(q: String): SearchResults = call(url("api/search").newBuilder().addQueryParameter("q", q).build(), SearchResults.serializer())
+
     /** A listen, for history, mixes and recommendations. */
     suspend fun played(trackId: Int) {
         call("api/tracks/$trackId/played", JsonObject.serializer(), ByteArray(0).toRequestBody(null))
