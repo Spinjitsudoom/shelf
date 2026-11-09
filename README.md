@@ -140,28 +140,44 @@ own Favourites, playlists, listening history and Connect devices.
 - Signing in from scripts or apps: `POST /api/login {username, password}` returns a
   `token`; send it as `Authorization: Bearer <token>`.
 
-## Android app
+## Android apps
 
-A small app in [android/](android/) opens Shelf full screen. On first launch it asks for the
+There are two, and they can be installed side by side:
+
+- **Shelf** (`Shelf-x.y.z.apk`, about 13 MB) is the full app, described below.
+- **Shelf Lite** (`Shelf-x.y.z-Lite.apk`, under 100 KB) is the lightweight version: Shelf's web
+  app full screen in a small shell, with a media notification, the widget and background play.
+  It's for older or low-storage phones (Android 5 and up), and it gets the web app's newest
+  features first.
+
+Shelf for Android ([android/](android/)) is a native app (Android 8 and up). On first launch it asks for the
 server address (like `192.168.1.20:4533` at home, or a Tailscale name away from it), then you
 sign in. **Change server** on the sign-in screen or in Settings goes back to that screen.
-Links to YouTube or Wikipedia open in their own apps.
 
-While music plays, Shelf shows a media notification (also on the lock screen) with the cover,
-a seek bar and previous, play/pause and next. Headphone buttons, Bluetooth and car displays
-work too. It keeps the phone awake for the music, so it plays on with the screen off. When the
-phone is the remote for another device, the notification shows and controls that device.
+- **Listening:** Home, Search, Library (with Favourites and your playlists), albums, artists,
+  Shelf Mixes, song and artist radio, synced lyrics, and Now Playing with swipe-to-skip and
+  your choice of jewel cases or vinyl.
+- **Playlists:** make them, add songs from any song's menu, reorder, rename and delete.
+- **Offline:** download an album, a playlist or Favourites; with no connection, they play from
+  the phone.
+- **Background:** the music runs in Android's media engine, so it plays on with the screen off
+  or the app swiped away. The notification, lock screen, headphone and Bluetooth buttons,
+  Android Auto and a home-screen widget all control it.
+- **Devices:** the phone can play for your other devices, or be a remote for one of them
+  (its buttons, notification and volume keys then control that device).
+- **Updates:** it checks GitHub for new releases every few hours and offers to install them
+  (Settings → Check for updates does it now). Admins also get the admin dashboard in Settings.
 
-There's also a home-screen widget (long-press the home screen → Widgets → Shelf): the cover,
-song and artist, with previous, play/pause and next. It stretches to any width. With Shelf
-closed it says nothing's playing, and a tap opens the app.
+It updates the earlier WebView app in place (same package and signing key): open it once and
+sign in again. Anything downloaded in the old app needs downloading again. To keep the old,
+lighter app instead, install Shelf Lite.
 
-To build it yourself and install it on a phone connected with USB debugging (no Android
-Studio needed; it expects a JDK and the Android SDK in `~/.local/share/android-build/`, or
-set `JAVA_HOME` and `ANDROID_HOME`):
+To build it yourself (a JDK 17+ and the Android SDK; Gradle comes with it):
 
 ```bash
-bash android-legacy/build.sh --install     # or --install <device serial>
+cd android && ./gradlew assembleRelease            # app/build/outputs/apk/release/app-release.apk
+./gradlew assembleRelease -Ppreview                # "Shelf Preview", installs beside the released app
+bash android-lite/build.sh --install               # Shelf Lite (no Gradle; --install <serial> for one phone)
 ```
 
 Requirements: [uv](https://docs.astral.sh/uv/) and `ffmpeg` on the PATH.
@@ -478,8 +494,8 @@ The other pieces:
 
 | Folder | What | Build it |
 |---|---|---|
-| [android-legacy/](android-legacy/) | Today's Android player (a WebView app, no Gradle) | `bash android-legacy/build.sh` |
-| [android/](android/) | The native Android app, in progress ("Shelf Preview"; see [the design](docs/superpowers/specs/2026-11-09-native-android-design.md)) | `cd android && ./gradlew assembleRelease` |
+| [android/](android/) | Shelf for Android (native: Kotlin, Compose and Media3; see [the design](docs/superpowers/specs/2026-11-09-native-android-design.md)) | `cd android && ./gradlew assembleRelease` |
+| [android-lite/](android-lite/) | Shelf Lite, the lightweight Android app (the web app in a small shell, no Gradle) | `bash android-lite/build.sh` |
 | [desktop/](desktop/) | The Windows and Linux player (Electron) | `cd desktop && npm ci && npx electron-builder --linux deb` (or `--win nsis`) |
 | [packaging/flatpak/](packaging/flatpak/) | The player as a Flatpak | see the comment at the top of the manifest |
 | [packaging/windows/](packaging/windows/) | Shelf Server for Windows (PyInstaller, Inno Setup) | see [the release workflow](.github/workflows/release.yml) |

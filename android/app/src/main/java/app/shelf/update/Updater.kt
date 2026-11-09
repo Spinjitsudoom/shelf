@@ -32,10 +32,10 @@ fun versionCode(tag: String): Int {
     return n[0] * 10000 + n[1] * 100 + n[2]
 }
 
-/** The Android app's download link in a GitHub release, if it has one. */
+/** This app's download link in a GitHub release (Shelf-x.apk, not Shelf Lite's Shelf-x-Lite.apk), if it has one. */
 fun apkAsset(release: JsonObject): String? = runCatching {
     release["assets"]?.jsonArray?.map { it.jsonObject }
-        ?.lastOrNull { (it["name"] as? JsonPrimitive)?.contentOrNull?.endsWith(".apk") == true }
+        ?.lastOrNull { (it["name"] as? JsonPrimitive)?.contentOrNull?.let { n -> n.endsWith(".apk") && !n.endsWith("-Lite.apk") } == true }
         ?.let { (it["browser_download_url"] as? JsonPrimitive)?.contentOrNull }
 }.getOrNull()
 

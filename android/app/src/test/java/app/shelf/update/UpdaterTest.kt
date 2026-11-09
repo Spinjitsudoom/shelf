@@ -21,6 +21,7 @@ class UpdaterTest {
         val rel = Json.parseToJsonElement("""{"tag_name":"v0.7.0","assets":[
             {"name":"Shelf-0.7.0.exe","browser_download_url":"https://x/exe"},
             {"name":"Shelf-0.7.0.apk","browser_download_url":"https://x/apk"},
+            {"name":"Shelf-0.7.0-Lite.apk","browser_download_url":"https://x/lite"},
             {"name":"shelf_0.7.0_amd64.deb","browser_download_url":"https://x/deb"}]}""").jsonObject
         assertEquals("https://x/apk", apkAsset(rel))
         assertNull(apkAsset(Json.parseToJsonElement("""{"assets":[]}""").jsonObject))

@@ -16,7 +16,7 @@
 
     <!-- Home servers are usually plain http on the local network. -->
     <application
-        android:label="Shelf"
+        android:label="Shelf Lite"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Shelf"
         android:usesCleartextTraffic="true"
@@ -36,7 +36,7 @@
         <receiver
             android:name=".NowPlayingWidget"
             android:exported="true"
-            android:label="Shelf">
+            android:label="Shelf Lite">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

@@ -4,9 +4,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class SmokeTest {
-    /** Until the switch-over, the native app installs beside the WebView app as its own app. */
+    /** Shelf is app.shelf, so it updates the WebView app in place (Shelf Lite is app.shelf.lite; -Ppreview is app.shelf.preview). */
     @Test
-    fun appIdIsPreview() {
-        assertEquals("app.shelf.preview", BuildConfig.APPLICATION_ID)
+    fun appIdIsShelf() {
+        assertEquals("app.shelf", BuildConfig.APPLICATION_ID)
     }
 }

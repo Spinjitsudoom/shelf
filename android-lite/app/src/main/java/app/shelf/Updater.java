@@ -88,7 +88,9 @@ final class Updater {
             JSONArray assets = rel.optJSONArray("assets");
             for (int i = 0; assets != null && i < assets.length(); i++) {
                 JSONObject a = assets.getJSONObject(i);
-                if (a.optString("name").endsWith(".apk")) url = a.optString("browser_download_url");
+                String name = a.optString("name");
+                // Releases carry Shelf (Shelf-x.apk) and Shelf Lite (Shelf-x-Lite.apk): take Lite's.
+                if (name.endsWith("-Lite.apk")) url = a.optString("browser_download_url");
             }
             if (url == null) return;
 
@@ -123,7 +125,7 @@ final class Updater {
         @SuppressWarnings("deprecation")
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(ctx, CHANNEL) : new Notification.Builder(ctx);
         b.setSmallIcon(R.drawable.ic_stat)
-            .setContentTitle("Shelf " + version + " is ready")
+            .setContentTitle("Shelf Lite " + version + " is ready")
             .setContentText("Tap to install the update.")
             .setColor(0xFF2C4FD0)
             .setContentIntent(tap)

@@ -10,6 +10,9 @@ plugins {
 val shelfVersionName = (findProperty("versionName") as String?) ?: "0.7.0"
 val shelfVersionCode = ((findProperty("versionCode") as String?) ?: "700").toInt()
 
+// -Ppreview builds "Shelf Preview" (app.shelf.preview), which installs beside the released app for trying changes.
+val preview = providers.gradleProperty("preview").isPresent
+
 // The same signing key as the app it will replace (so it can update it in place).
 val keystore = File(System.getenv("SHELF_KEYSTORE") ?: "${System.getProperty("user.home")}/.local/share/android-build/debug.keystore")
 
@@ -18,7 +21,8 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "app.shelf.preview" // beside the WebView app until the switch-over (then "app.shelf")
+        applicationId = if (preview) "app.shelf.preview" else "app.shelf" // app.shelf replaces the WebView app (same key)
+        resValue("string", "app_name", if (preview) "Shelf Preview" else "Shelf")
         minSdk = 26
         targetSdk = 36
         versionCode = shelfVersionCode
@@ -48,6 +52,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        resValues = true // the app name: "Shelf", or "Shelf Preview" with -Ppreview
     }
 
     testOptions {

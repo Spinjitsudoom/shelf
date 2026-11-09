@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Build (and with --install, install) Shelf for Android without Gradle: aapt2, javac, d8,
-# zipalign and apksigner from the Android SDK. Set ANDROID_HOME and JAVA_HOME, or the
-# defaults under ~/.local/share/android-build are used.
-#   bash android/build.sh [--install [device-serial]]
+# Build (and with --install, install) Shelf Lite, the lightweight Android app (Shelf's web app
+# in a small shell), without Gradle: aapt2, javac, d8, zipalign and apksigner from the Android
+# SDK. Set ANDROID_HOME and JAVA_HOME, or the defaults under ~/.local/share/android-build are used.
+#   bash android-lite/build.sh [--install [device-serial]]
+# It installs as app.shelf.lite, beside Shelf (the native app, app.shelf). The Java code keeps
+# its app.shelf package; only the installed package name changes.
 set -euo pipefail
 cd "$(dirname "$0")"
 TOOLS="${ANDROID_BUILD:-$HOME/.local/share/android-build}"
@@ -19,7 +21,8 @@ VERSION_NAME="${VERSION_NAME:-0.5}"
 rm -rf "$OUT" && mkdir -p "$OUT/classes" "$OUT/dex" "$OUT/gen"
 "$BT/aapt2" compile --dir "$APP/res" -o "$OUT/res.zip"
 "$BT/aapt2" link -o "$OUT/unsigned.apk" -I "$JAR" --manifest "$APP/AndroidManifest.xml" -A "$APP/assets" \
-  --min-sdk-version 21 --target-sdk-version 34 --version-code $VERSION_CODE --version-name $VERSION_NAME --java "$OUT/gen" "$OUT/res.zip"
+  --min-sdk-version 21 --target-sdk-version 34 --version-code $VERSION_CODE --version-name $VERSION_NAME \
+  --rename-manifest-package app.shelf.lite --java "$OUT/gen" "$OUT/res.zip"
 "$JAVA_HOME/bin/javac" -nowarn -Xlint:-options -source 8 -target 8 -encoding UTF-8 -classpath "$JAR" \
   -d "$OUT/classes" $(find "$APP/java" "$OUT/gen" -name '*.java')
 "$BT/d8" --release --min-api 21 --lib "$JAR" --output "$OUT/dex" $(find "$OUT/classes" -name '*.class')

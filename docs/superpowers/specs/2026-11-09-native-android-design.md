@@ -57,6 +57,11 @@ engine playing the music in a background service that outlives everything else.
 - **The same package name (`app.shelf`) and signing key** once it replaces the current app, so
   it installs over it.
 
+- **The WebView app stays, as Shelf Lite** (owner, 2026-11-10): the lightweight version,
+  installed beside Shelf as `app.shelf.lite`, built from `android-lite/`, and shipped in every
+  release as `Shelf-x.y.z-Lite.apk`. Shelf (the native app) takes `app.shelf` and updates the
+  WebView app on phones that have it.
+
 ## My calls (the owner can overrule these)
 
 1. **Built alongside, then switched over.** Until it matches today's app for everyday
@@ -150,8 +155,8 @@ Each milestone is installable on the Redmi as Shelf Preview and checked there be
 ## Build and release
 
 - Gradle (wrapper checked in), Kotlin and the Compose BOM, with versions pinned and at least
-  two weeks old. It lives in `android/` (the old WebView app moves to `android-legacy/` until
-  the switch-over, then it's removed).
+  two weeks old. It lives in `android/` (the WebView app lives on as Shelf Lite in
+  `android-lite/`).
 - CI builds and signs it with the same `ANDROID_KEYSTORE_BASE64` secret. The versionCode
   keeps the current scheme (`major*10000 + minor*100 + patch`).
 - Tests: unit tests for the API client, the Connect protocol and queue logic, Compose UI tests
