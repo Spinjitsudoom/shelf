@@ -1,6 +1,7 @@
 package app.shelf.ui.browse
 
 import androidx.compose.foundation.background
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,7 +50,7 @@ import app.shelf.ui.theme.Shelf as Theme
 
 private data class LibraryData(val playlists: List<PlaylistSummary>, val albums: List<Album>, val artists: List<ArtistSummary>)
 
-private enum class Filter(val label: String) { Playlists("Playlists"), Albums("Albums"), Artists("Artists") }
+private enum class Filter(val label: String) { Playlists("Playlists"), Albums("Albums"), Artists("Artists"), Downloaded("Downloaded") }
 
 @Composable
 fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (Int) -> Unit, onAlbum: (Int) -> Unit, onArtist: (String) -> Unit,
@@ -63,6 +64,8 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
         }
     }
     var filter by rememberSaveable { mutableStateOf<Filter?>(null) }
+    val downloads = app.shelf.downloads.LocalDownloads.current
+    val downloaded by (downloads?.items ?: kotlinx.coroutines.flow.MutableStateFlow(emptyList())).collectAsStateWithLifecycle()
     LoadContent(state, retry, signedOut) { d ->
         LazyColumn(Modifier.fillMaxSize()) {
             item {
@@ -71,7 +74,7 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
                     Spacer(Modifier.height(10.dp))
                 }
                 LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(Filter.entries) { f ->
+                    items(Filter.entries.filter { it != Filter.Downloaded || downloaded.isNotEmpty() }) { f ->
                         FilterChip(selected = filter == f, onClick = { filter = if (filter == f) null else f }, label = { Text(f.label) },
                             colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Theme.colors.cobalt, selectedLabelColor = Theme.colors.cobaltInk,
                                 labelColor = Theme.colors.ink))
@@ -102,6 +105,16 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
             if (filter == null || filter == Filter.Artists) items(d.artists, key = { "r${it.name}" }) { r ->
                 LibraryRow(r.name, "Artist", { onArtist(r.name) }) {
                     ArtistAvatar(r.coverAlbumId?.let { source.coverUrl(it, r.cover, 160) }, r.name, albumColor(null, r.name))
+                }
+            }
+            if (filter == Filter.Downloaded) items(downloaded, key = { "d${it.key}" }) { c ->
+                val open = { when (c.kind) { "album" -> onAlbum(c.id); "playlist" -> onPlaylist(c.id); else -> onFavourites() } }
+                LibraryRow(c.name, listOf(c.kind.replaceFirstChar { it.uppercase() }, plural(c.tracks.size, "song")).joinToString(", "), open) {
+                    when (c.kind) {
+                        "album" -> CaseCover(source.coverUrl(c.id, c.covers.firstOrNull()?.cover, 160), c.name, albumColor(c.color, c.name))
+                        "playlist" -> MosaicCover(c.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 160) }, c.name, albumColor(null, c.name))
+                        else -> FavouritesCover()
+                    }
                 }
             }
             item { Spacer(Modifier.height(24.dp)) }

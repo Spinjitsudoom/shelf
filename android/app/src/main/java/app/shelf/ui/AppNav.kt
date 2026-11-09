@@ -78,7 +78,7 @@ private val TABS = listOf(Tab(Routes.HOME, "Home", R.drawable.ic_home), Tab(Rout
 @Composable
 fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerConnection? = null,
            onChangeServer: () -> Unit = {}, onSignOut: () -> Unit = {}) {
-    val source: LibrarySource = container.api ?: return
+    val source: LibrarySource = remember(container.api) { container.api?.let { app.shelf.downloads.OfflineSource(it, container.downloads.index) } } ?: return
     val nav = rememberNavController()
     val playing by (player?.state ?: kotlinx.coroutines.flow.MutableStateFlow(PlayerUi())).collectAsStateWithLifecycle()
     var nowPlaying by rememberSaveable { mutableStateOf(false) }
@@ -97,7 +97,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     val failed = "Couldn’t save that. Check the connection and try again."
     LaunchedEffect(adding) { if (adding != null) playlists = try { source.playlists() } catch (e: app.shelf.data.ShelfError) { emptyList() } }
     val actions = remember { app.shelf.ui.common.SongActions(open = { t, remove -> menu = t to remove }) }
-    CompositionLocalProvider(app.shelf.ui.common.LocalSongActions provides actions) {
+    CompositionLocalProvider(app.shelf.ui.common.LocalSongActions provides actions, app.shelf.downloads.LocalDownloads provides container.downloads) {
     Box(Modifier.fillMaxSize()) {
     val entry by nav.currentBackStackEntryAsState()
     val current = entry?.destination?.route

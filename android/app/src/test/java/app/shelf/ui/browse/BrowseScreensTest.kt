@@ -38,13 +38,13 @@ class FakeLibrary(var failures: Int = 0) : LibrarySource {
         listOf(track(1, "Opening"), track(2, "Middle"), track(3, "Closer")))
     private fun maybeFail() { if (failures > 0) { failures--; throw ShelfError.Offline() } }
     override suspend fun home() = Home(added = listOf(Album(1, "First Album", "Band")))
-    override suspend fun albums(sort: String) = listOf(Album(1, "First Album", "Band"))
+    override suspend fun albums(sort: String) = maybeFail().let { listOf(Album(1, "First Album", "Band")) }
     override suspend fun album(id: Int): AlbumDetail { maybeFail(); return album }
     override suspend fun artists() = listOf(ArtistSummary("Band", 1, 3))
     override suspend fun artist(name: String) = ArtistPage(name, listOf(Album(1, "First Album", name)), album.tracks)
-    override suspend fun playlists() = listOf(PlaylistSummary(9, "Road trip", trackCount = 2))
-    override suspend fun playlist(id: Int) = PlaylistDetail(id, "Road trip", tracks = album.tracks.take(2))
-    override suspend fun likes() = album.tracks
+    override suspend fun playlists() = maybeFail().let { listOf(PlaylistSummary(9, "Road trip", trackCount = 2)) }
+    override suspend fun playlist(id: Int) = maybeFail().let { PlaylistDetail(id, "Road trip", tracks = album.tracks.take(2)) }
+    override suspend fun likes() = maybeFail().let { album.tracks }
     override suspend fun mixes() = listOf(MixSummary("daily-1", "Shelf Mix 1", "Band and more", "#e8590c", "daily"))
     override suspend fun mix(key: String) = MixDetail(key, "Shelf Mix 1", tracks = album.tracks)
     override fun coverUrl(albumId: Int, version: String?, size: Int): String? = null

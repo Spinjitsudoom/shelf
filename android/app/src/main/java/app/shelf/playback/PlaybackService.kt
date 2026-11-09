@@ -12,10 +12,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.CacheDataSource
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
-import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -41,8 +38,8 @@ import java.io.File
  * the screen off, after Shelf is swiped away and through MIUI's clean-ups. Its media session
  * gives the notification, lock screen, headphone and Bluetooth buttons, and car displays.
  *
- * It streams from the server through the signed-in client, keeps recently played songs in a
- * cache, records plays (PlayCounter), and saves the queue (QueueStore) so it comes back where
+ * It plays downloads from the phone and streams the rest through the signed-in client, keeps
+ * recently played songs in a cache, records plays (PlayCounter), and saves the queue (QueueStore) so it comes back where
  * it was if the app is killed, including for Bluetooth "play" after a restart.
  */
 @OptIn(UnstableApi::class)
@@ -56,6 +53,7 @@ class PlaybackService : MediaLibraryService() {
 
     private val app get() = application as ShelfApp
     private val api: ShelfApi? get() = app.container.api
+    private val downloads get() = app.container.downloads
 
     private val counter = PlayCounter { id ->
         val a = api ?: return@PlayCounter
@@ -77,8 +75,11 @@ class PlaybackService : MediaLibraryService() {
         super.onCreate()
         store = QueueStore(File(filesDir, "queue.json"))
         val upstream = OkHttpDataSource.Factory(app.container.okHttp)
-        val dataSource = CacheDataSource.Factory().setCache(cache(this)).setUpstreamDataSourceFactory(upstream)
+        val recent = CacheDataSource.Factory().setCache(MusicStorage.recent(this)).setUpstreamDataSourceFactory(upstream)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        // Downloads first (read only: the download manager writes them), then recently played, then the server.
+        val dataSource = CacheDataSource.Factory().setCache(MusicStorage.downloads(this)).setUpstreamDataSourceFactory(recent)
+            .setCacheWriteDataSinkFactory(null)
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
@@ -138,7 +139,7 @@ class PlaybackService : MediaLibraryService() {
     /** The playable version of items handed over by a screen (they come without a stream address). */
     private fun playable(items: List<MediaItem>): List<MediaItem> {
         val a = api ?: return emptyList()
-        return items.mapNotNull { item -> item.track()?.let { t -> t.toMediaItem(a, qualityFor(t.codec), item.playContext()) } }
+        return items.mapNotNull { item -> item.track()?.let { t -> t.toMediaItem(a, qualityFor(t.codec), item.playContext(), downloads.uriFor(t.id)) } }
     }
 
     private fun save() {
@@ -153,7 +154,7 @@ class PlaybackService : MediaLibraryService() {
         val s = store.load() ?: return null
         val a = api ?: return null
         if (s.tracks.isEmpty()) return null
-        return MediaItemsWithStartPosition(s.tracks.map { it.toMediaItem(a, qualityFor(it.codec), s.context) },
+        return MediaItemsWithStartPosition(s.tracks.map { it.toMediaItem(a, qualityFor(it.codec), s.context, downloads.uriFor(it.id)) },
             s.index.coerceIn(0, s.tracks.lastIndex), s.positionMs)
     }
 
@@ -180,15 +181,5 @@ class PlaybackService : MediaLibraryService() {
         override fun onPlaybackResumption(session: MediaSession, controller: MediaSession.ControllerInfo, isForPlayback: Boolean):
             ListenableFuture<MediaItemsWithStartPosition> =
             snapshotItems()?.let { Futures.immediateFuture(it) } ?: Futures.immediateFailedFuture(IllegalStateException("Nothing to resume"))
-    }
-
-    companion object {
-        private var cache: SimpleCache? = null
-
-        /** One cache of recently played songs (500 MB), shared for the life of the app. */
-        @Synchronized
-        fun cache(context: Context): SimpleCache = cache ?: SimpleCache(
-            File(context.cacheDir, "music"), LeastRecentlyUsedCacheEvictor(500L * 1024 * 1024), StandaloneDatabaseProvider(context),
-        ).also { cache = it }
     }
 }

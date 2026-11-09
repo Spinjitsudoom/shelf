@@ -13,10 +13,10 @@ private val json = Json { ignoreUnknownKeys = true }
 private const val TRACK = "shelf.track"
 private const val CONTEXT = "shelf.context"
 
-/** A song as the player plays it: streamed from the server, with what the notification and
+/** A song as the player plays it: streamed from the server (or from its download, when there is one), with what the notification and
  * lock screen show, and the song itself and where it was played from carried along. */
-fun Track.toMediaItem(api: ShelfApi, quality: String, context: PlayContext?): MediaItem =
-    toControllerItem(api, context).buildUpon().setUri(api.streamUrl(id, quality)).build()
+fun Track.toMediaItem(api: ShelfApi, quality: String, context: PlayContext?, downloaded: String? = null): MediaItem =
+    toControllerItem(api, context).buildUpon().setUri(downloaded ?: api.streamUrl(id, quality)).build()
 
 /** The same item without its stream address (what a screen hands the player service, which
  * adds the address itself). */

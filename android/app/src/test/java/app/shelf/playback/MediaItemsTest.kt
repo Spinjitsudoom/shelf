@@ -31,4 +31,11 @@ class MediaItemsTest {
         assertEquals(track, item.track())
         assertEquals(ctx, item.playContext())
     }
+
+    @Test fun downloadedSongPlaysFromItsDownload() {
+        // A downloaded song plays from the address it was downloaded with (the copy on the phone), whatever the quality setting is now.
+        val downloaded = "http://192.168.1.20:4533/api/tracks/12/stream?q=original"
+        assertEquals(downloaded, track.toMediaItem(api, "low", ctx, downloaded).localConfiguration!!.uri.toString())
+        assertEquals("http://192.168.1.20:4533/api/tracks/12/stream?q=low", track.toMediaItem(api, "low", ctx, null).localConfiguration!!.uri.toString())
+    }
 }

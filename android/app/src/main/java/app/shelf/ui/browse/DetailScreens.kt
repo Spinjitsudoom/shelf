@@ -41,6 +41,8 @@ fun AlbumScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onArtist: (Strin
             facts = facts(a.year?.toString(), plural(a.tracks.size, "song"), fmtLength(a.duration)),
             tracks = a.tracks, numbered = true, coverUrl = { null },
             onTrack = { onPlay(a.tracks, it, ctx) }, onShuffle = { onPlay(a.tracks.shuffled(), 0, ctx) }, onBack = onBack,
+            actions = { app.shelf.ui.common.DownloadButton(app.shelf.downloads.Downloadable("album", a.id, a.title, a.artist, a.color,
+                listOf(app.shelf.data.CoverRef(a.id, a.cover)), a.tracks)) },
         )
     }
 }
@@ -77,8 +79,9 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
             tracks = p.tracks, numbered = false, coverUrl = { source.cover(it) },
             onTrack = { onPlay(p.tracks, it, ctx) }, onShuffle = { onPlay(p.tracks.shuffled(), 0, ctx) }, onBack = onBack,
             onRemove = if (editable) { i -> p.tracks[i].entryId?.let { e -> change("Removed from ${p.name}") { api!!.removeFromPlaylist(p.id, e) } } } else null,
-            actions = if (editable) { {
-                androidx.compose.foundation.layout.Box {
+            actions = {
+                app.shelf.ui.common.DownloadButton(app.shelf.downloads.Downloadable("playlist", p.id, p.name, p.description ?: "", null, p.covers, p.tracks))
+                if (editable) androidx.compose.foundation.layout.Box {
                     androidx.compose.material3.OutlinedIconButton(onClick = { menu = true }) {
                         androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_edit), "Edit playlist", tint = Shelf.colors.ink)
                     }
@@ -88,7 +91,7 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
                         androidx.compose.material3.DropdownMenuItem({ Text("Delete playlist") }, { menu = false; deleting = true })
                     }
                 }
-            } } else null,
+            },
         )
         if (renaming) {
             var newName = p.name
@@ -147,6 +150,7 @@ fun FavouritesScreen(source: LibrarySource, onPlay: OnPlay, onBack: () -> Unit, 
             facts = facts(plural(tracks.size, "song"), fmtLength(tracks.sumOf { it.duration })),
             tracks = tracks, numbered = false, coverUrl = { source.cover(it) },
             onTrack = { onPlay(tracks, it, ctx) }, onShuffle = { onPlay(tracks.shuffled(), 0, ctx) }, onBack = onBack,
+            actions = { app.shelf.ui.common.DownloadButton(app.shelf.downloads.Downloadable("favourites", 0, "Favourites", tracks = tracks)) },
         )
     }
 }
