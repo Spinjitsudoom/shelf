@@ -35,6 +35,11 @@ class AppContainer(context: Context) {
         app.shelf.downloads.Downloads(context.applicationContext, okHttp, { api }, { settings.settings.value.wifiQuality })
     }
 
+    /** Shelf Connect: this phone among the user's devices (started by the player service). */
+    val connect by lazy {
+        app.shelf.connect.ConnectClient(app.shelf.connect.DeviceIdentity.of(context.applicationContext), okHttp, { store.server })
+    }
+
     private var cachedFor: String? = null
     private var cached: ShelfApi? = null
 
