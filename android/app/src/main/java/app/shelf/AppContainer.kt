@@ -27,6 +27,9 @@ class AppContainer(context: Context) {
         }
         .build()
 
+    /** For anything that isn't our server (GitHub, for updates): no sign-in attached. */
+    val plainHttp: OkHttpClient by lazy { OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build() }
+
     /** Favourites, for every heart in the app. */
     val likes = app.shelf.data.LikesStore({ api }, kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main))
 

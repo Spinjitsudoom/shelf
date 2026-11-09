@@ -23,7 +23,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,6 +79,7 @@ fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: 
         item {
             Text("Shelf for Android $appVersion" + if (serverVersion.isNotEmpty()) ", server $serverVersion" else "",
                 style = MaterialTheme.typography.bodyMedium, color = Shelf.colors.ink2, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            UpdateCheck(container)
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -127,6 +130,32 @@ private fun Choice(title: String, hint: String, value: String, options: List<Pai
                     colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(selectedContainerColor = Shelf.colors.cobalt,
                         selectedLabelColor = Shelf.colors.cobaltInk, labelColor = Shelf.colors.ink))
             }
+        }
+    }
+}
+
+/** "Check for updates": asks GitHub now, and offers to install a newer Shelf. */
+@Composable
+private fun UpdateCheck(container: app.shelf.AppContainer) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    if (!app.shelf.update.Updater.enabled(context)) return
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var busy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var result by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<app.shelf.update.UpdateResult?>(null) }
+    Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        when (val r = result) {
+            is app.shelf.update.UpdateResult.Ready -> androidx.compose.material3.Button(onClick = {
+                context.startActivity(android.content.Intent(context, app.shelf.update.UpdateActivity::class.java).setAction(app.shelf.update.UpdateActivity.ACTION_INSTALL))
+            }) { Text("Install Shelf ${r.version}") }
+            else -> OutlinedButton(enabled = !busy, onClick = {
+                busy = true
+                scope.launch { result = app.shelf.update.Updater(context.applicationContext, container.plainHttp).check(force = true); busy = false }
+            }) { Text(if (busy) "Checking…" else "Check for updates", color = Shelf.colors.ink) }
+        }
+        when (val r = result) {
+            app.shelf.update.UpdateResult.UpToDate -> Text("You have the latest version.", style = MaterialTheme.typography.bodySmall, color = Shelf.colors.ink2)
+            is app.shelf.update.UpdateResult.Failed -> Text(r.message, style = MaterialTheme.typography.bodySmall, color = Shelf.colors.ink2)
+            else -> {}
         }
     }
 }

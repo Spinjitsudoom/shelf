@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val container = (application as ShelfApp).container
+        app.shelf.update.Updater.schedule(this) // look for new versions in the background (released app only)
         val player = PlayerConnection(this) { container.api }.also { this.player = it }
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle()
