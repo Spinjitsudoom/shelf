@@ -398,6 +398,24 @@ async function runAction(action, el) {
       location.hash = `#/playlist/${p.id}`;
       break;
     }
+    case "pl-make": {
+      const made = await dialog({
+        title: "Make a playlist",
+        text: "Describe it, and Shelf picks songs from your library that fit.",
+        fields: [{ name: "prompt", label: "What should it be?", value: "",
+          hint: "A genre, artist, mood or decade, like “metal, high energy”, “chill 90s” or “like Metallica”." }],
+        confirm: "Make it",
+        submit: (v) => {
+          if (!v.prompt.trim()) throw new Error("Describe the playlist first.");
+          return api.makePlaylist(v.prompt.trim());
+        },
+      });
+      if (!made?.trackIds) break;
+      const p = await api.createPlaylist({ name: made.name, description: `Made by Shelf: ${made.understood.join(", ")}.`, trackIds: made.trackIds });
+      toast(`Made “${made.name}” with ${plural(made.trackIds.length, "song")}`);
+      location.hash = `#/playlist/${p.id}`;
+      break;
+    }
     case "pl-edit": await editPlaylist(parseRoute().id); break;
     case "pl-findmore": {
       const sec = view.querySelector(".pl-find");

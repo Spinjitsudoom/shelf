@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, covers, credits, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, peaks, releases, ripper, scrobble, sound, transcode, uploads, videos
+from . import analysis, covers, credits, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, peaks, playlist_maker, releases, ripper, scrobble, sound, transcode, uploads, videos
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -238,6 +238,12 @@ def transition_json(raw: str | None) -> dict:
         except ValueError:
             return {"preset": "auto"}
     return {"preset": raw}
+
+
+class MakeBody(BaseModel):
+    """A playlist from a few words."""
+    prompt: str = Field(min_length=1, max_length=200)
+    size: int = Field(30, ge=1, le=100)
 
 
 class SuggestBody(BaseModel):
@@ -2012,6 +2018,30 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 f"""{TRACK_SELECT} WHERE t.id NOT IN (SELECT track_id FROM playlist_tracks WHERE playlist_id = ?)""",
                 (pid,)).fetchall()
         return _recommend(mine, pool, seed, limit)
+
+    @app.post("/api/playlists/make")
+    def make_playlist(body: MakeBody):
+        """A playlist's songs from a few words ("metal, high energy", "chill 90s", "like Metallica").
+        Nothing is saved: the app creates the playlist with these songs."""
+        me_id = uid()
+        now = time.time()
+        with db() as conn:
+            rows = conn.execute(TRACK_SELECT).fetchall()
+            plays = [(r[0], r[1]) for r in conn.execute(
+                "SELECT track_id, played_at FROM plays WHERE user_id = ? AND played_at > ?", (me_id, now - 400 * 86400))]
+            liked = {r[0] for r in conn.execute("SELECT track_id FROM likes WHERE user_id = ?", (me_id,))}
+        genres = sorted({r["genre"] for r in rows if r["genre"]})
+        artists = sorted({a for r in rows for a in (r["artist"], r["album_artist_name"]) if a})
+        want = playlist_maker.understand(body.prompt, genres, artists)
+        if want.empty:
+            raise HTTPException(400, "Shelf didn’t recognise any of that. Try a genre, an artist, a mood (workout, "
+                                     "chill, party, feel good, melancholy, heavy), “high energy” or a decade like 90s.")
+        ids = playlist_maker.make(rows, sound.energy(rows), mixes.affinity(plays, liked, now), want, _recommend,
+                                  size=body.size, seed=f"{me_id}:{now}")
+        if not ids:
+            raise HTTPException(400, "Nothing on your shelf fits all of that. Try fewer words.")
+        name = body.prompt.strip()
+        return {"name": name[:1].upper() + name[1:], "understood": playlist_maker.describe(want), "trackIds": ids}
 
     @app.post("/api/suggest")
     def suggest(body: SuggestBody):

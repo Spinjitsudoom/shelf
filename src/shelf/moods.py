@@ -73,17 +73,26 @@ def _scale(key: str | None) -> str | None:
     return "minor" if key.endswith("minor") else "major" if key.endswith("major") else None
 
 
-def mood_mixes(rows, energy: dict[int, float], score: dict[int, float], seed: str) -> list[dict]:
-    """The moods that have enough fitting songs: [{key, name, description, color, ids}]."""
+def features(rows, energy: dict[int, float]) -> dict[int, Song]:
+    """Each measured song's mood features, ranked against the rest of the library. Empty when
+    too little of the library is measured to say."""
     measured = [r for r in rows if r["sound"] and r["id"] in energy]
     if len(measured) < MIN_MEASURED:
-        return []
+        return {}
     vecs = {r["id"]: json.loads(r["sound"]) for r in measured}
     dance = _rank({i: v[_DANCE] for i, v in vecs.items()})
     bright = _rank({i: v[_CENTROID] for i, v in vecs.items()})
     noisy = _rank({i: v[_FLATNESS] for i, v in vecs.items()})
-    songs = {r["id"]: Song(energy[r["id"]], dance[r["id"]], bright[r["id"]], noisy[r["id"]],
-                           r["bpm"] or None, _scale(r["musical_key"])) for r in measured}
+    return {r["id"]: Song(energy[r["id"]], dance[r["id"]], bright[r["id"]], noisy[r["id"]],
+                          r["bpm"] or None, _scale(r["musical_key"])) for r in measured}
+
+
+def mood_mixes(rows, energy: dict[int, float], score: dict[int, float], seed: str) -> list[dict]:
+    """The moods that have enough fitting songs: [{key, name, description, color, ids}]."""
+    songs = features(rows, energy)
+    if not songs:
+        return []
+    measured = [r for r in rows if r["id"] in songs]
     top = max(score.values(), default=0) or 1.0
 
     out = []
