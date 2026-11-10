@@ -137,6 +137,7 @@ jobs:
     name: Server (Windows installer)
     needs: version
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -172,8 +173,13 @@ jobs:
       - name: Install it and smoke test the installed copy
         run: |
           $setup = Get-ChildItem dist\Shelf-Server-Setup-*.exe | Select-Object -First 1
-          $p = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+          # A silent install is how updates run, so it starts the server again in the background.
+          # Wait for the installer alone (-Wait would also wait for that server), then stop the server.
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -PassThru
+          if (-not $p.WaitForExit(600000)) { throw "The installer didn't finish in 10 minutes" }
           if ($p.ExitCode -ne 0) { throw "The installer failed ($($p.ExitCode))" }
+          Start-Sleep -Seconds 5
+          Get-Process -Name "Shelf Server", "shelf-server" -ErrorAction SilentlyContinue | Stop-Process -Force
           python packaging/smoke_test.py "$env:LOCALAPPDATA\Programs\Shelf Server\shelf-server.exe"
       - uses: actions/upload-artifact@v7
         with:
