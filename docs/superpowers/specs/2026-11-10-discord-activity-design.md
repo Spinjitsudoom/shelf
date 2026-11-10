@@ -1,6 +1,6 @@
 # Discord Activity — Design
 
-**Status:** draft for the owner's approval.
+**Status:** shelved by the owner (2026-11-10), after approval and before any building. Kept for reference.
 
 ## Intent
 
