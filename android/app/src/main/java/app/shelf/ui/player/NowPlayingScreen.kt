@@ -74,7 +74,8 @@ import androidx.media3.common.Player
 @Composable
 fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConnection, onArtist: (String) -> Unit, onContext: (String) -> Unit, onClose: () -> Unit,
                      liked: Boolean = false, onLike: () -> Unit = {}, lyrics: (suspend (Int) -> app.shelf.data.Lyrics)? = null,
-                     device: String? = null, onDevices: (() -> Unit)? = null) {
+                     device: String? = null, onDevices: (() -> Unit)? = null,
+                     sleep: app.shelf.playback.SleepState? = null, onSleep: (() -> Unit)? = null) {
     val t = state.current ?: return onClose()
     // The album's own colour (the song doesn't carry it), fetched once per album.
     val color by produceState(fallbackColor(t.album), t.albumId) {
@@ -143,6 +144,12 @@ fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConne
             }
             if (device != null) Text("Playing on $device", style = MaterialTheme.typography.labelLarge, color = Shelf.colors.cobalt,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable(onClick = onDevices))
+            Spacer(Modifier.weight(1f))
+            if (onSleep != null) Row(Modifier.clickable(onClick = onSleep).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (sleep?.endsAt != null) Text(sleepLabel(sleep).substringAfter(": "), style = MaterialTheme.typography.labelMedium, color = Shelf.colors.cobalt,
+                    modifier = Modifier.padding(end = 6.dp))
+                Icon(painterResource(R.drawable.ic_clock), sleepLabel(sleep), tint = if (sleep != null) Shelf.colors.cobalt else Shelf.colors.ink2)
+            }
         }
         Spacer(Modifier.height(10.dp))
     }

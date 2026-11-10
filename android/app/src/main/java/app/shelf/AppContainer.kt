@@ -30,6 +30,9 @@ class AppContainer(context: Context) {
     /** For anything that isn't our server (GitHub, for updates): no sign-in attached. */
     val plainHttp: OkHttpClient by lazy { OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build() }
 
+    /** The sleep timer: set from Now Playing, run by the player service. */
+    val sleep = app.shelf.playback.SleepTimer()
+
     /** Favourites, for every heart in the app. */
     val likes = app.shelf.data.LikesStore({ api }, kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main))
 

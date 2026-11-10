@@ -123,6 +123,7 @@ class PlaybackService : MediaLibraryService() {
         startConnect()
         level(player.currentMediaItem)
         scope.launch { app.container.settings.settings.collect { s -> level(player.currentMediaItem); applySound(s) } }
+        startSleepTimer()
         main.post(tick)
     }
 
@@ -203,6 +204,33 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private val sound = ShelfAudioProcessor()
+    private var sleepFade = 1f
+
+    /** The sleep timer: fades this phone's music over its last seconds, then pauses whatever is playing (here, or the device being controlled). */
+    private fun startSleepTimer() {
+        val sleep = app.container.sleep
+        sleep.onStop = { session.player.pause(); sleepFade = 1f; level(player.currentMediaItem) }
+        val fade = object : Runnable {
+            override fun run() {
+                val f = sleep.onTick()
+                if (f != sleepFade) { sleepFade = f; level(player.currentMediaItem) }
+                if (sleep.state.value?.endsAt != null) main.postDelayed(this, 200)
+            }
+        }
+        scope.launch {
+            sleep.state.collect { s ->
+                main.removeCallbacks(fade)
+                if (s?.endsAt != null) main.post(fade) else if (sleepFade != 1f) { sleepFade = 1f; level(player.currentMediaItem) }
+                // "End of this song": the player pauses when the song reaches its end.
+                player.pauseAtEndOfMediaItems = s?.endOfSong == true
+            }
+        }
+        player.addListener(object : Player.Listener {
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) sleep.onSongEnded()
+            }
+        })
+    }
 
     private fun applySound(s: app.shelf.settings.Settings) = sound.setup(if (s.eqEnabled) s.eqGains else null, s.balance, s.mono)
 
@@ -210,7 +238,7 @@ class PlaybackService : MediaLibraryService() {
     private fun level(item: MediaItem?) {
         val s = app.container.settings.settings.value
         val t = item?.track()
-        val levelled = if (s.normalize && t != null) volumeFor(gainDb(t.lufs, t.peak, s.loudness)) else 1f
+        val levelled = (if (s.normalize && t != null) volumeFor(gainDb(t.lufs, t.peak, s.loudness)) else 1f) * sleepFade
         // The volume another device set for this phone (over Connect), on top of the levelling.
         player.volume = levelled * (if (::bridge.isInitialized) bridge.userVolume else 1f)
     }

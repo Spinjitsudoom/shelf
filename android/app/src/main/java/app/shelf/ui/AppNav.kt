@@ -94,6 +94,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     val connectUi by container.connect.ui.collectAsStateWithLifecycle()
     val playingOn = if (connectUi.remote) connectUi.activeDevice?.name?.ifBlank { "Web browser" } else null
     var devicesOpen by remember { mutableStateOf(false) }
+    val sleepState by container.sleep.state.collectAsStateWithLifecycle()
+    var sleepOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { container.likes.refresh() }
     LaunchedEffect(container.store.token) { container.connect.nudge() } // signed in: join the other devices now
     var menu by remember { mutableStateOf<Pair<app.shelf.data.Track, (() -> Unit)?>?>(null) }
@@ -187,7 +189,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                 onContext = { nowPlaying = false; nav.navigate(it) },
                 onClose = { nowPlaying = false },
                 lyrics = api?.let { a -> { id: Int -> a.lyrics(id) } },
-                device = playingOn, onDevices = { devicesOpen = true })
+                device = playingOn, onDevices = { devicesOpen = true },
+                sleep = sleepState, onSleep = { sleepOpen = true })
         }
     }
     menu?.let { (t, remove) ->
@@ -209,6 +212,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
         }
         app.shelf.ui.common.SongMenu(t, source.coverUrl(t.albumId, t.cover, 160), items) { menu = null }
     }
+    if (sleepOpen) app.shelf.ui.player.SleepSheet(container.sleep, sleepState, say) { sleepOpen = false }
     if (devicesOpen) app.shelf.ui.player.DevicesSheet(connectUi, onPick = { id ->
         val u = connectUi
         val playingNowhere = u.activeId == null || u.devices.none { it.id == u.activeId }
