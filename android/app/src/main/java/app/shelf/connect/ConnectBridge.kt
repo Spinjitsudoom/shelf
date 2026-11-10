@@ -160,6 +160,12 @@ class ConnectBridge(
                 if ((opts?.get("shuffle") as? JsonPrimitive)?.booleanOrNull == true) p.shuffleModeEnabled = true
                 p.prepare(); p.play()
             }
+            "insertAt" -> { // party mode: songs at a place in up next (never before the playing one)
+                val ctx = p.currentMediaItem?.playContext()
+                val items = tracksOf(args.getOrNull(1)).map { toItem(it, ctx) }
+                val at = (args.num(0)?.toInt() ?: p.mediaItemCount).coerceIn(p.currentMediaItemIndex + 1, p.mediaItemCount)
+                if (items.isNotEmpty()) p.addMediaItems(at, items)
+            }
             "playNext" -> {
                 val ctx = p.currentMediaItem?.playContext()
                 val items = tracksOf(args.getOrNull(0)).map { toItem(it, ctx) }

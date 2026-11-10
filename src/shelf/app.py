@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, covers, credits, feedback, genres, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos
+from . import analysis, covers, credits, feedback, genres, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -2526,6 +2526,120 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         return {"ok": True}
 
     # ---------- devices ----------
+
+    # ---------- party mode ----------
+
+    parties: dict[int, party.Party] = {}
+
+    def _party(host: int) -> party.Party:
+        p = parties.get(host)
+        if p is None:
+            raise HTTPException(404, "That party has ended")
+        return p
+
+    def _party_queue(host: int):
+        """(the host's queue as track dicts, the index playing), from their Connect session."""
+        hub = hubs.get(host)
+        if not hub or not hub.state or not hub.active or hub.active not in hub.devices:
+            return None, 0
+        return (hub.queue or {}).get("tracks") or [], int(hub.state.get("index") or 0)
+
+    @app.post("/api/party")
+    def start_party():
+        """Start a party: other people here can join your playing, add songs and vote to skip."""
+        me_id = uid()
+        p = parties.setdefault(me_id, party.Party(host=me_id, started=time.time()))
+        return {"host": me_id, "started": p.started}
+
+    @app.delete("/api/party")
+    def end_party():
+        if parties.pop(uid(), None) is None:
+            raise HTTPException(404, "You’re not hosting a party")
+        return {"ok": True}
+
+    @app.get("/api/parties")
+    def list_parties():
+        """The parties going on, to join."""
+        with db() as conn:
+            names = {r["id"]: r["username"] for r in conn.execute("SELECT id, username FROM users")}
+        now = time.time()
+        return [{"host": {"id": h, "username": names.get(h, "Someone")}, "people": len(p.present(now)),
+                 "joined": uid() in p.members} for h, p in parties.items() if h in names]
+
+    @app.post("/api/party/{host}/join")
+    def join_party(host: int):
+        _party(host).join(uid(), time.time())
+        return {"ok": True}
+
+    @app.post("/api/party/{host}/leave")
+    def leave_party(host: int):
+        _party(host).leave(uid())
+        return {"ok": True}
+
+    @app.get("/api/party/{host}")
+    def party_status(host: int):
+        """What's playing at the party, what's next, who's there and the skip votes."""
+        p = _party(host)
+        me_id, now = uid(), time.time()
+        p.seen(me_id, now)
+        queue, index = _party_queue(host)
+        hub = hubs.get(host)
+        with db() as conn:
+            names = {r["id"]: r["username"] for r in conn.execute("SELECT id, username FROM users")}
+        if queue is not None:
+            p.prune([t.get("id") for t in queue], index)
+        current = queue[index] if queue and 0 <= index < len(queue) else None
+        if current and current.get("id") != p.vote_track:
+            p.vote_track, p.votes = current.get("id"), set()
+        return {
+            "host": {"id": host, "username": names.get(host, "Someone")}, "isHost": me_id == host,
+            "joined": me_id == host or me_id in p.members,
+            "members": [names.get(u, "Someone") for u in [host, *sorted(p.members)] if u in p.present(now)],
+            "nowPlaying": current, "playing": bool(hub and hub.state and hub.state.get("playing")),
+            "upNext": (queue or [])[index + 1: index + 11],
+            "votes": len(p.votes), "needed": p.needed(now), "youVoted": me_id in p.votes,
+        }
+
+    @app.post("/api/party/{host}/add")
+    async def party_add(host: int, body: PlaylistAdd):
+        """Songs to play at the party: after the one playing, behind those added before them."""
+        p = _party(host)
+        me_id = uid()
+        if me_id != host and me_id not in p.members:
+            raise HTTPException(403, "Join the party first")
+        queue, index = _party_queue(host)
+        if queue is None:
+            raise HTTPException(409, "Nothing’s playing at this party right now")
+        with db() as conn:
+            marks = ",".join("?" * len(body.trackIds)) or "NULL"
+            rows = {r["id"]: r for r in conn.execute(f"{TRACK_SELECT} WHERE t.id IN ({marks})", body.trackIds)}
+        tracks = [track_json(rows[i]) for i in body.trackIds if i in rows]
+        if not tracks:
+            raise HTTPException(404, "Those songs aren’t on the shelf")
+        ids = [t.get("id") for t in queue]
+        p.prune(ids, index)
+        at = party.insert_at(ids, index, p.pending)
+        if not await hubs[host].command("insertAt", at, tracks):
+            raise HTTPException(409, "Nothing’s playing at this party right now")
+        p.pending += [t["id"] for t in tracks]
+        p.seen(me_id, time.time())
+        return {"added": len(tracks), "at": at}
+
+    @app.post("/api/party/{host}/skip")
+    async def party_skip(host: int):
+        """A vote to skip the song that's playing."""
+        p = _party(host)
+        me_id, now = uid(), time.time()
+        if me_id != host and me_id not in p.members:
+            raise HTTPException(403, "Join the party first")
+        p.seen(me_id, now)
+        queue, index = _party_queue(host)
+        if not queue:
+            raise HTTPException(409, "Nothing’s playing at this party right now")
+        if p.vote(me_id, queue[index].get("id"), now):
+            await hubs[host].command("next")
+            return {"skipped": True, "votes": 0, "needed": p.needed(now)}
+        return {"skipped": False, "votes": len(p.votes), "needed": p.needed(now)}
 
     @app.websocket("/api/connect")
     async def connect_ws(ws: WebSocket):

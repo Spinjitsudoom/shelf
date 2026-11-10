@@ -151,6 +151,16 @@ export class Player extends EventTarget {
     this._queueChanged();
   }
 
+  /** Party mode: songs at place `i` in up next (never before the playing one). */
+  insertAt(i, tracks) {
+    if (!Array.isArray(tracks) || !tracks.length) return;
+    if (!this.current) return this.playList(tracks);
+    const at = Math.min(Math.max(Number(i) || 0, this.index + 1), this.queue.length);
+    this.queue.splice(at, 0, ...tracks);
+    this.original?.push(...tracks);
+    this._queueChanged();
+  }
+
   /** Move a song that's still to come; it stays among the songs to come (as the phone's queue drags it). */
   moveItem(from, to) {
     if (!Number.isInteger(from) || !Number.isInteger(to) || from <= this.index || from >= this.queue.length) return;

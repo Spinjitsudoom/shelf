@@ -85,6 +85,15 @@ class ConnectBridgeTest {
         assertEquals("Song 1", exo.getMediaItemAt(0).mediaMetadata.title)
     }
 
+    @Test fun insertAtPutsPartySongsInPlace() {
+        load(3)
+        bridge.onCmd("insertAt", JsonArray(listOf(JsonPrimitive(1), tracksJson(listOf(tr(8), tr(9))))))
+        assertEquals(listOf("Song 1", "Song 8", "Song 9", "Song 2", "Song 3"), (0 until exo.mediaItemCount).map { exo.getMediaItemAt(it).mediaMetadata.title.toString() })
+        bridge.onCmd("insertAt", JsonArray(listOf(JsonPrimitive(0), tracksJson(listOf(tr(7)))))) // never before the playing song
+        assertEquals("Song 7", exo.getMediaItemAt(1).mediaMetadata.title.toString())
+        assertEquals(0, exo.currentMediaItemIndex)
+    }
+
     @Test fun takeoverLoadsSnapshot() {
         bridge.onTakeover(Snapshot(listOf(tr(1), tr(2), tr(3)), 2, 42.0, true))
         assertEquals(3, exo.mediaItemCount); assertEquals(2, exo.currentMediaItemIndex)

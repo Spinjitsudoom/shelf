@@ -310,6 +310,7 @@ export class Controller extends EventTarget {
       jumpTo: (i) => p.jumpTo(i),
       removeAt: (i) => p.removeAt(i),
       moveItem: (from, to) => p.moveItem(Number(from), Number(to)),
+      insertAt: (i, tracks) => p.insertAt(Number(i), tracks),
       clearUpNext: () => p.clearUpNext(),
       toggle: () => p.toggle(),
       play: () => p.play(),
