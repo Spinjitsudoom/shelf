@@ -45,6 +45,7 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     override suspend fun albums(sort: String): List<Album> = call("api/albums?sort=$sort", ListSerializer(Album.serializer()))
     override suspend fun album(id: Int): AlbumDetail = call("api/albums/$id", AlbumDetail.serializer())
     suspend fun lyrics(id: Int): Lyrics = call("api/tracks/$id/lyrics", Lyrics.serializer())
+    suspend fun video(id: Int): VideoInfo = call("api/tracks/$id/video", VideoInfo.serializer())
     override suspend fun artists(): List<ArtistSummary> = call("api/artists", ListSerializer(ArtistSummary.serializer()))
     override suspend fun artist(name: String): ArtistPage = call(url("api/artist").newBuilder().addQueryParameter("name", name).build(), ArtistPage.serializer())
     override suspend fun playlists(): List<PlaylistSummary> = call("api/playlists", ListSerializer(PlaylistSummary.serializer()))

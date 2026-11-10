@@ -75,7 +75,8 @@ import androidx.media3.common.Player
 fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConnection, onArtist: (String) -> Unit, onContext: (String) -> Unit, onClose: () -> Unit,
                      liked: Boolean = false, onLike: () -> Unit = {}, lyrics: (suspend (Int) -> app.shelf.data.Lyrics)? = null,
                      device: String? = null, onDevices: (() -> Unit)? = null,
-                     sleep: app.shelf.playback.SleepState? = null, onSleep: (() -> Unit)? = null) {
+                     sleep: app.shelf.playback.SleepState? = null, onSleep: (() -> Unit)? = null,
+                     video: (suspend (Int) -> app.shelf.data.VideoInfo)? = null) {
     val t = state.current ?: return onClose()
     // The album's own colour (the song doesn't carry it), fetched once per album.
     val color by produceState(fallbackColor(t.album), t.albumId) {
@@ -145,6 +146,15 @@ fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConne
             if (device != null) Text("Playing on $device", style = MaterialTheme.typography.labelLarge, color = Shelf.colors.cobalt,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable(onClick = onDevices))
             Spacer(Modifier.weight(1f))
+            // The song's music video, in the YouTube app, from where the song is (the song pauses).
+            val clip by produceState<app.shelf.data.VideoInfo?>(null, t.id) { value = video?.let { runCatching { it(t.id) }.getOrNull() } }
+            val context = LocalContext.current
+            clip?.videoId?.takeIf { clip?.found == true }?.let { id ->
+                IconButton(onClick = {
+                    if (state.playing) player.toggle()
+                    youtubeIntents(id, (state.positionMs / 1000).toInt()).firstOrNull { runCatching { context.startActivity(it) }.isSuccess }
+                }) { Icon(painterResource(R.drawable.ic_video), "Watch the video", tint = Shelf.colors.ink2) }
+            }
             if (onSleep != null) Row(Modifier.clickable(onClick = onSleep).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (sleep?.endsAt != null) Text(sleepLabel(sleep).substringAfter(": "), style = MaterialTheme.typography.labelMedium, color = Shelf.colors.cobalt,
                     modifier = Modifier.padding(end = 6.dp))

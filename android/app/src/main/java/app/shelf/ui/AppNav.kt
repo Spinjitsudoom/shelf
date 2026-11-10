@@ -190,7 +190,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                 onClose = { nowPlaying = false },
                 lyrics = api?.let { a -> { id: Int -> a.lyrics(id) } },
                 device = playingOn, onDevices = { devicesOpen = true },
-                sleep = sleepState, onSleep = { sleepOpen = true })
+                sleep = sleepState, onSleep = { sleepOpen = true },
+                video = api?.let { a -> { id: Int -> a.video(id) } })
         }
     }
     menu?.let { (t, remove) ->

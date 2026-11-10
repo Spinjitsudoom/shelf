@@ -174,4 +174,14 @@ class ShelfApiTest {
         assertEquals("Words", api.lyrics(7).text)
         assertEquals("none", api.lyrics(7).kind)
     }
+
+    @Test fun videoParses() = runTest {
+        json("""{"found":true,"videoId":"abc123XYZ_-","title":"Dream On (Official Video)","channel":"Aerosmith"}""")
+        json("""{"found":false}""")
+        val v = api.video(7)
+        assertEquals("/api/tracks/7/video", server.takeRequest().url.encodedPath)
+        assertEquals("abc123XYZ_-", v.videoId)
+        assertTrue(v.found)
+        assertEquals(false, api.video(8).found)
+    }
 }

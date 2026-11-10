@@ -85,3 +85,7 @@ data class LyricLine(val t: Double, val text: String = "")
 /** A song's lyrics: [kind] is synced (timed [lines]), plain ([text]), instrumental, or none. */
 @Serializable
 data class Lyrics(val kind: String = "none", val lines: List<LyricLine> = emptyList(), val text: String? = null)
+
+/** A song's official video on YouTube, if the server found one. */
+@Serializable
+data class VideoInfo(val found: Boolean = false, val videoId: String? = null, val title: String? = null, val channel: String? = null)
