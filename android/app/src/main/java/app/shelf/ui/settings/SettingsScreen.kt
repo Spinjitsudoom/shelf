@@ -61,6 +61,13 @@ fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: 
                 listOf("auto" to "Automatic") + QUALITIES.drop(1)) { v -> set { it.copy(dataQuality = v) } }
         }
         item { Toggle("Autoplay", "When the music runs out, carry on with similar songs.", s.autoplay) { v -> set { it.copy(autoplay = v) } } }
+        item {
+            Choice("Crossfade", "Songs fade into each other. Playlists with Mix on blend in their own way.", s.crossfade.toString(),
+                listOf("0" to "Off") + listOf(2, 4, 6, 8, 10, 12).map { "$it" to "$it s" }) { v -> set { it.copy(crossfade = v.toInt()) } }
+        }
+        if (s.crossfade > 0) item {
+            Toggle("Crossfade albums too", "Off keeps albums played in order seamless, as they were made.", s.crossfadeAlbums) { v -> set { it.copy(crossfadeAlbums = v) } }
+        }
         item { Toggle("Even out volume", "Songs play at the same loudness, as on the web.", s.normalize) { v -> set { it.copy(normalize = v) } } }
         if (s.normalize) item {
             Segmented("Loudness", s.loudness, listOf("quiet" to "Quiet", "normal" to "Normal", "loud" to "Loud")) { v -> set { it.copy(loudness = v) } }

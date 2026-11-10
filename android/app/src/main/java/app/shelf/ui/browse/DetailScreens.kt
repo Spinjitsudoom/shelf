@@ -64,7 +64,7 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
     }
     LoadContent(state, retry, signedOut) { p ->
         val color = albumColor(null, p.name)
-        val ctx = PlayContext(p.name, Routes.playlist(p.id))
+        val ctx = PlayContext(p.name, Routes.playlist(p.id), mix = p.mix) // Mix on: songs hand over like a DJ set
         val editable = p.canEdit && api != null
         if (reordering) {
             ReorderList(p.name, p.tracks, onDone = { order -> reordering = false
@@ -75,7 +75,7 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
             color = color, kind = "Playlist", title = p.name,
             cover = { MosaicCover(p.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 320) }, p.name, color) },
             byline = p.description?.takeIf { it.isNotBlank() }?.let { { Text(it, style = MaterialTheme.typography.bodyMedium, color = Shelf.colors.ink2) } },
-            facts = facts(plural(p.tracks.size, "song"), fmtLength(p.tracks.sumOf { it.duration })),
+            facts = facts(plural(p.tracks.size, "song"), fmtLength(p.tracks.sumOf { it.duration }), if (p.mix) "Mix on" else null),
             tracks = p.tracks, numbered = false, coverUrl = { source.cover(it) },
             onTrack = { onPlay(p.tracks, it, ctx) }, onShuffle = { onPlay(p.tracks.shuffled(), 0, ctx) }, onBack = onBack,
             onRemove = if (editable) { i -> p.tracks[i].entryId?.let { e -> change("Removed from ${p.name}") { api!!.removeFromPlaylist(p.id, e) } } } else null,
@@ -88,6 +88,8 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
                     androidx.compose.material3.DropdownMenu(menu, { menu = false }, containerColor = Shelf.colors.sleeve) {
                         androidx.compose.material3.DropdownMenuItem({ Text("Rename") }, { menu = false; renaming = true })
                         if (p.tracks.size > 1) androidx.compose.material3.DropdownMenuItem({ Text("Reorder songs") }, { menu = false; reordering = true })
+                        androidx.compose.material3.DropdownMenuItem({ Text(if (p.mix) "Turn Mix off" else "Turn Mix on (songs blend like a DJ set)") },
+                            { menu = false; change(if (p.mix) "Mix off" else "Mix on") { api!!.setPlaylistMix(p.id, !p.mix) } })
                         androidx.compose.material3.DropdownMenuItem({ Text("Delete playlist") }, { menu = false; deleting = true })
                     }
                 }

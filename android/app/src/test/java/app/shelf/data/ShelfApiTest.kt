@@ -205,4 +205,13 @@ class ShelfApiTest {
             assertEquals(403, e.code); assertEquals("Kit keeps their listening to themselves", e.message)
         }
     }
+
+    @Test fun playlistMixSwitch() = runTest {
+        json("""{}""")
+        api.setPlaylistMix(9, true)
+        val req = server.takeRequest()
+        assertEquals("PATCH", req.method)
+        assertEquals("/api/playlists/9", req.url.encodedPath)
+        assertEquals("""{"mix":true}""", req.body!!.utf8())
+    }
 }
