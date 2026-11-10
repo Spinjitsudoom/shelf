@@ -103,3 +103,7 @@ data class VideoInfo(val found: Boolean = false, val videoId: String? = null, va
 
 /** Friend activity: what someone is playing now, or played last. */
 @Serializable data class Activity(val user: ActivityUser, val now: NowListening? = null, val last: LastListened? = null)
+
+/** A playlist made from a few words: its name, what was understood, and the songs (not saved yet). */
+@Serializable
+data class MadePlaylist(val name: String, val understood: List<String> = emptyList(), val trackIds: List<Int> = emptyList())

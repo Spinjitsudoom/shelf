@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import kotlinx.coroutines.launch
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -58,6 +59,60 @@ fun NameDialog(title: String, initial: String, confirm: String, onDone: (String)
             }
         },
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) { onDone(name.trim()); onDescription?.invoke(desc.trim()); onDismiss() } }) { Text(confirm, color = Shelf.colors.cobalt) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = Shelf.colors.ink2) } },
+    )
+}
+
+/** The Make a playlist form: the words, why it couldn't (if it couldn't), and whether it's working on it. */
+class MakeWords {
+    var words by mutableStateOf("")
+        private set
+    var error by mutableStateOf<String?>(null)
+        private set
+    var working by mutableStateOf(false)
+        private set
+
+    fun type(text: String) { words = text; error = null }
+
+    /** Make it. True when made (the dialog closes); otherwise [error] says why. */
+    suspend fun submit(onMake: suspend (String) -> String?): Boolean {
+        if (words.isBlank()) { error = "Describe the playlist first."; return false }
+        working = true
+        val why = try { onMake(words.trim()) } finally { working = false }
+        error = why
+        return why == null
+    }
+}
+
+/**
+ * Make a playlist from a few words. [onMake] returns why it couldn't (shown under the field), or
+ * null when it did (the dialog closes).
+ */
+@Composable
+fun MakePlaylistDialog(onMake: suspend (String) -> String?, onDismiss: () -> Unit) {
+    val form = remember { MakeWords() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = onDismiss, containerColor = Shelf.colors.sleeve,
+        title = { Text("Make a playlist", color = Shelf.colors.ink) },
+        text = {
+            Column {
+                Text("Describe it, and Shelf picks songs from your library that fit.", color = Shelf.colors.ink2,
+                    style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(form.words, form::type, label = { Text("What should it be?") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(), isError = form.error != null)
+                Spacer(Modifier.height(6.dp))
+                Text(form.error ?: "A genre, artist, mood or decade, like “metal, high energy”, “chill 90s” or “like Metallica”.",
+                    color = if (form.error != null) MaterialTheme.colorScheme.error else Shelf.colors.ink2,
+                    style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !form.working, onClick = { scope.launch { if (form.submit(onMake)) onDismiss() } }) {
+                Text(if (form.working) "Making…" else "Make it", color = Shelf.colors.cobalt)
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = Shelf.colors.ink2) } },
     )
 }

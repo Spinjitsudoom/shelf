@@ -66,8 +66,13 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     suspend fun search(q: String): SearchResults = call(url("api/search").newBuilder().addQueryParameter("q", q).build(), SearchResults.serializer())
 
     // ---- playlists ----
-    suspend fun createPlaylist(name: String, trackIds: List<Int> = emptyList()): PlaylistSummary =
-        call("api/playlists", PlaylistSummary.serializer(), body { put("name", name); putJsonArray("trackIds") { trackIds.forEach { add(it) } } })
+    suspend fun createPlaylist(name: String, trackIds: List<Int> = emptyList(), description: String? = null): PlaylistSummary =
+        call("api/playlists", PlaylistSummary.serializer(), body {
+            put("name", name); putJsonArray("trackIds") { trackIds.forEach { add(it) } }; description?.let { put("description", it) }
+        })
+    /** Songs for a playlist from a few words ("metal, high energy"); a ShelfError.Server says why not. */
+    suspend fun makePlaylist(prompt: String, size: Int = 30): MadePlaylist =
+        call("api/playlists/make", MadePlaylist.serializer(), body { put("prompt", prompt); put("size", size) })
     suspend fun editPlaylist(id: Int, name: String? = null, description: String? = null) =
         send("PATCH", "api/playlists/$id", buildJsonObject { name?.let { put("name", it) }; description?.let { put("description", it) } }.toString())
     suspend fun deletePlaylist(id: Int) = send("DELETE", "api/playlists/$id")

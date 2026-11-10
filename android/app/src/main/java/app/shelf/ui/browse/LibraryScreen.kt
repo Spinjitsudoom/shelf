@@ -54,9 +54,12 @@ private enum class Filter(val label: String) { Playlists("Playlists"), Albums("A
 
 @Composable
 fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (Int) -> Unit, onAlbum: (Int) -> Unit, onArtist: (String) -> Unit,
-                  signedOut: SignedOutHandler, onNewPlaylist: ((String) -> Unit)? = null) {
+                  signedOut: SignedOutHandler, onNewPlaylist: ((String) -> Unit)? = null,
+                  onMakePlaylist: (suspend (String) -> String?)? = null) {
     var naming by rememberSaveable { mutableStateOf(false) }
+    var making by rememberSaveable { mutableStateOf(false) }
     if (naming && onNewPlaylist != null) app.shelf.ui.common.NameDialog("New playlist", "", "Create", onNewPlaylist, { naming = false })
+    if (making && onMakePlaylist != null) app.shelf.ui.common.MakePlaylistDialog(onMakePlaylist) { making = false }
     val (state, retry) = rememberLoad("library") {
         coroutineScope {
             val p = async { source.playlists() }; val a = async { source.albums("recent") }; val r = async { source.artists() }
@@ -87,6 +90,13 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
                     LibraryRow("New playlist", "Make a playlist", { naming = true }) {
                         Box(Modifier.fillMaxSize().background(Theme.colors.sleeve), contentAlignment = Alignment.Center) {
                             androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_plus), null, tint = Theme.colors.ink)
+                        }
+                    }
+                }
+                if (onMakePlaylist != null) item {
+                    LibraryRow("Make a playlist", "From a genre, artist, mood or decade", { making = true }) {
+                        Box(Modifier.fillMaxSize().background(Theme.colors.sleeve), contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_sparkle), null, tint = Theme.colors.ink)
                         }
                     }
                 }

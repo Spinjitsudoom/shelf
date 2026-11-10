@@ -206,6 +206,20 @@ class ShelfApiTest {
         }
     }
 
+    @Test fun makePlaylistSendsPrompt() = runTest {
+        json("""{"name":"Metal, high energy","understood":["Heavy Metal","high energy"],"trackIds":[4,8,15]}""")
+        val made = api.makePlaylist("metal, high energy")
+        val req = server.takeRequest()
+        assertEquals("POST", req.method)
+        assertEquals("/api/playlists/make", req.url.encodedPath)
+        assertEquals("""{"prompt":"metal, high energy","size":30}""", req.body!!.utf8())
+        assertEquals(MadePlaylist("Metal, high energy", listOf("Heavy Metal", "high energy"), listOf(4, 8, 15)), made)
+
+        json("""{"name":"Mix","id":3,"trackCount":3}""")
+        api.createPlaylist("Mix", listOf(4, 8, 15), description = "Made by Shelf: Heavy Metal.")
+        assertEquals("""{"name":"Mix","trackIds":[4,8,15],"description":"Made by Shelf: Heavy Metal."}""", server.takeRequest().body!!.utf8())
+    }
+
     @Test fun playlistMixSwitch() = runTest {
         json("""{}""")
         api.setPlaylistMix(9, true)

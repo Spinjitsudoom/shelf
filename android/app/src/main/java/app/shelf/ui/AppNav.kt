@@ -147,7 +147,16 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                 LibraryScreen(source, { nav.navigate(Routes.FAVOURITES) }, { nav.navigate(Routes.playlist(it)) }, openAlbum, openArtist, signedOut,
                     onNewPlaylist = api?.let { a -> { name: String -> scope.launch {
                         try { val p = a.createPlaylist(name); nav.navigate(Routes.playlist(p.id)) } catch (e: app.shelf.data.ShelfError) { say(failed) }
-                    } } })
+                    } } },
+                    onMakePlaylist = api?.let { a -> { words: String ->
+                        try {
+                            val made = a.makePlaylist(words)
+                            val p = a.createPlaylist(made.name, made.trackIds, "Made by Shelf: ${made.understood.joinToString(", ")}.")
+                            say("Made “${made.name}” with ${app.shelf.ui.common.plural(made.trackIds.size, "song")}")
+                            nav.navigate(Routes.playlist(p.id))
+                            null
+                        } catch (e: app.shelf.data.ShelfError.Server) { e.message } catch (e: app.shelf.data.ShelfError) { failed }
+                    } })
             }
             composable(Routes.FAVOURITES) { FavouritesScreen(source, onPlay, back, signedOut) }
             composable("album/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
