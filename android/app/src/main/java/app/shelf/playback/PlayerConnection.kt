@@ -92,6 +92,21 @@ class PlayerConnection(context: Context, private val source: () -> LibrarySource
         if (c.mediaItemCount == 0) { c.setMediaItems(items); c.prepare(); c.play() } else c.addMediaItems(items)
     }
 
+    /**
+     * A song's Mix transition changed (in a playlist that may be playing): the queue's copy follows, so the next
+     * handover uses it. Not while controlling another device (that device's queue is its own).
+     */
+    fun updateTransition(entryId: Int, transition: kotlinx.serialization.json.JsonElement) {
+        val c = controller ?: return
+        val src = source() ?: return
+        if (c.deviceInfo.playbackType == androidx.media3.common.DeviceInfo.PLAYBACK_TYPE_REMOTE) return
+        for (i in 0 until c.mediaItemCount) {
+            val item = c.getMediaItemAt(i)
+            val t = item.track() ?: continue
+            if (t.entryId == entryId) c.replaceMediaItem(i, t.copy(transition = transition).toControllerItem(src, item.playContext()))
+        }
+    }
+
     fun toggle() { controller?.let { if (it.playWhenReady) it.pause() else { if (it.playbackState == Player.STATE_IDLE) it.prepare(); it.play() } } }
     fun next() { controller?.seekToNextMediaItem() }
     /** Back to the start of the song, or the song before when near its start (like every player). */

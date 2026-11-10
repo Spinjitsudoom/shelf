@@ -49,7 +49,11 @@ fun AlbumScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onArtist: (Strin
 
 @Composable
 fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () -> Unit, signedOut: SignedOutHandler,
-                   api: app.shelf.data.ShelfApi? = null, say: (String) -> Unit = {}) {
+                   api: app.shelf.data.ShelfApi? = null, say: (String) -> Unit = {},
+                   onTransition: (entryId: Int, transition: kotlinx.serialization.json.JsonElement) -> Unit = { _, _ -> }) {
+    var picking by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
+    // Transitions just picked, shown straight away (no reload).
+    var picked by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(mapOf<Int, kotlinx.serialization.json.JsonElement>()) }
     val (state, retry) = rememberLoad(id) { source.playlist(id) }
     var menu by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var renaming by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -62,7 +66,8 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
             try { block(); done?.let(say); retry() } catch (e: app.shelf.data.ShelfError) { say("Couldn’t save that. Check the connection and try again.") }
         }
     }
-    LoadContent(state, retry, signedOut) { p ->
+    LoadContent(state, retry, signedOut) { loaded ->
+        val p = loaded.copy(tracks = loaded.tracks.map { t -> t.entryId?.let(picked::get)?.let { t.copy(transition = it) } ?: t })
         val color = albumColor(null, p.name)
         val ctx = PlayContext(p.name, Routes.playlist(p.id), mix = p.mix) // Mix on: songs hand over like a DJ set
         val editable = p.canEdit && api != null
@@ -78,6 +83,7 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
             facts = facts(plural(p.tracks.size, "song"), fmtLength(p.tracks.sumOf { it.duration }), if (p.mix) "Mix on" else null),
             tracks = p.tracks, numbered = false, coverUrl = { source.cover(it) },
             onTrack = { onPlay(p.tracks, it, ctx) }, onShuffle = { onPlay(p.tracks.shuffled(), 0, ctx) }, onBack = onBack,
+            between = if (p.mix) { i -> TransitionPill(p.tracks[i], p.tracks[i + 1]) { picking = i } } else null,
             onRemove = if (editable) { i -> p.tracks[i].entryId?.let { e -> change("Removed from ${p.name}") { api!!.removeFromPlaylist(p.id, e) } } } else null,
             actions = {
                 app.shelf.ui.common.DownloadButton(app.shelf.downloads.Downloadable("playlist", p.id, p.name, p.description ?: "", null, p.covers, p.tracks))
@@ -95,6 +101,22 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
                 }
             },
         )
+        picking?.let { i ->
+            val cur = p.tracks.getOrNull(i); val nxt = p.tracks.getOrNull(i + 1)
+            if (cur != null && nxt != null) TransitionSheet(cur, nxt, editable && cur.entryId != null, onSave = { choice ->
+                val e = cur.entryId ?: return@TransitionSheet
+                val before = picked
+                picked = picked + (e to choice.toJson())
+                onTransition(e, choice.toJson())
+                scope.launch {
+                    try { api!!.setTransition(p.id, e, choice) } catch (ex: app.shelf.data.ShelfError) {
+                        picked = before
+                        onTransition(e, cur.transition ?: kotlinx.serialization.json.JsonPrimitive("auto"))
+                        say("Couldn’t save that. Check the connection and try again.")
+                    }
+                }
+            }, onDismiss = { picking = null })
+        }
         if (renaming) {
             var newName = p.name
             app.shelf.ui.common.NameDialog("Rename playlist", p.name, "Save", { n -> newName = n },

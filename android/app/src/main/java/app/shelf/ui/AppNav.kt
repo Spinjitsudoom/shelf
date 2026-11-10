@@ -158,7 +158,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                 ArtistScreen(name, source, onPlay, openAlbum, back, signedOut, onRadio = api?.let { { nav.navigate(Routes.artistRadio(name)) } })
             }
             composable("playlist/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
-                PlaylistScreen(it.arguments!!.getInt("id"), source, onPlay, back, signedOut, api = api, say = say)
+                PlaylistScreen(it.arguments!!.getInt("id"), source, onPlay, back, signedOut, api = api, say = say,
+                    onTransition = { e, tr -> player?.updateTransition(e, tr) })
             }
             if (api != null) {
                 composable(Routes.PEOPLE) { app.shelf.ui.browse.PeopleScreen(api, { nav.navigate(Routes.blend(it)) }, openAlbum, back, signedOut) }

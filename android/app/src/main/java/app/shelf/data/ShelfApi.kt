@@ -71,6 +71,8 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     suspend fun editPlaylist(id: Int, name: String? = null, description: String? = null) =
         send("PATCH", "api/playlists/$id", buildJsonObject { name?.let { put("name", it) }; description?.let { put("description", it) } }.toString())
     suspend fun deletePlaylist(id: Int) = send("DELETE", "api/playlists/$id")
+    suspend fun setTransition(playlistId: Int, entryId: Int, choice: app.shelf.playback.TransitionChoice) =
+        send("PUT", "api/playlists/$playlistId/tracks/$entryId/transition", choice.body().toString())
     suspend fun setPlaylistMix(id: Int, on: Boolean) = send("PATCH", "api/playlists/$id", buildJsonObject { put("mix", on) }.toString())
     suspend fun addToPlaylist(id: Int, trackIds: List<Int>): PlaylistSummary =
         call("api/playlists/$id/tracks", PlaylistSummary.serializer(), body { putJsonArray("trackIds") { trackIds.forEach { add(it) } } })

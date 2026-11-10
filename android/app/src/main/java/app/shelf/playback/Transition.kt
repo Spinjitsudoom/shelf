@@ -177,3 +177,66 @@ fun levels(plan: Plan, side: String, t: Double): Levels {
     val lp = if (side == "in" && (plan.filter == "wash" || plan.filter == "sweep")) LP.first * (LP.second / LP.first).pow(u) else null
     return Levels(gain, bass, hp, lp)
 }
+
+val STYLE_LABEL = mapOf("auto" to "Auto", "blend" to "Blend", "swap" to "Bass swap", "rise" to "Rise", "sweep" to "Sweep", "fade" to "Fade", "cut" to "Cut")
+val STYLE_HELP = mapOf(
+    "auto" to "Shelf picks for each pair of songs",
+    "blend" to "A long, beat-matched blend",
+    "swap" to "Quicker, swapping the basses on the beat",
+    "rise" to "Filters this song away as the next one rises",
+    "sweep" to "Filters sweep across both songs",
+    "fade" to "A plain crossfade, no tempo change",
+    "cut" to "No overlap, straight into the next song",
+)
+/** The parts of a transition the person can change, as the web's transition editor has them. */
+val PARTS = linkedMapOf(
+    "volume" to ("Volume" to linkedMapOf("smooth" to "Smooth crossfade", "dj" to "In, then out", "quick" to "Quick in, late out", "cut" to "Switch in the middle")),
+    "eq" to ("EQ" to linkedMapOf("none" to "None", "swap" to "Center bass swap", "kill" to "Cut outgoing bass")),
+    "filter" to ("Filter" to linkedMapOf("none" to "None", "rise" to "Thin out outgoing", "wash" to "Open up incoming", "sweep" to "Both")),
+)
+
+/** How a song hands over to the next, as picked: a style, with any parts changed. */
+data class TransitionChoice(
+    val style: String, val volume: String? = null, val eq: String? = null, val filter: String? = null,
+    val bars: Double? = null, val seconds: Double? = null, val shift: Double? = null,
+) {
+    private val extras get() = listOf("volume" to volume, "eq" to eq, "filter" to filter, "bars" to bars, "seconds" to seconds, "shift" to shift).filter { it.second != null }
+
+    private fun prim(v: Any?) = when (v) { is String -> JsonPrimitive(v); is Double -> JsonPrimitive(v); else -> null }
+
+    /** As a song carries it (the server's stored form): the style's name, or {preset, …changed parts}. */
+    fun toJson(): JsonElement = if (extras.isEmpty()) JsonPrimitive(style)
+        else JsonObject(mapOf("preset" to JsonPrimitive(style)) + extras.associate { (k, v) -> k to prim(v)!! })
+
+    /** What the server takes to save it. */
+    fun body(): JsonObject = JsonObject(mapOf("style" to JsonPrimitive(style)) + extras.associate { (k, v) -> k to prim(v)!! })
+
+    companion object {
+        fun of(e: JsonElement?): TransitionChoice {
+            val obj = e as? JsonObject
+            val name = ((obj?.get("preset") ?: e) as? JsonPrimitive)?.contentOrNull?.takeIf { it in STYLES } ?: "auto"
+            fun str(k: String) = (obj?.get(k) as? JsonPrimitive)?.contentOrNull
+            fun num(k: String) = (obj?.get(k) as? JsonPrimitive)?.doubleOrNull
+            return TransitionChoice(name, str("volume"), str("eq"), str("filter"), num("bars"), num("seconds"), num("shift"))
+        }
+    }
+}
+
+private fun num(x: Double) = if (x % 1.0 == 0.0) x.toLong().toString() else x.toString()
+
+fun barsLabel(bars: Double) = when {
+    bars == 1.0 -> "1 bar"
+    bars < 1 -> "${num(bars * 4)} beats"
+    else -> "${num(bars)} bars"
+}
+
+/** A short description of how [cur] hands over to [nxt], as the web app words it. */
+fun describe(cur: Track, nxt: Track, setting: JsonElement?): String {
+    val p = plan(cur, nxt, setting, cur.duration)
+    val what = STYLE_LABEL[p.style] ?: "Fade"
+    if (p.length == 0.0) return "$what: straight into the next song"
+    if (!p.beatmatch) return "$what: ${p.length.roundToInt()} second crossfade"
+    val pct = ((p.rate - 1) * 1000).roundToInt() / 10.0
+    val tempo = if (pct != 0.0) ", next song ${if (pct > 0) "sped up" else "slowed"} ${num(abs(pct))}% to match" else ", same tempo"
+    return "$what: ${barsLabel(p.beats / 4.0)}$tempo"
+}

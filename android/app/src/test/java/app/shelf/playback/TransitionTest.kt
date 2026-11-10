@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 class TransitionTest {
@@ -85,5 +86,23 @@ class TransitionTest {
         assertEquals(10.0, short.length, 1e-9) // a third of the song at most
         assertEquals(20.0, short.start, 1e-9)
         assertNull(crossfadePlan(0, albums = false, shuffle = false, a, c, 240.0))
+    }
+
+    @Test fun describeMatchesWeb() {
+        assertEquals("Blend: 8 bars, same tempo", describe(t(1, outMix), t(2, inMix), null))
+        val faster = inMix.copy(inPeriod = 0.52)
+        assertEquals("Blend: 8 bars, next song sped up 4% to match", describe(t(1, outMix), t(2, faster), null))
+        assertEquals("Bass swap: 4 bars, same tempo", describe(t(1, outMix), t(2, inMix), JsonPrimitive("swap")))
+        assertEquals("Fade: 8 second crossfade", describe(t(1, duration = 200.0), t(2), null))
+        assertEquals("Cut: straight into the next song", describe(t(1), t(2), JsonPrimitive("cut")))
+    }
+
+    @Test fun choiceRoundTrips() {
+        val c = TransitionChoice("swap", bars = 2.0, filter = "rise")
+        assertEquals(c, TransitionChoice.of(c.toJson()))
+        assertEquals(TransitionChoice("auto"), TransitionChoice.of(null))
+        assertEquals(TransitionChoice("cut"), TransitionChoice.of(JsonPrimitive("cut")))
+        // The planner reads a choice the same way it reads the server's stored form.
+        assertEquals(4, plan(t(1, outMix), t(2, inMix), TransitionChoice("blend", bars = 1.0).toJson(), 240.0).beats)
     }
 }

@@ -60,6 +60,8 @@ fun TrackListPage(
     tracks: List<Track>, numbered: Boolean, coverUrl: (Track) -> String?, onTrack: (Int) -> Unit, onShuffle: () -> Unit, onBack: () -> Unit,
     onRemove: ((Int) -> Unit)? = null,
     actions: (@Composable () -> Unit)? = null,
+    /** Shown between song i and the next (a Mix playlist's transitions). */
+    between: (@Composable (Int) -> Unit)? = null,
 ) {
     val discs = numbered && tracks.map { it.discNo ?: 1 }.distinct().size > 1
     Box(Modifier.fillMaxSize()) {
@@ -105,6 +107,7 @@ fun TrackListPage(
                     coverColor = app.shelf.ui.covers.fallbackColor(t.album),
                     track = t, removeFromPlaylist = onRemove?.let { { it(i) } },
                 )
+                if (between != null && i < tracks.lastIndex) between(i)
             }
             item { Spacer(Modifier.height(24.dp)) }
         }

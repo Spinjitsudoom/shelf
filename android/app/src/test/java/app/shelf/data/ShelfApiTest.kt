@@ -214,4 +214,13 @@ class ShelfApiTest {
         assertEquals("/api/playlists/9", req.url.encodedPath)
         assertEquals("""{"mix":true}""", req.body!!.utf8())
     }
+
+    @Test fun setTransitionSendsBody() = runTest {
+        json("""{"ok":true,"transition":{"preset":"swap","bars":4.0}}""")
+        api.setTransition(9, 55, app.shelf.playback.TransitionChoice("swap", bars = 4.0))
+        val req = server.takeRequest()
+        assertEquals("PUT", req.method)
+        assertEquals("/api/playlists/9/tracks/55/transition", req.url.encodedPath)
+        assertEquals("""{"style":"swap","bars":4.0}""", req.body!!.utf8())
+    }
 }
