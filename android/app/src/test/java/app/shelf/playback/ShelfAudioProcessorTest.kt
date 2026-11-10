@@ -73,4 +73,29 @@ class ShelfAudioProcessorTest {
         assertEquals(List(6) { 0.0 }, Eq.PRESETS["Flat"])
         assertEquals(23, Eq.PRESETS.size)
     }
+
+    /** How much [p] changes a sine at [freq], in dB (measured after it settles). */
+    private fun gainAt(p: ShelfAudioProcessor, freq: Double): Double {
+        val input = sine(freq, 0.25, 22050)
+        val out = run(p, input)
+        fun rms(a: ShortArray) = kotlin.math.sqrt((11025 until a.size step 2).sumOf { a[it].toDouble() * a[it] } / ((a.size - 11025) / 2))
+        return 20 * kotlin.math.log10(rms(out) / rms(input))
+    }
+
+    @Test fun bassCutCutsBass() {
+        val p = ShelfAudioProcessor().apply { setTransition(-26.0, null, null) }
+        assertTrue(gainAt(p, 60.0) < -20)
+        assertEquals(0.0, gainAt(ShelfAudioProcessor().apply { setTransition(-26.0, null, null) }, 5000.0), 0.5)
+    }
+
+    @Test fun highpassThinsOut() {
+        assertTrue(gainAt(ShelfAudioProcessor().apply { setTransition(0.0, 1400.0, null) }, 100.0) < -40)
+        assertEquals(0.0, gainAt(ShelfAudioProcessor().apply { setTransition(0.0, 1400.0, null) }, 5000.0), 0.5)
+    }
+
+    @Test fun noTransitionIsPassthrough() {
+        val p = ShelfAudioProcessor().apply { setTransition(0.0, null, null) }
+        val s = sine(440.0, 0.5, 2000)
+        assertArrayEquals(s, run(p, s))
+    }
 }

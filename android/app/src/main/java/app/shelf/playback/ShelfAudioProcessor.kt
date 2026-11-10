@@ -22,6 +22,30 @@ class ShelfAudioProcessor : BaseAudioProcessor() {
     private var filters: List<Biquad> = emptyList()
     private var state = DoubleArray(0) // per channel, per band: x1, x2, y1, y2
 
+    private class Trans(val bassDb: Double, val highpassHz: Double?, val lowpassHz: Double?)
+    @Volatile private var trans = Trans(0.0, null, null)
+    private var transBuilt: Trans? = null
+    private var transFilters = arrayOfNulls<Biquad>(3) // bass shelf, high-pass, low-pass
+    private var transState = DoubleArray(0)
+
+    /**
+     * A Mix transition's effects on this deck, changed as it goes: the bass shelf at 220 Hz ([bassDb], 0 for none) and
+     * the high-pass and low-pass filters (Hz, null for none), as the web app's engine has them.
+     */
+    fun setTransition(bassDb: Double, highpassHz: Double?, lowpassHz: Double?) { trans = Trans(bassDb, highpassHz, lowpassHz) }
+
+    private fun buildTransition(t: Trans) {
+        val rate = inputAudioFormat.sampleRate.toDouble()
+        transFilters = arrayOf(
+            if (t.bassDb != 0.0) lowShelf(220.0, t.bassDb, rate) else null,
+            t.highpassHz?.let { highPass(it.coerceIn(10.0, rate / 2.2), 0.9, rate) },
+            t.lowpassHz?.let { lowPass(it.coerceIn(10.0, rate / 2.2), 0.9, rate) },
+        )
+        // The filters' memory carries over as they move, so a sweep doesn't click.
+        if (transState.size != inputAudioFormat.channelCount * 3 * 4) transState = DoubleArray(inputAudioFormat.channelCount * 3 * 4)
+        transBuilt = t
+    }
+
     /** The settings: [eq] is dB per band (null: off), [balance] −1 (left) to 1 (right), [mono] both ears the same. */
     fun setup(eq: List<Double>?, balance: Float, mono: Boolean) {
         params = Params(eq?.takeIf { g -> g.any { it != 0.0 } }, balance.coerceIn(-1f, 1f), mono)
@@ -33,7 +57,7 @@ class ShelfAudioProcessor : BaseAudioProcessor() {
         return inputAudioFormat
     }
 
-    override fun onFlush() { built = null }
+    override fun onFlush() { built = null; transBuilt = null; transState = DoubleArray(0) }
 
     private fun rebuild(p: Params) {
         val rate = inputAudioFormat.sampleRate.toDouble()
@@ -45,6 +69,8 @@ class ShelfAudioProcessor : BaseAudioProcessor() {
     override fun queueInput(inputBuffer: ByteBuffer) {
         val p = params
         if (built !== p) rebuild(p)
+        val tr = trans
+        if (transBuilt !== tr) buildTransition(tr)
         val float = inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
         val channels = inputAudioFormat.channelCount
         val bytes = if (float) 4 else 2
@@ -65,6 +91,13 @@ class ShelfAudioProcessor : BaseAudioProcessor() {
                     val f = filters[b]; val s = (c * filters.size + b) * 4
                     val y = f.b0 * x + f.b1 * state[s] + f.b2 * state[s + 1] - f.a1 * state[s + 2] - f.a2 * state[s + 3]
                     state[s + 1] = state[s]; state[s] = x; state[s + 3] = state[s + 2]; state[s + 2] = y
+                    x = y
+                }
+                for (b in 0 until 3) {
+                    val f = transFilters[b] ?: continue
+                    val s = (c * 3 + b) * 4
+                    val y = f.b0 * x + f.b1 * transState[s] + f.b2 * transState[s + 1] - f.a1 * transState[s + 2] - f.a2 * transState[s + 3]
+                    transState[s + 1] = transState[s]; transState[s] = x; transState[s + 3] = transState[s + 2]; transState[s + 2] = y
                     x = y
                 }
                 if (float) out.putFloat(x.coerceIn(-1.0, 1.0).toFloat())

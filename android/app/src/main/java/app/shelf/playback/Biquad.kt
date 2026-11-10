@@ -59,3 +59,29 @@ fun peaking(freq: Double, gainDb: Double, q: Double, rate: Double): Biquad {
     val a0 = 1 + alpha / a
     return Biquad((1 + alpha * a) / a0, -2 * cos(w0) / a0, (1 - alpha * a) / a0, -2 * cos(w0) / a0, (1 - alpha / a) / a0)
 }
+
+/** A low shelf (Web Audio "lowshelf": slope 1), for Mix's bass swap and cut. */
+fun lowShelf(freq: Double, gainDb: Double, rate: Double): Biquad {
+    val a = 10.0.pow(gainDb / 40)
+    val w0 = 2 * PI * freq / rate
+    val c = cos(w0)
+    val alpha = sin(w0) / 2 * sqrt(2.0)
+    val s = 2 * sqrt(a) * alpha
+    val a0 = (a + 1) + (a - 1) * c + s
+    return Biquad(a * ((a + 1) - (a - 1) * c + s) / a0, 2 * a * ((a - 1) - (a + 1) * c) / a0, a * ((a + 1) - (a - 1) * c - s) / a0,
+        -2 * ((a - 1) + (a + 1) * c) / a0, ((a + 1) + (a - 1) * c - s) / a0)
+}
+
+/** A 12 dB-per-octave high-pass, for Mix's "rise" (the outgoing song thins out). */
+fun highPass(freq: Double, q: Double, rate: Double): Biquad {
+    val w0 = 2 * PI * freq / rate
+    val c = cos(w0); val alpha = sin(w0) / (2 * q); val a0 = 1 + alpha
+    return Biquad((1 + c) / 2 / a0, -(1 + c) / a0, (1 + c) / 2 / a0, -2 * c / a0, (1 - alpha) / a0)
+}
+
+/** A 12 dB-per-octave low-pass, for Mix's "wash" (the incoming song opens up). */
+fun lowPass(freq: Double, q: Double, rate: Double): Biquad {
+    val w0 = 2 * PI * freq / rate
+    val c = cos(w0); val alpha = sin(w0) / (2 * q); val a0 = 1 + alpha
+    return Biquad((1 - c) / 2 / a0, (1 - c) / a0, (1 - c) / 2 / a0, -2 * c / a0, (1 - alpha) / a0)
+}
