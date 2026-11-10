@@ -21,7 +21,7 @@ import { mountDJ } from "./dj.js";
 import { applyAlbumColor, caseHtml, coverUrl, esc, fmtTime, playlistCover, plural, quality, store, toast } from "./util.js";
 import {
   albumView, albumsView, artistHref, artistItems, artistLinks, artistView, artistsView, balanceLabel, ctx, homeView, mixerView,
-  playlistView, playlistsView, queueView, refreshRecommendations, refreshSettings, searchView, settingsView, skeleton,
+  playlistView, playlistsView, queueView, statsView, wrappedView, wrappedStep, refreshRecommendations, refreshSettings, searchView, settingsView, skeleton,
   videoCard, youTubeOnly, youTubeOnlyList, likedView, downloadsView, refreshDownloads, mixView, peopleView, releasesView, personDisc,
   features,
 } from "./views.js";
@@ -85,6 +85,8 @@ function parseRoute() {
     case "mix": return { name: "mix", key: parts[1], nav: "home" };
     case "blend": return { name: "mix", blend: Number(parts[1]), nav: "people" };
     case "people": return { name: "people", nav: "people" };
+    case "stats": return { name: "stats", period: params.get("period") || "year", nav: "stats" };
+    case "wrapped": return { name: "wrapped", year: Number(parts[1]) || new Date().getFullYear(), nav: "stats" };
     case "releases": return { name: "releases", nav: "home" };
     case "radio": return { name: "mix", radio: parts[1] === "artist" ? "artist" : "track", value: decodeURIComponent(parts.slice(2).join("/")), nav: "home" };
     case "playlist": return { name: "playlist", id: Number(parts[1]), nav: "playlists" };
@@ -146,6 +148,8 @@ async function drawRoute(route, key) {
       case "mixer": mixerView(view); unmountPage = mountMixer(view, local); break;
       case "lyrics": unmountPage = lyricsPage(); break;
       case "playlists": await playlistsView(view); break;
+      case "stats": await statsView(view, route.period); break;
+      case "wrapped": await wrappedView(view, route.year); break;
       case "liked": await likedView(view); unmountPage = albumStickyHead(); break;
       case "playlist": await playlistView(view, route.id); unmountPage = albumStickyHead(); break;
     }
@@ -362,6 +366,8 @@ async function runAction(action, el) {
       break;
     }
     case "play-list": player.playList(ctx.tracks, 0, { context: ctx.context }); break;
+    case "play-top": player.playList(ctx.tracks.slice(0, Number(el.dataset.count)), 0, { context: ctx.context }); break;
+    case "wrapped-step": wrappedStep(view, Number(el.dataset.step)); break;
     case "play-video": {
       // In the side panel when it's open, otherwise above the row of videos.
       const slot = view.querySelector("#artist-video");
@@ -1377,6 +1383,7 @@ $("nowplaying").addEventListener("touchend", (e) => {
 document.addEventListener("keydown", (e) => {
   if (e.target.closest?.("input, textarea, .menu") || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === "Escape") closeNowPlaying();
+  else if (parseRoute().name === "wrapped" && !e.shiftKey && (e.key === "ArrowRight" || e.key === "ArrowLeft")) wrappedStep(view, e.key === "ArrowRight" ? 1 : -1);
   else if (e.key === " " && !e.target.closest?.("button, a, .track-row")) { e.preventDefault(); transport.toggle(); }
   else if (e.key === "ArrowRight" && e.shiftKey) transport.next();
   else if (e.key === "ArrowLeft" && e.shiftKey) transport.prev();

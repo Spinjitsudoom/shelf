@@ -133,6 +133,7 @@ export const api = {
   playlists: () => cached("playlists", 5_000),
   playlist: (id) => request("GET", `playlists/${id}`).catch((e) => savedOr(e, `playlist:${id}`)),
   createPlaylist: (body = {}) => changed(request("POST", "playlists", body)),
+  stats: (period = "year") => request("GET", `stats?period=${encodeURIComponent(period)}&tz=${-new Date().getTimezoneOffset()}`),
   makePlaylist: (prompt, size = 30) => request("POST", "playlists/make", { prompt, size }),
   editPlaylist: (id, body) => changed(request("PATCH", `playlists/${id}`, body)),
   deletePlaylist: (id) => changed(request("DELETE", `playlists/${id}`)),

@@ -141,7 +141,7 @@ export async function homeView(el, player) {
   el.innerHTML = `
     <div class="page">
       <header class="page-head">
-        <div><h1 class="page-title">Home</h1><p class="page-sub">${week}</p></div>
+        <div><h1 class="page-title">Home</h1><p class="page-sub"><a class="home-stats" href="#/stats" title="Your listening">${week}</a></p></div>
       </header>
       ${hero}
       <section class="row-section">
@@ -1321,4 +1321,118 @@ function djCard() {
       <div class="card-title"><button class="text-btn" type="button" data-dj="start">DJ</button></div>
       <div class="card-sub">Shelf Radio: your music, with a host who knows what you like</div>
     </div>`;
+}
+
+
+// ---------- your listening (stats) and Wrapped ----------
+
+const PERIOD_LABEL = { month: "This month", year: "This year", all: "All time" };
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const titleCase = (s) => s.replace(/\b\w/g, (c) => c.toUpperCase());
+const fmtDay = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const hoursText = (min) => (min >= 120 ? `${Math.round(min / 60).toLocaleString()} hours` : plural(min, "minute"));
+
+/** Bars for plays by hour or weekday, the busiest one marked. */
+function bars(counts, labels, cls) {
+  const top = Math.max(1, ...counts);
+  const peak = counts.indexOf(Math.max(...counts));
+  return `<div class="stat-bars ${cls}" role="img" aria-label="${esc(labels.map((l, i) => `${l}: ${counts[i]}`).join(", "))}">${counts.map((n, i) => `
+    <span class="stat-bar${i === peak && n ? " peak" : ""}"><span style="height:${Math.round((n / top) * 100)}%"></span><small>${esc(labels[i])}</small></span>`).join("")}</div>`;
+}
+
+function listenerKind(hours) {
+  const at = (from, to) => hours.slice(from, to).reduce((a, b) => a + b, 0);
+  const total = hours.reduce((a, b) => a + b, 0) || 1;
+  if ((at(22, 24) + at(0, 4)) / total > 0.3) return "a night owl: a lot of your listening happens after 10 pm";
+  if (at(5, 10) / total > 0.3) return "an early bird: a lot of your listening happens before 10 am";
+  const peak = hours.indexOf(Math.max(...hours));
+  return `most often listening around ${peak === 0 ? "midnight" : peak === 12 ? "noon" : peak < 12 ? `${peak} am` : `${peak - 12} pm`}`;
+}
+
+export async function statsView(el, period = "year") {
+  const s = await api.stats(period);
+  const tracks = [...s.topSongs, ...s.onThisDay];
+  setTracks(tracks, { label: "Your top songs", href: "#/stats" });
+  const periods = ["month", "year", "all", ...s.years.slice(1).map(String)];
+  const label = PERIOD_LABEL[period] ?? period;
+  const year = s.years[0];
+  const hours = Array.from({ length: 24 }, (_, h) => (h % 6 === 0 ? `${h}` : ""));
+  const empty = !s.plays;
+  el.innerHTML = `
+    <div class="page stats-page">
+      <header class="page-head"><div><h1 class="page-title">Your listening</h1>
+        <p class="page-sub">${empty ? "Nothing played in this period yet" : `${hoursText(s.minutes)} of music: ${plural(s.plays, "play")} of ${plural(s.songs, "song")} by ${plural(s.artists, "artist")}.`}</p></div>
+        ${year ? `<a class="btn btn-primary" href="#/wrapped/${year}"><svg><use href="#i-sparkle"/></svg>Your ${year} Wrapped</a>` : ""}
+      </header>
+      <div class="chips stats-periods">${periods.map((p) => `<a class="chip" href="#/stats?period=${p}" aria-pressed="${p === period}">${esc(PERIOD_LABEL[p] ?? p)}</a>`).join("")}</div>
+      ${s.currentStreak || s.longestStreak ? `<p class="stats-streak">${s.currentStreak > 1 ? `You’ve listened ${s.currentStreak} days in a row.` : s.currentStreak ? "You’ve listened today." : "No streak going right now."}
+        ${s.longestStreak > 1 ? `Your longest run ${period === "all" ? "ever" : period === "month" ? "this month" : period === "year" ? "this year" : `in ${period}`}: ${s.longestStreak} days.` : ""}</p>` : ""}
+      ${empty ? "" : `
+      <div class="stats-grid">
+        <section class="stats-block"><h2 class="section-title">Top artists</h2>
+          <ol class="stats-rank">${s.topArtists.map((a) => `<li><a href="#/artist/${encodeURIComponent(a.name)}">${esc(a.name)}</a><span>${plural(a.plays, "play")}</span></li>`).join("")}</ol>
+        </section>
+        <section class="stats-block"><h2 class="section-title">When you listen</h2>
+          <p class="stats-note">You’re ${listenerKind(s.hours)}.</p>
+          ${bars(s.hours, hours, "hours")}
+          ${bars(s.weekdays, WEEKDAYS, "weekdays")}
+          ${s.busiestDay ? `<p class="stats-note">Busiest day: ${esc(fmtDay(s.busiestDay.date))}, ${plural(s.busiestDay.plays, "play")}.</p>` : ""}
+        </section>
+      </div>
+      <section class="row-section"><div class="row-head"><h2 class="section-title">Top songs</h2>
+        <button class="see-all" type="button" data-action="play-top" data-count="${s.topSongs.length}">Play them</button></div>
+        <div class="track-list stats-songs">${s.topSongs.map((t, i) => trackRow(t, i, { withArt: true }).replace('<span class="t-sub">', `<span class="t-sub">${plural(t.plays, "play")}, `)).join("")}</div>
+      </section>
+      ${rowShelf("Top albums", s.topAlbums)}
+      ${s.topGenres.length ? `<section class="row-section"><h2 class="section-title">Top genres</h2>
+        <div class="chips">${s.topGenres.map((g) => `<span class="chip stats-chip">${esc(titleCase(g.name))}<small>${g.plays}</small></span>`).join("")}</div></section>` : ""}
+      ${s.newArtists.length && period !== "all" ? `<section class="row-section"><h2 class="section-title">New to you ${esc(label.toLowerCase())}</h2>
+        <p class="stats-note">${plural(s.newArtists.length, "artist")} you hadn’t played before.</p>
+        <div class="chips">${s.newArtists.slice(0, 24).map((a) => `<a class="chip" href="#/artist/${encodeURIComponent(a)}">${esc(a)}</a>`).join("")}</div></section>` : ""}`}
+      ${s.onThisDay.length ? `<section class="row-section"><h2 class="section-title">On this day, a year ago</h2>
+        <div class="track-list">${s.onThisDay.map((t, i) => trackRow(t, s.topSongs.length + i, { withArt: true })).join("")}</div></section>` : ""}
+    </div>`;
+}
+
+/** Your year in music: one card at a time. */
+export async function wrappedView(el, year) {
+  const s = await api.stats(String(year));
+  setTracks(s.topSongs, { label: `Your top songs of ${year}`, href: `#/wrapped/${year}` });
+  const top = s.topArtists[0];
+  const cards = !s.plays ? [`<h2>Nothing played in ${year}</h2><p>Play some music and come back.</p>`] : [
+    `<p class="w-kicker">${year}, in music</p><h2>You listened for ${hoursText(s.minutes)}.</h2><p>${plural(s.plays, "play")} of ${plural(s.songs, "song")} by ${plural(s.artists, "artist")}.</p>`,
+    top && `<p class="w-kicker">Your artist of the year</p><h2>${esc(top.name)}</h2><p>${plural(top.plays, "play")}, ${hoursText(top.minutes)} together.</p>
+      ${s.topArtists.length > 1 ? `<ol class="w-list">${s.topArtists.slice(1, 5).map((a) => `<li>${esc(a.name)}</li>`).join("")}</ol>` : ""}`,
+    s.topSongs.length && `<p class="w-kicker">Your top songs</p><ol class="w-list w-songs">${s.topSongs.slice(0, 5).map((t) => `<li><b>${esc(t.title)}</b><span>${esc(t.artist)}, ${plural(t.plays, "play")}</span></li>`).join("")}</ol>`,
+    s.topGenres.length && `<p class="w-kicker">What it sounded like</p><h2>${esc(titleCase(s.topGenres[0].name))}</h2>
+      ${s.topGenres.length > 1 ? `<p>Then ${esc(s.topGenres.slice(1, 4).map((g) => titleCase(g.name)).join(", "))}.</p>` : ""}`,
+    s.newArtists.length && `<p class="w-kicker">New to you</p><h2>${plural(s.newArtists.length, "artist")} you hadn’t played before</h2><p>${esc(s.newArtists.slice(0, 6).join(", "))}${s.newArtists.length > 6 ? " and more" : ""}.</p>`,
+    `<p class="w-kicker">When you listened</p><h2>You’re ${listenerKind(s.hours).split(":")[0]}.</h2>
+      ${s.busiestDay ? `<p>Your busiest day was ${esc(fmtDay(s.busiestDay.date))}, with ${plural(s.busiestDay.plays, "play")}.</p>` : ""}
+      ${s.longestStreak > 1 ? `<p>Longest run: ${s.longestStreak} days in a row.</p>` : ""}`,
+    `<p class="w-kicker">That was ${year}</p><h2>Play your top songs</h2><p><button class="btn btn-primary" type="button" data-action="play-list"><svg><use href="#i-play"/></svg>Play</button></p>`,
+  ].filter(Boolean);
+  el.innerHTML = `
+    <div class="page wrapped-page">
+      <a class="back-link" href="#/stats"><svg><use href="#i-back"/></svg>Your listening</a>
+      <div class="w-deck" data-at="0">
+        ${cards.map((c, i) => `<section class="w-card w-c${i % 5}" ${i ? "hidden" : ""} aria-label="${i + 1} of ${cards.length}">${c}</section>`).join("")}
+      </div>
+      <div class="w-nav">
+        <button class="btn" type="button" data-action="wrapped-step" data-step="-1">Back</button>
+        <span class="w-count">1 of ${cards.length}</span>
+        <button class="btn btn-primary" type="button" data-action="wrapped-step" data-step="1">Next</button>
+      </div>
+    </div>`;
+}
+
+/** Wrapped: show the card `step` away from the current one. */
+export function wrappedStep(el, step) {
+  const deck = el.querySelector(".w-deck");
+  if (!deck) return;
+  const cards = [...deck.children];
+  const at = Math.min(cards.length - 1, Math.max(0, Number(deck.dataset.at) + step));
+  deck.dataset.at = String(at);
+  cards.forEach((c, i) => { c.hidden = i !== at; });
+  el.querySelector(".w-count").textContent = `${at + 1} of ${cards.length}`;
 }
