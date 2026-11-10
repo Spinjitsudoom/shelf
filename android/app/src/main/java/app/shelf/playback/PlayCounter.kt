@@ -21,6 +21,9 @@ class PlayCounter(private val onPlayed: (Int) -> Unit) {
         fired = false
     }
 
+    /** The song, if moving on from it now is a skip: under 30 seconds of it heard (and it's longer than that). */
+    fun skipped(): Int? = id.takeIf { it >= 0 && !fired && heard < 30 && duration > 30 }
+
     fun onPosition(positionS: Double) {
         last?.let { val step = positionS - it; if (step > 0 && step < 2) heard += step }
         last = positionS

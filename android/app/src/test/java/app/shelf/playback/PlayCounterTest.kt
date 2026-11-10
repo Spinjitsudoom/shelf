@@ -1,6 +1,7 @@
 package app.shelf.playback
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PlayCounterTest {
@@ -30,5 +31,14 @@ class PlayCounterTest {
         counter.onTrackStarted(7, 100.0); listen(0, 60)
         counter.onTrackStarted(7, 100.0); listen(0, 60)
         assertEquals(listOf(7, 7), played)
+    }
+
+    @Test fun movingOnEarlyIsASkip() {
+        counter.onTrackStarted(1, 200.0); listen(0, 10)
+        assertEquals(1, counter.skipped()) // under 30 seconds heard
+        counter.onTrackStarted(2, 200.0); listen(0, 40)
+        assertNull(counter.skipped()) // heard enough to know
+        counter.onTrackStarted(3, 20.0); listen(0, 5)
+        assertNull(counter.skipped()) // too short a song to tell
     }
 }

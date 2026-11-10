@@ -70,8 +70,10 @@ class PlaybackService : MediaLibraryService() {
     private val api: ShelfApi? get() = app.container.api
     private val downloads get() = app.container.downloads
 
+    private val private get() = app.container.settings.settings.value.privateSession
     private val counter = PlayCounter { id ->
         val a = api ?: return@PlayCounter
+        if (private) return@PlayCounter // a private session leaves no history (as on the web)
         scope.launch(Dispatchers.IO) { runCatching { a.played(id) } }
     }
 
@@ -125,6 +127,10 @@ class PlaybackService : MediaLibraryService() {
         decks.onSwap = ::onSwap
         decks.addListener(object : Player.Listener {
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
+                // Skipped to another song (next, previous, a tap in the queue) early on: a skip.
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !private) counter.skipped()?.let { id ->
+                    api?.let { a -> scope.launch(Dispatchers.IO) { runCatching { a.skipped(id) } } }
+                }
                 autoplayIfLast()
                 item?.track()?.let { counter.onTrackStarted(it.id, it.duration) }
                 level(item)

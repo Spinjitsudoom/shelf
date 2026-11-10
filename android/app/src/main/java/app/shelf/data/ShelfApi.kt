@@ -92,6 +92,9 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
 
     private fun body(build: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit) = buildJsonObject(build).toString().toRequestBody(JSON)
 
+    /** Moved on before 30 seconds of it: suggestions learn from skips. */
+    suspend fun skipped(trackId: Int) { send("POST", "api/tracks/$trackId/skipped") }
+
     /** A listen, for history, mixes and recommendations. */
     suspend fun played(trackId: Int) {
         call("api/tracks/$trackId/played", JsonObject.serializer(), ByteArray(0).toRequestBody(null))
