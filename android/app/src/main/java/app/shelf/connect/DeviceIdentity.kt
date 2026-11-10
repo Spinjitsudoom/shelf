@@ -9,7 +9,11 @@ private val ID = Regex("^[A-Za-z0-9_-]{8,64}$")
 private const val ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
 
 /** How this phone shows up in other devices' lists: a lasting id, its name, and phone or tablet. */
-class DeviceIdentity(private val load: () -> String?, private val save: (String) -> Unit, val name: String, val kind: String) {
+class DeviceIdentity(private val load: () -> String?, private val save: (String) -> Unit, private val phoneName: String, val kind: String) {
+    /** The name set in Settings, if any (else the phone's own). */
+    @Volatile var chosenName: String = ""
+    val name: String get() = chosenName.trim().ifBlank { phoneName }
+
     val id: String get() = load()?.takeIf { ID.matches(it) } ?: renew()
 
     /** A new id (when another device already has this one). */

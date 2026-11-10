@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 // What the server sends (src/shelf/app.py: album_json, track_json, …). Fields the app doesn't
 // use are ignored, so a newer server doesn't break an older app.
 
-@Serializable data class User(val id: Int, val username: String, val admin: Boolean = false)
+@Serializable data class User(val id: Int, val username: String, val admin: Boolean = false, val shareActivity: Boolean = true)
 
 @Serializable data class Session(val setup: Boolean = false, val signedIn: Boolean = false, val user: User? = null, val version: String = "")
 

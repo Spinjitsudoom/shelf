@@ -21,6 +21,11 @@ data class Settings(
     val eqGains: List<Double> = List(6) { 0.0 }, // dB at 60, 150, 400, 1000, 2400 and 15000 Hz
     val balance: Float = 0f,               // −1 left … 1 right
     val mono: Boolean = false,
+    val autoplay: Boolean = true,          // similar songs when the queue runs out
+    val privateSession: Boolean = false,   // this phone's listening kept out of friend activity
+    val spinDisc: Boolean = true,
+    val deviceName: String = "",           // empty: the phone's own name
+    val downloadQuality: String = "veryhigh",
 )
 
 class SettingsStore(private val prefs: SharedPreferences) {

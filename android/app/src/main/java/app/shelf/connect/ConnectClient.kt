@@ -84,6 +84,13 @@ class ConnectClient(
     /** Start again (another server, or signed in again). */
     fun restart() { stop(); start() }
 
+    /** A new name for this phone in the other devices' lists (empty: the phone's own). */
+    fun rename(name: String) {
+        if (name == identity.chosenName) return
+        identity.chosenName = name
+        send(JsonObject(mapOf("type" to JsonPrimitive("rename"), "name" to JsonPrimitive(identity.name), "kind" to JsonPrimitive(identity.kind))))
+    }
+
     /** Connect now if it's waiting (just signed in, say), instead of at the next retry. */
     fun nudge() { post { if (started && socket == null) { retry = 0; connect() } } }
 

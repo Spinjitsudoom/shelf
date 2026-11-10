@@ -108,6 +108,7 @@ class PlaybackService : MediaLibraryService() {
             .build()
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
+                autoplayIfLast()
                 item?.track()?.let { counter.onTrackStarted(it.id, it.duration) }
                 level(item)
                 save()
@@ -122,7 +123,7 @@ class PlaybackService : MediaLibraryService() {
         restore(play = false)
         startConnect()
         level(player.currentMediaItem)
-        scope.launch { app.container.settings.settings.collect { s -> level(player.currentMediaItem); applySound(s) } }
+        scope.launch { app.container.settings.settings.collect { s -> level(player.currentMediaItem); applySound(s); app.container.connect.rename(s.deviceName) } }
         startSleepTimer()
         main.post(tick)
     }
@@ -136,7 +137,8 @@ class PlaybackService : MediaLibraryService() {
         remote = RemotePlayer(mainLooper, connect, { api })
         bridge = ConnectBridge(connect, player, ::playableItem,
             onVolume = { level(player.currentMediaItem) },
-            onMode = { isRemote -> session.player = if (isRemote) remote else player; pushWidget() })
+            onMode = { isRemote -> session.player = if (isRemote) remote else player; pushWidget() },
+            privateSession = { app.container.settings.settings.value.privateSession })
         bridge.attach()
         val widget = object : Player.Listener {
             override fun onEvents(p: Player, events: Player.Events) { if (p === session.player) pushWidget() }
@@ -201,6 +203,25 @@ class PlaybackService : MediaLibraryService() {
     private fun qualityFor(codec: String?): String {
         val s = app.container.settings.settings.value
         return if (!metered()) s.wifiQuality else if (s.dataQuality == "auto") streamQuality(codec, true) else s.dataQuality
+    }
+
+    private var autoplaying = false
+
+    /** The last song has started: add similar ones, so the music carries on (unless repeat is on, or it's off in Settings). */
+    private fun autoplayIfLast() {
+        val seed = player.currentMediaItem?.track() ?: return
+        if (autoplaying || !app.container.settings.settings.value.autoplay || player.currentMediaItemIndex != player.mediaItemCount - 1) return
+        val a = api ?: return
+        autoplaying = true
+        val context = player.currentMediaItem?.playContext()
+        scope.launch {
+            val similar = try { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { a.similar(seed.id) } } catch (e: Exception) { emptyList() } // offline: just stop at the end
+            val ids = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).track()?.id }
+            val fresh = autoplayPick(ids, similar, player.repeatMode == Player.REPEAT_MODE_OFF)
+            if (fresh.isNotEmpty() && player.currentMediaItem?.track()?.id == seed.id && player.currentMediaItemIndex == player.mediaItemCount - 1)
+                player.addMediaItems(fresh.map { playableItem(it, context) })
+            autoplaying = false
+        }
     }
 
     private val sound = ShelfAudioProcessor()

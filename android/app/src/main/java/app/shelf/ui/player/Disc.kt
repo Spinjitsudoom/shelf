@@ -121,7 +121,8 @@ fun Disc(labelUrl: String?, spinning: Boolean, modifier: Modifier = Modifier, la
     val vinyl = LocalSettings.current.format == "vinyl"
     val reduceMotion = reduceMotion()
     val turn = if (vinyl) 1800 else 7000 // a record turns at 33⅓ a minute; a CD, slowly enough to see
-    val angle by if (spinning && !reduceMotion) rememberInfiniteTransition(label = "disc")
+    val spin = LocalSettings.current.spinDisc
+    val angle by if (spinning && spin && !reduceMotion) rememberInfiniteTransition(label = "disc")
         .animateFloat(0f, 360f, infiniteRepeatable(tween(turn, easing = LinearEasing), RepeatMode.Restart), label = "spin")
     else remember { mutableFloatStateOf(0f) }
     if (vinyl) Record(labelUrl, labelColor, angle, modifier) else Cd(angle, modifier)

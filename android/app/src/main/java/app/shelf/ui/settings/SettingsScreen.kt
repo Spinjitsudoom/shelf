@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -59,6 +60,7 @@ fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: 
             Choice("Quality on mobile data", "Automatic makes lossless files smaller and sends the rest as they are.", s.dataQuality,
                 listOf("auto" to "Automatic") + QUALITIES.drop(1)) { v -> set { it.copy(dataQuality = v) } }
         }
+        item { Toggle("Autoplay", "When the music runs out, carry on with similar songs.", s.autoplay) { v -> set { it.copy(autoplay = v) } } }
         item { Toggle("Even out volume", "Songs play at the same loudness, as on the web.", s.normalize) { v -> set { it.copy(normalize = v) } } }
         if (s.normalize) item {
             Segmented("Loudness", s.loudness, listOf("quiet" to "Quiet", "normal" to "Normal", "loud" to "Loud")) { v -> set { it.copy(loudness = v) } }
@@ -74,6 +76,13 @@ fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: 
         item { Section("Appearance") }
         item { Segmented("Theme", s.theme, listOf("dark" to "Dark", "light" to "Light", "system" to "Phone")) { v -> set { it.copy(theme = v) } } }
         item { Segmented("Shelf", s.format, listOf("cd" to "CDs", "vinyl" to "Vinyl")) { v -> set { it.copy(format = v) } } }
+        item { Toggle("Spin the disc", "The CD or record turns on Now Playing while the music plays.", s.spinDisc) { v -> set { it.copy(spinDisc = v) } } }
+        item { Section("Downloads") }
+        item { Choice("Download quality", "For albums and playlists you download. Original keeps your files as they are.", s.downloadQuality, QUALITIES) { v -> set { it.copy(downloadQuality = v) } } }
+        item { Section("Devices and privacy") }
+        item { DeviceName(s.deviceName) { v -> set { it.copy(deviceName = v) } } }
+        item { Toggle("Private session", "While it's on, what you play on this phone doesn't show in friend activity.", s.privateSession) { v -> set { it.copy(privateSession = v) } } }
+        item { ShareActivity(container) }
         item { Section("Account") }
         item {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -169,5 +178,32 @@ private fun UpdateCheck(container: app.shelf.AppContainer) {
             is app.shelf.update.UpdateResult.Failed -> Text(r.message, style = MaterialTheme.typography.bodySmall, color = Shelf.colors.ink2)
             else -> {}
         }
+    }
+}
+
+/** This phone's name in your other devices' lists (empty: the phone's own name). */
+@Composable
+private fun DeviceName(value: String, onChange: (String) -> Unit) {
+    var text by androidx.compose.runtime.saveable.rememberSaveable(value) { androidx.compose.runtime.mutableStateOf(value) }
+    Column(Modifier.padding(horizontal = 20.dp, vertical = 10.dp)) {
+        Text("This phone's name", style = MaterialTheme.typography.titleMedium, color = Shelf.colors.ink)
+        Text("How it shows up when you pick where the music plays.", style = MaterialTheme.typography.bodySmall, color = Shelf.colors.ink2)
+        androidx.compose.material3.OutlinedTextField(text, { text = it.take(60) }, singleLine = true, placeholder = { Text("The phone's own name") },
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp).onFocusChanged { if (!it.isFocused && text != value) onChange(text.trim()) },
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { onChange(text.trim()) }))
+    }
+}
+
+/** Whether people on this server see what you play (friend activity, and Blends with you). Kept on the server, for all your devices. */
+@Composable
+private fun ShareActivity(container: AppContainer) {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var on by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Boolean?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { on = runCatching { container.api?.session()?.user?.shareActivity }.getOrNull() }
+    val value = on ?: return
+    Toggle("Share what I play", "People on this server see it in friend activity, and can make a Blend with you.", value) { v ->
+        on = v
+        scope.launch { if (runCatching { container.api?.setShareActivity(v) }.isFailure) on = !v }
     }
 }

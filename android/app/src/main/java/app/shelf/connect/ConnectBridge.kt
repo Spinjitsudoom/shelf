@@ -32,6 +32,7 @@ class ConnectBridge(
     private val onVolume: (Float) -> Unit,
     private val onMode: (Boolean) -> Unit,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val privateSession: () -> Boolean = { false },
 ) : ConnectListener, Player.Listener {
     private var last: ConnectUi? = null
     private var remoteMode = false
@@ -77,6 +78,7 @@ class ConnectBridge(
             "repeat" to JsonPrimitive(when (player.repeatMode) { Player.REPEAT_MODE_ALL -> "all"; Player.REPEAT_MODE_ONE -> "one"; else -> "off" }),
             "context" to contextJson(ctx?.let { WebContext(it.label, webHref(it.route)) }),
             "volume" to JsonPrimitive(userVolume.toDouble()),
+            "private" to JsonPrimitive(privateSession()), // kept out of friend activity
         ))
         val msg = mutableMapOf<String, JsonElement>("type" to JsonPrimitive("state"), "state" to state)
         val sig = tracks.joinToString(",") { it.id.toString() }

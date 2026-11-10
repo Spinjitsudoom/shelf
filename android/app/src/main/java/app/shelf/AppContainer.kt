@@ -38,12 +38,12 @@ class AppContainer(context: Context) {
 
     /** Albums, playlists and Favourites kept on the phone (created on first use, on the main thread). */
     val downloads by lazy {
-        app.shelf.downloads.Downloads(context.applicationContext, okHttp, { api }, { settings.settings.value.wifiQuality })
+        app.shelf.downloads.Downloads(context.applicationContext, okHttp, { api }, { settings.settings.value.downloadQuality })
     }
 
     /** Shelf Connect: this phone among the user's devices (started by the player service). */
     val connect by lazy {
-        app.shelf.connect.ConnectClient(app.shelf.connect.DeviceIdentity.of(context.applicationContext), okHttp,
+        app.shelf.connect.ConnectClient(app.shelf.connect.DeviceIdentity.of(context.applicationContext).apply { chosenName = settings.settings.value.deviceName }, okHttp,
             { store.server?.takeIf { store.token != null } }) // the server refuses devices that aren't signed in
     }
 

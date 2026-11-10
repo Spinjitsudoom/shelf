@@ -34,7 +34,8 @@ class ConnectBridgeTest {
     private var volume = 1f
     private var modes = mutableListOf<Boolean>()
     private val toItem = { t: Track, c: PlayContext? -> t.toControllerItem(FakeLibrary(), c).buildUpon().setUri("http://x/${t.id}").build() }
-    private val bridge = ConnectBridge(link, exo, toItem, onVolume = { volume = it }, onMode = { modes += it })
+    private var private = false
+    private val bridge = ConnectBridge(link, exo, toItem, onVolume = { volume = it }, onMode = { modes += it }, privateSession = { private })
 
     @After fun tearDown() = exo.release()
 
@@ -96,5 +97,14 @@ class ConnectBridgeTest {
         bridge.onUi(remoteUi())
         assertEquals("claim", link.sent.last()["type"]!!.jsonPrimitive.content)
         assertTrue("doesn't hand the controls over while it plays", modes.none { it })
+    }
+
+    @Test fun privateSessionIsReported() {
+        load(1)
+        bridge.report(forceQueue = false)
+        assertEquals("false", link.sent.last()["state"]!!.jsonObject["private"].toString())
+        private = true
+        bridge.report(forceQueue = false)
+        assertEquals("true", link.sent.last()["state"]!!.jsonObject["private"].toString())
     }
 }
