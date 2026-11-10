@@ -1791,27 +1791,27 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     @app.get("/api/artist")
     def artist_page(name: str = Query(..., min_length=1, max_length=200)):
         """Everything on an artist page: releases, their most played songs, albums they
-        appear on, and playlists with their songs (plays and playlists are the viewer's own)."""
+        appear on, and playlists with their songs. Plays are everyone's on this server added up
+        (a total says nothing about who played what); playlists are the viewer's."""
         me_id = uid()
         with db() as conn:
             # Their albums, shared ones too: "Aerosmith & Yungblud" is on both pages.
             albums = [a for a in conn.execute(
                 """SELECT a.*, COUNT(p.id) AS plays, MAX(p.played_at) AS last_played
-                   FROM albums a LEFT JOIN plays p ON p.album_key = a.key AND p.user_id = ?
+                   FROM albums a LEFT JOIN plays p ON p.album_key = a.key
                    GROUP BY a.id ORDER BY COALESCE(a.year, 9999) DESC, a.title COLLATE NOCASE""",
-                (me_id,),
             ).fetchall() if credits.credited(a["artist"], name)]
             # Songs credited to the artist, on their own albums or others' (features too).
             keys = [a["key"] for a in albums]
             credits_with = [c for (c,) in conn.execute("SELECT DISTINCT artist FROM tracks") if credits.credited(c, name)]
             rows = conn.execute(
                 f"""SELECT t.*, a.id AS album_id, a.title AS album_title, a.artist AS album_artist_name, a.cover_src,
-                           (SELECT COUNT(*) FROM plays p WHERE p.track_id = t.id AND p.user_id = ?) AS plays,
-                           (SELECT MAX(played_at) FROM plays p WHERE p.track_id = t.id AND p.user_id = ?) AS last_played
+                           (SELECT COUNT(*) FROM plays p WHERE p.track_id = t.id) AS plays,
+                           (SELECT MAX(played_at) FROM plays p WHERE p.track_id = t.id) AS last_played
                     FROM tracks t JOIN albums a ON a.key = t.album_key
                     WHERE a.key IN ({','.join('?' * len(keys)) or 'NULL'})
                        OR t.artist IN ({','.join('?' * len(credits_with)) or 'NULL'})""",
-                (me_id, me_id, *keys, *credits_with),
+                (*keys, *credits_with),
             ).fetchall()
             tracks = list(rows)
             if not albums and not tracks:

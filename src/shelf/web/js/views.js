@@ -575,7 +575,7 @@ export async function artistView(el, name) {
 
   const facts = [plural(stats.albums, albums.length && albums.every((a) => a.kind === "album") ? "album" : "release"),
     plural(stats.songs, "song"), stats.duration ? fmtLength(stats.duration) : null].filter(Boolean).join(", ");
-  const listened = stats.plays ? `You’ve played their songs ${plural(stats.plays, "time")}` : "You haven’t played their songs yet";
+  const listened = stats.plays ? `Their songs have been played ${plural(stats.plays, "time")}` : "Nobody has played their songs yet";
   const chips = DISCOGRAPHY.filter(([k, , keep]) => k === "popular" || albums.some(keep));
   const latest = albums[0];
   const topAlbum = [...albums].sort((a, b) => b.plays - a.plays)[0];

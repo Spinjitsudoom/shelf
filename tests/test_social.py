@@ -82,3 +82,25 @@ def test_listenbrainz_scrobbling(client, monkeypatch):
     assert path == "submit-listens" and token == "good"
     assert body["payload"][0]["listened_at"] == 1700000000 or body["payload"][0]["listened_at"] > 0
     assert client.patch("/api/me", json={"listenbrainzToken": ""}).json()["listenbrainz"] is None
+
+
+def test_artist_play_counts_are_everyones(client):
+    """Plays on an artist page add up everyone's, including people who keep their listening private
+    (a total says nothing about who played what)."""
+    sam = two(client)
+    tracks = {t["title"]: t["id"] for t in client.get("/api/tracks/random?limit=10").json()}
+    closer = tracks["Closer"]
+    for _ in range(2):
+        client.post(f"/api/tracks/{closer}/played")
+    for _ in range(3):
+        sam.post(f"/api/tracks/{closer}/played")
+
+    page = client.get("/api/artist?name=Band").json()
+    song = next(t for t in page["popular"] if t["title"] == "Closer")
+    assert song["plays"] == 5 and page["stats"]["plays"] == 5
+    album = next(a for a in page["albums"] if a["title"] == "First")
+    assert album["plays"] == 5
+    assert sam.get("/api/artist?name=Band").json()["stats"]["plays"] == 5  # the same for everyone
+
+    sam.patch("/api/me", json={"shareActivity": False})
+    assert client.get("/api/artist?name=Band").json()["stats"]["plays"] == 5  # still counted
