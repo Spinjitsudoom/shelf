@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, covers, credits, genres, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, peaks, playlist_maker, releases, ripper, scrobble, sound, transcode, uploads, videos
+from . import analysis, covers, credits, genres, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, peaks, playlist_maker, releases, ripper, scrobble, sound, together, transcode, uploads, videos
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -2070,9 +2070,11 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 genre_n[g] = genre_n.get(g, 0) + 1
             album_ids.add(t["album_id"])
         bpms = [t["bpm"] for t in mine if t["bpm"]]
-        # Sounds like: how close each song's sound is to the average sound of `mine`.
-        vecs = sound.vectors([*mine, *pool])
-        centre = sound.centre(vecs, [t["id"] for t in mine])
+        mine_ids = [t["id"] for t in mine]
+        # Sounds like: how close each song is to the songs of `mine` it's nearest to.
+        near = sound.nearest(sound.vectors([*mine, *pool]), mine_ids, [t["id"] for t in pool])
+        # Belongs together: shares playlists or listening sessions with them.
+        with_them = together.scores(*together.load(cfg.db_path), set(mine_ids))
         keys = {analysis.camelot(t["musical_key"]) for t in mine} - {None}
         friendly = set().union(*(analysis.camelot_neighbours(k) for k in keys)) if keys else set()
         rng = random.Random(seed)
@@ -2091,8 +2093,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 s += 1
             if t["album_id"] in album_ids:
                 s += 0.4
-            if centre is not None:
-                s += 3 * max(0.0, sound.similarity(vecs, centre, t["id"]))
+            s += 3 * max(0.0, near.get(t["id"], 0.0))
+            s += 2.5 * with_them.get(t["id"], 0.0)
             s += rng.random() * (1.6 if seed else 0.3)
             scored.append((s, t))
         scored.sort(key=lambda x: -x[0])

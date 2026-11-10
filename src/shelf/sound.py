@@ -208,6 +208,22 @@ def centre(vecs: dict, ids) -> "object | None":
     return c / n if n else None
 
 
+def nearest(vecs: dict, mine, candidates) -> dict[int, float]:
+    """{candidate: -1..1}: how much each candidate sounds like the songs of `mine` it's closest
+    to (the nearest one for a few songs, the nearest few for many). Unlike the average of
+    `mine`, this keeps a playlist of thrash and ballads finding both, not their muddy middle."""
+    import numpy as np
+
+    have = [vecs[i] for i in mine if i in vecs]
+    cand = [i for i in candidates if i in vecs]
+    if not have or not cand:
+        return {}
+    k = min(3, max(1, len(have) // 5))
+    sims = np.array([vecs[i] for i in cand]) @ np.array(have).T
+    top = -np.partition(-sims, k - 1, axis=1)[:, :k] if sims.shape[1] > k else sims
+    return dict(zip(cand, top.mean(axis=1).tolist()))
+
+
 def similarity(vecs: dict, centre_vec, track_id: int) -> float:
     """-1..1: how much a song sounds like the centre."""
     v = vecs.get(track_id)
