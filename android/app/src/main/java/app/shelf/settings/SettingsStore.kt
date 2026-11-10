@@ -16,6 +16,11 @@ data class Settings(
     val loudness: String = "normal",       // loud, normal, quiet
     val theme: String = "dark",            // dark, light, system
     val format: String = "cd",             // cd, vinyl
+    val eqEnabled: Boolean = false,
+    val eqPreset: String = "Flat",         // a preset's name, or "Custom"
+    val eqGains: List<Double> = List(6) { 0.0 }, // dB at 60, 150, 400, 1000, 2400 and 15000 Hz
+    val balance: Float = 0f,               // −1 left … 1 right
+    val mono: Boolean = false,
 )
 
 class SettingsStore(private val prefs: SharedPreferences) {

@@ -64,6 +64,7 @@ object Routes {
     const val SETTINGS = "settings"
     const val SEARCH = "search"
     const val ADMIN = "web/admin"
+    const val EQUALIZER = "settings/eq"
     fun album(id: Int) = "album/$id"
     fun artist(name: String) = "artist/${android.net.Uri.encode(name)}"
     fun playlist(id: Int) = "playlist/$id"
@@ -166,7 +167,10 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             composable("mix/{key}") { MixScreen(it.arguments!!.getString("key")!!, source, onPlay, back, signedOut) }
             composable(Routes.SETTINGS) {
                 app.shelf.ui.settings.SettingsScreen(container, app.shelf.BuildConfig.VERSION_NAME, onChangeServer, onSignOut, back,
-                    onAdmin = { nav.navigate(Routes.ADMIN) })
+                    onAdmin = { nav.navigate(Routes.ADMIN) }, onEqualizer = { nav.navigate(Routes.EQUALIZER) })
+            }
+            composable(Routes.EQUALIZER) {
+                app.shelf.ui.settings.EqualizerScreen(container, back)
             }
             composable(Routes.ADMIN) {
                 app.shelf.ui.web.WebPageScreen(container.store.server ?: "", container.store.token, "#/admin", back)

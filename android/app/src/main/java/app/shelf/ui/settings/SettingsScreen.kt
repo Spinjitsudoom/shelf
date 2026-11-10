@@ -41,7 +41,7 @@ private val QUALITIES = listOf("original" to "Original", "veryhigh" to "320 kbps
 
 @Composable
 fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: () -> Unit, onSignOut: () -> Unit, onBack: () -> Unit,
-                   onAdmin: () -> Unit = {}) {
+                   onAdmin: () -> Unit = {}, onEqualizer: () -> Unit = {}) {
     val admin by produceState(false, container.store.server) { value = runCatching { container.api?.session()?.user?.admin == true }.getOrDefault(false) }
     val s by container.settings.settings.collectAsStateWithLifecycle()
     val serverVersion by produceState("", container.store.server) { value = runCatching { container.api?.ping() ?: "" }.getOrDefault("") }
@@ -62,6 +62,14 @@ fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: 
         item { Toggle("Even out volume", "Songs play at the same loudness, as on the web.", s.normalize) { v -> set { it.copy(normalize = v) } } }
         if (s.normalize) item {
             Segmented("Loudness", s.loudness, listOf("quiet" to "Quiet", "normal" to "Normal", "loud" to "Loud")) { v -> set { it.copy(loudness = v) } }
+        }
+        item {
+            Row(Modifier.fillMaxWidth().clickable(onClick = onEqualizer).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Equalizer", style = MaterialTheme.typography.titleMedium, color = Shelf.colors.ink)
+                    Text(if (s.eqEnabled) s.eqPreset else "Off", style = MaterialTheme.typography.bodySmall, color = Shelf.colors.ink2)
+                }
+            }
         }
         item { Section("Appearance") }
         item { Segmented("Theme", s.theme, listOf("dark" to "Dark", "light" to "Light", "system" to "Phone")) { v -> set { it.copy(theme = v) } } }

@@ -94,7 +94,13 @@ class PlaybackService : MediaLibraryService() {
         // Downloads first (read only: the download manager writes them), then recently played, then the server.
         val dataSource = CacheDataSource.Factory().setCache(MusicStorage.downloads(this)).setUpstreamDataSourceFactory(recent)
             .setCacheWriteDataSinkFactory(null)
-        player = ExoPlayer.Builder(this)
+        // The equalizer, balance and mono, on the music's way to the speaker.
+        val renderers = object : androidx.media3.exoplayer.DefaultRenderersFactory(this) {
+            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): androidx.media3.exoplayer.audio.AudioSink =
+                androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context).setAudioProcessors(arrayOf(sound))
+                    .setEnableFloatOutput(enableFloatOutput).setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).build()
+        }
+        player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
             .setHandleAudioBecomingNoisy(true) // headphones out: pause
@@ -116,7 +122,7 @@ class PlaybackService : MediaLibraryService() {
         restore(play = false)
         startConnect()
         level(player.currentMediaItem)
-        scope.launch { app.container.settings.settings.collect { level(player.currentMediaItem) } }
+        scope.launch { app.container.settings.settings.collect { s -> level(player.currentMediaItem); applySound(s) } }
         main.post(tick)
     }
 
@@ -195,6 +201,10 @@ class PlaybackService : MediaLibraryService() {
         val s = app.container.settings.settings.value
         return if (!metered()) s.wifiQuality else if (s.dataQuality == "auto") streamQuality(codec, true) else s.dataQuality
     }
+
+    private val sound = ShelfAudioProcessor()
+
+    private fun applySound(s: app.shelf.settings.Settings) = sound.setup(if (s.eqEnabled) s.eqGains else null, s.balance, s.mono)
 
     /** Volume levelling: set for each song as it starts (and again when the setting changes). */
     private fun level(item: MediaItem?) {
