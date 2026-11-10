@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, covers, credits, updates, dj, folders, local_llm, loudness, lyrics, mixes, peaks, releases, ripper, scrobble, sound, transcode, uploads, videos
+from . import analysis, covers, credits, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, peaks, releases, ripper, scrobble, sound, transcode, uploads, videos
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -2220,6 +2220,11 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             if len(tracks) >= 5:
                 out[key] = {"key": key, "kind": "list", "name": name, "description": desc, "color": color,
                             "tracks": tracks, "covers": _covers_of(tracks)}
+        # Moods (Workout, Chill...), once enough of the library is measured. New every day.
+        for m in moods.mood_mixes(rows, sound.energy(rows), score, mixes.day_seed(me_id, now)):
+            tracks = [track_json(by_id[i]) for i in m["ids"] if i in by_id]
+            out[m["key"]] = {"key": m["key"], "kind": "list", "name": m["name"], "description": m["description"],
+                             "color": m["color"], "tracks": tracks, "covers": _covers_of(tracks)}
         return out
 
     def _summary(m: dict) -> dict:
