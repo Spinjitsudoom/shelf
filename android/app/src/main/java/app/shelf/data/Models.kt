@@ -122,3 +122,13 @@ data class ListeningStats(
     val busiestDay: BusiestDay? = null, val currentStreak: Int = 0, val longestStreak: Int = 0,
     val newArtists: List<String> = emptyList(), val onThisDay: List<Track> = emptyList(), val years: List<Int> = emptyList(),
 )
+
+/** Party mode: a party going on, and one party's state (what's playing, up next, the skip votes). */
+@Serializable data class PartySummary(val host: ActivityUser, val people: Int = 1, val joined: Boolean = false, val mine: Boolean = false)
+@Serializable
+data class PartyStatus(
+    val host: ActivityUser, val isHost: Boolean = false, val joined: Boolean = false, val members: List<String> = emptyList(),
+    val nowPlaying: Track? = null, val playing: Boolean = false, val upNext: List<Track> = emptyList(),
+    val votes: Int = 0, val needed: Int = 1, val youVoted: Boolean = false,
+)
+@Serializable data class SkipVote(val skipped: Boolean = false, val votes: Int = 0, val needed: Int = 1)

@@ -49,6 +49,17 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     suspend fun setShareActivity(on: Boolean) = send("PATCH", "api/me", buildJsonObject { put("shareActivity", on) }.toString())
     suspend fun people(): List<Person> = call("api/people", ListSerializer(Person.serializer()))
     suspend fun blend(otherId: Int): MixDetail = call("api/blend/$otherId", MixDetail.serializer())
+    // ---- party mode ----
+    suspend fun parties(): List<PartySummary> = call("api/parties", ListSerializer(PartySummary.serializer()))
+    /** Start a party; returns the host's id (yours), to open it. */
+    suspend fun startParty(): Int = call("api/party", JsonObject.serializer(), "{}".toRequestBody(JSON))["host"].toString().toInt()
+    suspend fun endParty() { send("DELETE", "api/party") }
+    suspend fun party(host: Int): PartyStatus = call(url("api/party/$host"), PartyStatus.serializer(), null, "GET")
+    suspend fun joinParty(host: Int) { send("POST", "api/party/$host/join") }
+    suspend fun leaveParty(host: Int) { send("POST", "api/party/$host/leave") }
+    suspend fun partyAdd(host: Int, trackIds: List<Int>) { send("POST", "api/party/$host/add", buildJsonObject { putJsonArray("trackIds") { trackIds.forEach { add(it) } } }.toString()) }
+    suspend fun partySkip(host: Int): SkipVote = call("api/party/$host/skip", SkipVote.serializer(), "{}".toRequestBody(JSON))
+
     suspend fun activity(): List<Activity> = call("api/activity", ListSerializer(Activity.serializer()))
     suspend fun video(id: Int): VideoInfo = call("api/tracks/$id/video", VideoInfo.serializer())
     override suspend fun artists(): List<ArtistSummary> = call("api/artists", ListSerializer(ArtistSummary.serializer()))

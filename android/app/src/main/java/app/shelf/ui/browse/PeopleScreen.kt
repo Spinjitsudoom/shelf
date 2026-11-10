@@ -1,6 +1,7 @@
 package app.shelf.ui.browse
 
 import androidx.compose.foundation.clickable
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,20 +38,46 @@ import app.shelf.ui.theme.Shelf
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
-private class PeopleData(val activity: List<Activity>, val people: List<Person>)
+private class PeopleData(val activity: List<Activity>, val people: List<Person>, val parties: List<app.shelf.data.PartySummary>)
 
 /** People on this server: what they're playing (friend activity), and a Blend with each of them. */
 @Composable
-fun PeopleScreen(api: ShelfApi, onBlend: (Int) -> Unit, onAlbum: (Int) -> Unit, onBack: () -> Unit, signedOut: SignedOutHandler) {
+fun PeopleScreen(api: ShelfApi, onBlend: (Int) -> Unit, onAlbum: (Int) -> Unit, onBack: () -> Unit, signedOut: SignedOutHandler,
+                 onParty: ((Int) -> Unit)? = null) {
     val (state, retry) = rememberLoad("people") {
-        coroutineScope { val a = async { api.activity() }; val p = async { api.people() }; PeopleData(a.await(), p.await()) }
+        coroutineScope {
+            val a = async { api.activity() }; val p = async { api.people() }; val g = async { runCatching { api.parties() }.getOrDefault(emptyList()) }
+            PeopleData(a.await(), p.await(), g.await())
+        }
     }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     LoadContent(state, retry, signedOut) { d ->
         LazyColumn(Modifier.fillMaxSize()) {
             item {
                 Row(Modifier.statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), "Back", tint = Shelf.colors.ink) }
                     Text("People", style = MaterialTheme.typography.headlineSmall, color = Shelf.colors.ink)
+                }
+            }
+            if (onParty != null) {
+                items(d.parties, key = { "party${it.host.id}" }) { g ->
+                    Row(Modifier.fillMaxWidth().clickable { onParty(g.host.id) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Icon(painterResource(R.drawable.ic_artists), null, tint = Shelf.colors.cobalt)
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(if (g.mine) "Your party" else "${g.host.username}’s party", style = MaterialTheme.typography.titleMedium, color = Shelf.colors.ink)
+                            Text("${g.people} ${if (g.people == 1) "person" else "people"} there" + if (g.joined) ", you’re in" else "",
+                                style = MaterialTheme.typography.bodySmall, color = Shelf.colors.ink2)
+                        }
+                        Text(if (g.mine || g.joined) "Open" else "Join", color = Shelf.colors.cobalt, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+                if (d.people.isNotEmpty() && d.parties.none { it.mine }) item {
+                    androidx.compose.material3.OutlinedButton(onClick = { scope.launch { runCatching { api.startParty() }.onSuccess(onParty) } },
+                        modifier = Modifier.padding(16.dp, 6.dp)) { Text("Start a party", color = Shelf.colors.ink) }
+                    Text("Everyone here can join what you’re playing, add songs and vote to skip.", style = MaterialTheme.typography.bodySmall,
+                        color = Shelf.colors.ink2, modifier = Modifier.padding(horizontal = 16.dp))
                 }
             }
             if (d.people.isEmpty()) item {

@@ -236,6 +236,23 @@ class ShelfApiTest {
         assertEquals(listOf(2026), s.years)
     }
 
+    @Test fun partyCalls() = runTest {
+        json("""[{"host":{"id":1,"username":"admin"},"people":2,"joined":true,"mine":false}]""")
+        assertEquals(PartySummary(ActivityUser(1, "admin"), people = 2, joined = true), api.parties().single())
+        json("""{"host":{"id":1,"username":"admin"},"isHost":false,"joined":true,"members":["admin","sam"],
+            "nowPlaying":{"id":4,"title":"Closer","artist":"Band","albumId":5},"playing":true,
+            "upNext":[{"id":6,"title":"Late","artist":"Band","albumId":5}],"votes":1,"needed":2,"youVoted":true}""")
+        server.takeRequest()
+        val st = api.party(1)
+        assertEquals("/api/party/1", server.takeRequest().url.encodedPath)
+        assertEquals("Closer", st.nowPlaying?.title); assertEquals(listOf("admin", "sam"), st.members); assertEquals(2, st.needed)
+        json("""{"added":1,"at":1}""")
+        api.partyAdd(1, listOf(6))
+        server.takeRequest().let { assertEquals("/api/party/1/add", it.url.encodedPath); assertEquals("""{"trackIds":[6]}""", it.body!!.utf8()) }
+        json("""{"skipped":false,"votes":1,"needed":2}""")
+        assertEquals(SkipVote(false, 1, 2), api.partySkip(1))
+    }
+
     @Test fun playlistMixSwitch() = runTest {
         json("""{}""")
         api.setPlaylistMix(9, true)

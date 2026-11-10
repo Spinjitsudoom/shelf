@@ -180,7 +180,12 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                 composable("wrapped/{year}", listOf(navArgument("year") { type = NavType.IntType })) {
                     app.shelf.ui.stats.WrappedScreen(api, it.arguments!!.getInt("year"), onPlay, back, signedOut)
                 }
-                composable(Routes.PEOPLE) { app.shelf.ui.browse.PeopleScreen(api, { nav.navigate(Routes.blend(it)) }, openAlbum, back, signedOut) }
+                composable(Routes.PEOPLE) {
+                    app.shelf.ui.browse.PeopleScreen(api, { nav.navigate(Routes.blend(it)) }, openAlbum, back, signedOut, onParty = { nav.navigate("party/$it") })
+                }
+                composable("party/{host}", listOf(navArgument("host") { type = NavType.IntType })) {
+                    app.shelf.ui.browse.PartyScreen(api, it.arguments!!.getInt("host"), back, say)
+                }
                 composable("blend/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
                     app.shelf.ui.browse.BlendScreen(it.arguments!!.getInt("id"), api, onPlay, back, signedOut)
                 }
