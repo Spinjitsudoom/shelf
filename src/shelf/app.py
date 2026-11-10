@@ -90,7 +90,7 @@ class ScanManager:
             self.state["measuring"] = True
             loudness.analyze_pending(self.cfg.db_path, stop=self._stop)
             # Tempo and key (slower still), for playlist columns and recommendations.
-            if self.cfg.analyze_tempo and procs.has_essentia():  # (no Windows version)
+            if self.cfg.analyze_tempo:  # Essentia, or Shelf's own engine where it's missing (Windows)
                 analysis.analyze_pending(self.cfg.db_path, stop=self._stop)
                 # How each song sounds, for "sounds like" in recommendations, radio and mixes.
                 sound.analyze_pending(self.cfg.db_path, stop=self._stop)
@@ -651,7 +651,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             ).fetchall()
             measured = conn.execute("SELECT COUNT(*) FROM tracks WHERE loud_checked = 1").fetchone()[0]
             rhythm = conn.execute(f"SELECT COUNT(*) FROM tracks WHERE rhythm_checked >= {analysis.VERSION}").fetchone()[0]
-            sounded = conn.execute(f"SELECT COUNT(*) FROM tracks WHERE sound_checked >= {sound.VERSION}").fetchone()[0]
+            sounded = conn.execute("SELECT COUNT(*) FROM tracks WHERE sound_checked = ?", (sound.version(),)).fetchone()[0]
             last_scan = get_meta(conn, "last_scan")
             users = _users_json(conn)
         per_day = [0] * 14

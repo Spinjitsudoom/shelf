@@ -70,6 +70,8 @@ def camelot_neighbours(code: str) -> set[str]:
 
 
 def _analyze_here(path: str) -> dict:
+    if procs.analysis_engine() == "dsp":
+        return _analyze_dsp(path)
     import numpy as np
     import essentia
     import essentia.standard as es
@@ -93,6 +95,33 @@ def _analyze_here(path: str) -> dict:
         "bpm": round(bpm, 1) if bpm else None,
         "key": normalize_key(note, scale) if strength > 0.1 else None,
         "mix": mix_points(song, np.asarray(beats, dtype=float), bpm, rhythm),
+    }
+
+
+def _analyze_dsp(path: str) -> dict:
+    """The same measurements with Shelf's numpy engine (no Essentia, e.g. on Windows). It works
+    at half the rate: averaging sample pairs is plenty for beats and notes."""
+    import numpy as np
+    from . import dsp
+
+    raw = subprocess.run(
+        ["ffmpeg", "-nostdin", "-v", "error", "-i", path, "-t", str(MAX_DECODE), "-map", "0:a:0",
+         "-ac", "1", "-ar", str(SR), "-f", "f32le", "-"],
+        capture_output=True, timeout=600, **procs.no_window(),
+    ).stdout
+    song = np.frombuffer(raw, dtype=np.float32).copy()
+    if len(song) < SR * 5:
+        return {"bpm": None, "key": None, "mix": None}
+    half = lambda a: (a[0: len(a) // 2 * 2: 2] + a[1: len(a) // 2 * 2: 2]) / 2
+    audio = half(song[: SR * MAX_SECONDS])
+    bpm, beats = dsp.tempo_and_beats(audio, SR // 2)
+    note, scale, strength = dsp.key(audio, SR // 2)
+    bpm = float(bpm) if bpm and 30 < bpm < 260 else None
+    rhythm = lambda seg: dsp.tempo_and_beats(half(seg), SR // 2)
+    return {
+        "bpm": round(bpm, 1) if bpm else None,
+        "key": normalize_key(note, scale) if strength > 0.1 else None,
+        "mix": mix_points(song, beats, bpm, rhythm),
     }
 
 

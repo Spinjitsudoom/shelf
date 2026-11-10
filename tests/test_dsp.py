@@ -30,12 +30,13 @@ def tones(freqs, seconds: float = 20, sr: int = SR) -> np.ndarray:
     return (0.2 * y).astype(np.float32)
 
 
-@pytest.mark.parametrize("bpm", [90, 128])
+@pytest.mark.parametrize("bpm", [90, 120, 128])
 def test_dsp_tempo_clicks(bpm):
     found, beats = dsp.tempo_and_beats(clicks(bpm), SR)
-    assert abs(found - bpm) / bpm < 0.02, found
+    # Mix lines songs up on the beat, so the tempo must be closer than the frame size allows.
+    assert abs(found - bpm) / bpm < 0.005, found
     gaps = np.diff(beats)
-    assert abs(np.median(gaps) - 60 / bpm) < 0.02
+    assert abs(np.median(gaps) - 60 / bpm) < 0.005
 
 
 def test_dsp_key():

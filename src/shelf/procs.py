@@ -34,6 +34,16 @@ def python_module(module: str, *args: str) -> list[str]:
     return [sys.executable, "-m", module, *args]
 
 
+def analysis_engine() -> str:
+    """What measures tempo, key and "sounds like": Essentia where it's installed, otherwise
+    Shelf's own numpy engine (shelf.dsp), e.g. on Windows. SHELF_ANALYSIS_ENGINE=dsp|essentia
+    chooses (Essentia only if it's there)."""
+    want = os.environ.get("SHELF_ANALYSIS_ENGINE", "").lower()
+    if want == "dsp":
+        return "dsp"
+    return "essentia" if has_essentia() else "dsp"
+
+
 def has_essentia() -> bool:
     """Whether the audio analysis library (tempo, key, "sounds like") is installed. It has no
     Windows version, so a Windows server goes without those measurements."""

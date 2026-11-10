@@ -136,7 +136,15 @@ def _track_beats(env: np.ndarray, period: float, tightness: float = 100.0) -> np
         strong = local[beats] > 0.5 * np.sqrt((local[beats] ** 2).mean())
         keep = np.nonzero(strong)[0]
         beats = beats[keep[0]:keep[-1] + 1] if len(keep) else beats[:0]
-    return beats
+    # Each beat at its peak between frames (a parabola through the frame and its neighbours):
+    # whole frames alone would put the tempo off by up to 2%.
+    out = beats.astype(float)
+    inner = (beats > 0) & (beats < n - 1)
+    a, b, c = local[beats[inner] - 1], local[beats[inner]], local[beats[inner] + 1]
+    d = a - 2 * b + c
+    shift = np.where(d < 0, 0.5 * (a - c) / np.where(d < 0, d, -1), 0.0)
+    out[inner] += np.clip(shift, -0.5, 0.5)
+    return out
 
 
 def tempo_and_beats(y: np.ndarray, sr: int) -> tuple[float, np.ndarray]:
@@ -148,8 +156,8 @@ def tempo_and_beats(y: np.ndarray, sr: int) -> tuple[float, np.ndarray]:
         return 0.0, np.zeros(0)
     beats = _track_beats(env, 60 * fps / bpm)
     times = beats * HOP / sr
-    if len(times) >= 8:  # the beats themselves give the steadiest tempo
-        bpm = 60 / float(np.median(np.diff(times)))
+    if len(times) >= 8:  # the beats themselves give the steadiest tempo: the slope through them all
+        bpm = 60 / float(np.polyfit(np.arange(len(times)), times, 1)[0])
     return float(bpm), times
 
 

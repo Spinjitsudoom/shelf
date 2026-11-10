@@ -32,7 +32,15 @@ SR = 22050
 SECONDS = 60
 
 
+def version() -> int:
+    """What sound_checked holds once a song is measured: it differs per engine, because Essentia's
+    fingerprints and the numpy engine's can't be compared with each other."""
+    return VERSION if procs.analysis_engine() == "essentia" else VERSION + 100
+
+
 def _measure_here(path: str, duration: float) -> list[float] | None:
+    if procs.analysis_engine() == "dsp":
+        return _measure_dsp(path, duration)
     import numpy as np
     import essentia
     import essentia.standard as es
@@ -93,6 +101,30 @@ def _measure_here(path: str, duration: float) -> list[float] | None:
     return [round(float(x), 5) for x in vec]
 
 
+def _measure_dsp(path: str, duration: float) -> list[float] | None:
+    import numpy as np
+    from . import dsp
+
+    start = max(0.0, duration * 0.35 - SECONDS / 2) if duration > SECONDS * 1.5 else 0.0
+    raw = subprocess.run(
+        ["ffmpeg", "-nostdin", "-v", "error", "-ss", f"{start:.1f}", "-t", str(SECONDS), "-i", path,
+         "-map", "0:a:0", "-ac", "1", "-ar", str(SR), "-f", "f32le", "-"],
+        capture_output=True, timeout=300, **procs.no_window(),
+    ).stdout
+    audio = np.frombuffer(raw, dtype=np.float32).copy()
+    if len(audio) < SR * 10:
+        return None
+    return dsp.features(audio, SR)
+
+
+def counts(db_path: Path) -> tuple[int, int]:
+    """(measured with this server's engine, all songs)."""
+    with session(db_path) as conn:
+        total = conn.execute("SELECT COUNT(*) FROM tracks").fetchone()[0]
+        done = conn.execute("SELECT COUNT(*) FROM tracks WHERE sound_checked = ?", (version(),)).fetchone()[0]
+    return done, total
+
+
 def measure(path: Path, duration: float) -> list[float] | None:
     """One file's fingerprint, measured in a separate process. None if it failed."""
     try:
@@ -109,9 +141,12 @@ def measure(path: Path, duration: float) -> list[float] | None:
 
 
 def analyze_pending(db_path: Path, stop=None, workers: int = 2) -> int:
+    current = version()
     with session(db_path) as conn:
-        rows = conn.execute("SELECT id, path, duration FROM tracks WHERE sound_checked < ? ORDER BY id",
-                            (VERSION,)).fetchall()
+        # Fingerprints from the other engine go at once, so the two are never compared.
+        conn.execute("UPDATE tracks SET sound = NULL WHERE sound_checked NOT IN (0, ?)", (current,))
+        rows = conn.execute("SELECT id, path, duration FROM tracks WHERE sound_checked != ? ORDER BY id",
+                            (current,)).fetchall()
     if not rows:
         return 0
     log.info("Measuring how %d tracks sound", len(rows))
@@ -125,7 +160,7 @@ def analyze_pending(db_path: Path, stop=None, workers: int = 2) -> int:
             vec = fut.result()
             with session(db_path) as conn:
                 conn.execute("UPDATE tracks SET sound = ?, sound_checked = ? WHERE id = ?",
-                             (json.dumps(vec) if vec else None, VERSION, futures[fut]))
+                             (json.dumps(vec) if vec else None, current, futures[fut]))
             done += 1
     log.info("Measured how %d tracks sound", done)
     return done
