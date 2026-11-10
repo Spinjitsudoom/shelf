@@ -55,7 +55,9 @@ import java.io.File
  */
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaLibraryService() {
-    private lateinit var player: ExoPlayer
+    private lateinit var decks: Decks
+    /** The player that's playing: with crossfades and Mix, whichever of the two decks has the music. */
+    private val player: ExoPlayer get() = decks.current
     private lateinit var session: MediaLibrarySession
     private lateinit var store: QueueStore
     private lateinit var remote: RemotePlayer
@@ -85,6 +87,14 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    /** Crossfades and Mix transitions move along every 50 ms (only while this phone plays, not as a remote). */
+    private val transitions = object : Runnable {
+        override fun run() {
+            if (session.player !== remote) decks.tick(android.os.SystemClock.elapsedRealtime())
+            main.postDelayed(this, 50)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         store = QueueStore(File(filesDir, "queue.json"))
@@ -94,19 +104,26 @@ class PlaybackService : MediaLibraryService() {
         // Downloads first (read only: the download manager writes them), then recently played, then the server.
         val dataSource = CacheDataSource.Factory().setCache(MusicStorage.downloads(this)).setUpstreamDataSourceFactory(recent)
             .setCacheWriteDataSinkFactory(null)
-        // The equalizer, balance and mono, on the music's way to the speaker.
-        val renderers = object : androidx.media3.exoplayer.DefaultRenderersFactory(this) {
-            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): androidx.media3.exoplayer.audio.AudioSink =
-                androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context).setAudioProcessors(arrayOf(sound))
-                    .setEnableFloatOutput(enableFloatOutput).setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).build()
+        // Two decks, so songs can crossfade and Mix; each has its own equalizer, balance and mono on the way to the speaker.
+        val attrs = AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build()
+        fun deck(sound: ShelfAudioProcessor, focus: Boolean): ExoPlayer {
+            val renderers = object : androidx.media3.exoplayer.DefaultRenderersFactory(this) {
+                override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): androidx.media3.exoplayer.audio.AudioSink =
+                    androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context).setAudioProcessors(arrayOf(sound))
+                        .setEnableFloatOutput(enableFloatOutput).setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).build()
+            }
+            return ExoPlayer.Builder(this, renderers)
+                .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
+                .setAudioAttributes(attrs, focus) // only the deck that plays for the person holds audio focus
+                .setHandleAudioBecomingNoisy(true) // headphones out: pause
+                .setWakeMode(C.WAKE_MODE_NETWORK) // keeps the phone and Wi-Fi awake while playing
+                .build()
         }
-        player = ExoPlayer.Builder(this, renderers)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
-            .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
-            .setHandleAudioBecomingNoisy(true) // headphones out: pause
-            .setWakeMode(C.WAKE_MODE_NETWORK) // keeps the phone and Wi-Fi awake while playing
-            .build()
-        player.addListener(object : Player.Listener {
+        deckA = deck(soundA, focus = true)
+        deckB = deck(soundB, focus = false)
+        decks = Decks(deckA, deckB, effects = { if (it === deckA) soundA else soundB }, planFor = ::transitionFor, baseVolume = ::baseVolume)
+        decks.onSwap = ::onSwap
+        decks.addListener(object : Player.Listener {
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 autoplayIfLast()
                 item?.track()?.let { counter.onTrackStarted(it.id, it.duration) }
@@ -126,6 +143,7 @@ class PlaybackService : MediaLibraryService() {
         scope.launch { app.container.settings.settings.collect { s -> level(player.currentMediaItem); applySound(s); app.container.connect.rename(s.deviceName) } }
         startSleepTimer()
         main.post(tick)
+        main.post(transitions)
     }
 
     /**
@@ -135,15 +153,15 @@ class PlaybackService : MediaLibraryService() {
     private fun startConnect() {
         val connect = app.container.connect
         remote = RemotePlayer(mainLooper, connect, { api })
-        bridge = ConnectBridge(connect, player, ::playableItem,
+        bridge = ConnectBridge(connect, { decks.current }, ::playableItem,
             onVolume = { level(player.currentMediaItem) },
             onMode = { isRemote -> session.player = if (isRemote) remote else player; pushWidget() },
             privateSession = { app.container.settings.settings.value.privateSession })
-        bridge.attach()
+        decks.addListener(bridge)
         val widget = object : Player.Listener {
             override fun onEvents(p: Player, events: Player.Events) { if (p === session.player) pushWidget() }
         }
-        player.addListener(widget)
+        decks.addListener(widget)
         remote.addListener(widget)
         connect.listener = bridge
         connect.start()
@@ -193,7 +211,8 @@ class PlaybackService : MediaLibraryService() {
         main.removeCallbacksAndMessages(null)
         scope.cancel()
         session.release()
-        player.release()
+        deckA.release()
+        deckB.release()
         super.onDestroy()
     }
 
@@ -224,7 +243,31 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
-    private val sound = ShelfAudioProcessor()
+    private val soundA = ShelfAudioProcessor()
+    private val soundB = ShelfAudioProcessor()
+    private lateinit var deckA: ExoPlayer
+    private lateinit var deckB: ExoPlayer
+
+    /** How the playing song hands over to the next: the Mix playlist's transition, the crossfade setting, or not at all (gapless). */
+    private fun transitionFor(cur: Track, nxt: Track, durationS: Double, deck: Player): Plan? {
+        if (session.player === remote) return null
+        val s = app.container.settings.settings.value
+        val mix = deck.currentMediaItem?.playContext()?.mix == true && deck.repeatMode != Player.REPEAT_MODE_ONE
+        return if (mix) plan(cur, nxt, cur.transition, durationS)
+        else crossfadePlan(s.crossfade, s.crossfadeAlbums, deck.shuffleModeEnabled, cur, nxt, durationS)
+    }
+
+    /** The music moved to the other deck at the end of a transition: everything follows it. */
+    private fun onSwap(deck: ExoPlayer) {
+        if (session.player !== remote) session.player = deck
+        deck.pauseAtEndOfMediaItems = app.container.sleep.state.value?.endOfSong == true
+        (if (deck === deckA) deckB else deckA).pauseAtEndOfMediaItems = false
+        deck.currentMediaItem?.track()?.let { counter.onTrackStarted(it.id, it.duration) }
+        autoplayIfLast()
+        save()
+        pushWidget()
+        bridge.onDeckChanged()
+    }
     private var sleepFade = 1f
 
     /** The sleep timer: fades this phone's music over its last seconds, then pauses whatever is playing (here, or the device being controlled). */
@@ -246,22 +289,27 @@ class PlaybackService : MediaLibraryService() {
                 player.pauseAtEndOfMediaItems = s?.endOfSong == true
             }
         }
-        player.addListener(object : Player.Listener {
+        decks.addListener(object : Player.Listener {
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) sleep.onSongEnded()
             }
         })
     }
 
-    private fun applySound(s: app.shelf.settings.Settings) = sound.setup(if (s.eqEnabled) s.eqGains else null, s.balance, s.mono)
+    private fun applySound(s: app.shelf.settings.Settings) {
+        for (sound in listOf(soundA, soundB)) sound.setup(if (s.eqEnabled) s.eqGains else null, s.balance, s.mono)
+    }
 
-    /** Volume levelling: set for each song as it starts (and again when the setting changes). */
-    private fun level(item: MediaItem?) {
+    /** Volume levelling: set for each song as it starts (and again when the setting changes); the decks apply it (with any transition). */
+    @Suppress("UNUSED_PARAMETER")
+    private fun level(item: MediaItem?) { if (::decks.isInitialized) decks.applyVolumes() }
+
+    /** A deck's volume before any transition: its song's levelling, the volume another device set (over Connect), the sleep timer's fade. */
+    private fun baseVolume(deck: Player): Float {
         val s = app.container.settings.settings.value
-        val t = item?.track()
-        val levelled = (if (s.normalize && t != null) volumeFor(gainDb(t.lufs, t.peak, s.loudness)) else 1f) * sleepFade
-        // The volume another device set for this phone (over Connect), on top of the levelling.
-        player.volume = levelled * (if (::bridge.isInitialized) bridge.userVolume else 1f)
+        val t = deck.currentMediaItem?.track()
+        val levelled = if (s.normalize && t != null) volumeFor(gainDb(t.lufs, t.peak, s.loudness)) else 1f
+        return levelled * sleepFade * (if (::bridge.isInitialized) bridge.userVolume else 1f)
     }
 
     /** The playable version of items handed over by a screen (they come without a stream address). */

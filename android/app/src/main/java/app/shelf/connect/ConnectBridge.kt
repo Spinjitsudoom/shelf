@@ -27,13 +27,19 @@ import kotlinx.serialization.json.intOrNull
  */
 class ConnectBridge(
     private val link: RemoteLink,
-    private val player: Player,
+    /** The phone's player (with crossfades, whichever deck is playing). */
+    private val deck: () -> Player,
     private val toItem: (Track, PlayContext?) -> MediaItem,
     private val onVolume: (Float) -> Unit,
     private val onMode: (Boolean) -> Unit,
     private val clock: () -> Long = System::currentTimeMillis,
     private val privateSession: () -> Boolean = { false },
 ) : ConnectListener, Player.Listener {
+    constructor(link: RemoteLink, player: Player, toItem: (Track, PlayContext?) -> MediaItem, onVolume: (Float) -> Unit, onMode: (Boolean) -> Unit,
+                clock: () -> Long = System::currentTimeMillis, privateSession: () -> Boolean = { false }) :
+        this(link, { player }, toItem, onVolume, onMode, clock, privateSession)
+
+    private val player get() = deck()
     private var last: ConnectUi? = null
     private var remoteMode = false
     private var claimedFor: String? = null
@@ -46,6 +52,9 @@ class ConnectBridge(
     private val active get() = link.ui.value.let { it.connected && it.activeId == it.selfId }
 
     fun attach() = player.addListener(this)
+
+    /** The phone's music moved to the other deck (after a crossfade): tell the others. */
+    fun onDeckChanged() { if (active) report(forceQueue = true) }
 
     private fun claim() { link.send(JsonObject(mapOf("type" to JsonPrimitive("claim")))) }
 

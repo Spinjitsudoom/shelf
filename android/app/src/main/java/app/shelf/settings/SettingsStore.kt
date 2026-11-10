@@ -26,6 +26,8 @@ data class Settings(
     val spinDisc: Boolean = true,
     val deviceName: String = "",           // empty: the phone's own name
     val downloadQuality: String = "veryhigh",
+    val crossfade: Int = 0,                // seconds, 0 = off (Mix playlists use their own transitions)
+    val crossfadeAlbums: Boolean = false,  // crossfade between songs of the same album too
 )
 
 class SettingsStore(private val prefs: SharedPreferences) {
