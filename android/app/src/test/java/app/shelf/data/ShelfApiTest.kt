@@ -220,6 +220,22 @@ class ShelfApiTest {
         assertEquals("""{"name":"Mix","trackIds":[4,8,15],"description":"Made by Shelf: Heavy Metal."}""", server.takeRequest().body!!.utf8())
     }
 
+    @Test fun statsParse() = runTest {
+        json("""{"period":"year","plays":3,"minutes":12,"songs":2,"artists":1,
+            "topArtists":[{"name":"Band","plays":3,"minutes":12}],
+            "topSongs":[{"id":4,"title":"Closer","artist":"Band","albumId":5,"duration":200,"plays":2}],
+            "topAlbums":[{"id":5,"title":"First","artist":"Band","plays":3}],
+            "topGenres":[{"name":"heavy metal","plays":3}],"hours":[0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0],
+            "weekdays":[3,0,0,0,0,0,0],"busiestDay":{"date":"2026-11-10","plays":3},"currentStreak":1,"longestStreak":1,
+            "newArtists":["Band"],"onThisDay":[],"years":[2026]}""")
+        val s = api.stats("year", tzMinutes = 60)
+        server.takeRequest().url.let { assertEquals("/api/stats?period=year&tz=60", it.encodedPath + "?" + it.encodedQuery) }
+        assertEquals(2, s.topSongs.single().plays)
+        assertEquals(3, s.topAlbums.single().plays)
+        assertEquals(BusiestDay("2026-11-10", 3), s.busiestDay)
+        assertEquals(listOf(2026), s.years)
+    }
+
     @Test fun playlistMixSwitch() = runTest {
         json("""{}""")
         api.setPlaylistMix(9, true)

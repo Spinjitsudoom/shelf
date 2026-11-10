@@ -16,6 +16,7 @@ data class Album(
     val id: Int, val title: String, val artist: String, val artists: List<String> = emptyList(),
     val year: Int? = null, val genre: String? = null, val trackCount: Int = 0, val duration: Double = 0.0,
     val color: String? = null, val cover: String? = null,
+    val plays: Int = 0, // in stats: how often it was played
 )
 
 @Serializable
@@ -35,6 +36,7 @@ data class Track(
     val bpm: Int? = null, val camelot: String? = null, // for Mix: tempo and key
     val mix: app.shelf.playback.MixPoints? = null,     // for Mix: where it starts, ends, and its beats
     val transition: kotlinx.serialization.json.JsonElement? = null, // in a Mix playlist: how it hands over to the next song
+    val plays: Int = 0, // in stats: how often it was played
 )
 
 @Serializable data class ArtistSummary(val name: String, val albums: Int = 0, val tracks: Int = 0, val coverAlbumId: Int? = null, val cover: String? = null)
@@ -107,3 +109,16 @@ data class VideoInfo(val found: Boolean = false, val videoId: String? = null, va
 /** A playlist made from a few words: its name, what was understood, and the songs (not saved yet). */
 @Serializable
 data class MadePlaylist(val name: String, val understood: List<String> = emptyList(), val trackIds: List<Int> = emptyList())
+
+/** Your listening (GET /api/stats): one period's totals, tops, when, streaks, and On this day. */
+@Serializable data class StatArtist(val name: String, val plays: Int = 0, val minutes: Int = 0)
+@Serializable data class StatGenre(val name: String, val plays: Int = 0)
+@Serializable data class BusiestDay(val date: String, val plays: Int = 0)
+@Serializable
+data class ListeningStats(
+    val period: String = "year", val plays: Int = 0, val minutes: Int = 0, val songs: Int = 0, val artists: Int = 0,
+    val topArtists: List<StatArtist> = emptyList(), val topSongs: List<Track> = emptyList(), val topAlbums: List<Album> = emptyList(),
+    val topGenres: List<StatGenre> = emptyList(), val hours: List<Int> = List(24) { 0 }, val weekdays: List<Int> = List(7) { 0 },
+    val busiestDay: BusiestDay? = null, val currentStreak: Int = 0, val longestStreak: Int = 0,
+    val newArtists: List<String> = emptyList(), val onThisDay: List<Track> = emptyList(), val years: List<Int> = emptyList(),
+)

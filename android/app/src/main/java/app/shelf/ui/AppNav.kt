@@ -66,6 +66,8 @@ object Routes {
     const val ADMIN = "web/admin"
     const val EQUALIZER = "settings/eq"
     const val PEOPLE = "people"
+    const val STATS = "stats"
+    fun wrapped(year: Int) = "wrapped/$year"
     fun blend(id: Int) = "blend/$id"
     fun album(id: Int) = "album/$id"
     fun artist(name: String) = "artist/${android.net.Uri.encode(name)}"
@@ -140,7 +142,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             val back: () -> Unit = { nav.popBackStack() }
             composable(Routes.HOME) {
                 HomeScreen(source, container.store.username, openAlbum, { nav.navigate(Routes.mix(it)) }, openAlbum, signedOut,
-                    onSettings = { nav.navigate(Routes.SETTINGS) }, onPeople = api?.let { { nav.navigate(Routes.PEOPLE) } })
+                    onSettings = { nav.navigate(Routes.SETTINGS) }, onPeople = api?.let { { nav.navigate(Routes.PEOPLE) } },
+                    onStats = api?.let { { nav.navigate(Routes.STATS) } })
             }
             composable(Routes.SEARCH) { app.shelf.ui.search.SearchScreen(container.api!!, onPlay, openAlbum, openArtist) }
             composable(Routes.LIBRARY) {
@@ -171,6 +174,12 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                     onTransition = { e, tr -> player?.updateTransition(e, tr) })
             }
             if (api != null) {
+                composable(Routes.STATS) {
+                    app.shelf.ui.stats.StatsScreen(api, onPlay, openAlbum, openArtist, { nav.navigate(Routes.wrapped(it)) }, back, signedOut)
+                }
+                composable("wrapped/{year}", listOf(navArgument("year") { type = NavType.IntType })) {
+                    app.shelf.ui.stats.WrappedScreen(api, it.arguments!!.getInt("year"), onPlay, back, signedOut)
+                }
                 composable(Routes.PEOPLE) { app.shelf.ui.browse.PeopleScreen(api, { nav.navigate(Routes.blend(it)) }, openAlbum, back, signedOut) }
                 composable("blend/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
                     app.shelf.ui.browse.BlendScreen(it.arguments!!.getInt("id"), api, onPlay, back, signedOut)

@@ -92,6 +92,11 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
 
     private fun body(build: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit) = buildJsonObject(build).toString().toRequestBody(JSON)
 
+    /** Your listening for a period ("month", "year", "all" or a year), in this phone's time zone. */
+    suspend fun stats(period: String, tzMinutes: Int = java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 60_000): ListeningStats =
+        call(url("api/stats").newBuilder().addQueryParameter("period", period).addQueryParameter("tz", tzMinutes.toString()).build(),
+            ListeningStats.serializer())
+
     /** Moved on before 30 seconds of it: suggestions learn from skips. */
     suspend fun skipped(trackId: Int) { send("POST", "api/tracks/$trackId/skipped") }
 
