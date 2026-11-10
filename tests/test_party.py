@@ -58,7 +58,8 @@ def test_party(client):
         speaker.send_json({"type": "state", "state": {"index": 0, "track": now, "playing": True, "position": 5, "duration": 200},
                            "queue": {"rev": 1, "tracks": [now], "original": None}})
         assert client.post("/api/party").status_code == 200
-        assert [p["host"]["username"] for p in sam.get("/api/parties").json()] == ["admin"]
+        assert [(p["host"]["username"], p["mine"]) for p in sam.get("/api/parties").json()] == [("admin", False)]
+        assert client.get("/api/parties").json()[0]["mine"] is True
 
         assert sam.post(f"/api/party/{me}/add", json={"trackIds": [tracks[1]["id"]]}).status_code == 403  # join first
         assert sam.post(f"/api/party/{me}/join").status_code == 200

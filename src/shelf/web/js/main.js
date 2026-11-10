@@ -21,7 +21,7 @@ import { mountDJ } from "./dj.js";
 import { applyAlbumColor, caseHtml, coverUrl, esc, fmtTime, playlistCover, plural, quality, store, toast } from "./util.js";
 import {
   albumView, albumsView, artistHref, artistItems, artistLinks, artistView, artistsView, balanceLabel, ctx, homeView, mixerView,
-  playlistView, playlistsView, queueView, statsView, wrappedView, wrappedStep, refreshRecommendations, refreshSettings, searchView, settingsView, skeleton,
+  partyView, playlistView, playlistsView, queueView, statsView, wrappedView, wrappedStep, refreshRecommendations, refreshSettings, searchView, settingsView, skeleton,
   videoCard, youTubeOnly, youTubeOnlyList, likedView, downloadsView, refreshDownloads, mixView, peopleView, releasesView, personDisc,
   features,
 } from "./views.js";
@@ -85,6 +85,7 @@ function parseRoute() {
     case "mix": return { name: "mix", key: parts[1], nav: "home" };
     case "blend": return { name: "mix", blend: Number(parts[1]), nav: "people" };
     case "people": return { name: "people", nav: "people" };
+    case "party": return { name: "party", host: Number(parts[1]), nav: "people" };
     case "stats": return { name: "stats", period: params.get("period") || "year", nav: "stats" };
     case "wrapped": return { name: "wrapped", year: Number(parts[1]) || new Date().getFullYear(), nav: "stats" };
     case "releases": return { name: "releases", nav: "home" };
@@ -149,6 +150,16 @@ async function drawRoute(route, key) {
       case "lyrics": unmountPage = lyricsPage(); break;
       case "playlists": await playlistsView(view); break;
       case "stats": await statsView(view, route.period); break;
+      case "party": {
+        await partyView(view, route.host);
+        // Keep it live while it's open (and skip a redraw while someone's typing a search).
+        const timer = setInterval(() => {
+          if (document.hidden || parseRoute().name !== "party" || document.activeElement?.id === "party-find") return;
+          partyView(view, route.host).catch(() => {});
+        }, 4000);
+        unmountPage = () => clearInterval(timer);
+        break;
+      }
       case "wrapped": await wrappedView(view, route.year); break;
       case "liked": await likedView(view); unmountPage = albumStickyHead(); break;
       case "playlist": await playlistView(view, route.id); unmountPage = albumStickyHead(); break;
@@ -368,6 +379,28 @@ async function runAction(action, el) {
     case "play-list": player.playList(ctx.tracks, 0, { context: ctx.context }); break;
     case "play-top": player.playList(ctx.tracks.slice(0, Number(el.dataset.count)), 0, { context: ctx.context }); break;
     case "wrapped-step": wrappedStep(view, Number(el.dataset.step)); break;
+    case "party-start": {
+      const me = session.user?.id;
+      await api.startParty();
+      toast("Your party’s on: everyone here can join from People");
+      location.hash = `#/party/${me}`;
+      break;
+    }
+    case "party-end": await api.endParty(); toast("Party’s over"); location.hash = "#/people"; break;
+    case "party-leave": await api.leaveParty(parseRoute().host); location.hash = "#/people"; break;
+    case "party-add": {
+      const host = parseRoute().host;
+      const r = await api.partyAdd(host, [Number(el.dataset.track)]);
+      toast(r.added ? "Added: it plays after the songs added before it" : "Couldn’t add that");
+      el.disabled = true; el.textContent = "Added";
+      break;
+    }
+    case "party-skip": {
+      const r = await api.partySkip(parseRoute().host);
+      toast(r.skipped ? "Skipped" : `${r.votes} of ${r.needed} votes to skip`);
+      await partyView(view, parseRoute().host);
+      break;
+    }
     case "play-video": {
       // In the side panel when it's open, otherwise above the row of videos.
       const slot = view.querySelector("#artist-video");

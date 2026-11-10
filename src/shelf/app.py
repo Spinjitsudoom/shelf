@@ -2563,8 +2563,9 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         with db() as conn:
             names = {r["id"]: r["username"] for r in conn.execute("SELECT id, username FROM users")}
         now = time.time()
+        me_id = uid()
         return [{"host": {"id": h, "username": names.get(h, "Someone")}, "people": len(p.present(now)),
-                 "joined": uid() in p.members} for h, p in parties.items() if h in names]
+                 "joined": me_id in p.members, "mine": h == me_id} for h, p in parties.items() if h in names]
 
     @app.post("/api/party/{host}/join")
     def join_party(host: int):

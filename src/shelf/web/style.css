@@ -2220,3 +2220,18 @@ input.range.balance::-moz-range-progress { background: transparent; }
 .auto-update { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 640px; margin: 4px 0 0; }
 .auto-update span { display: flex; flex-direction: column; gap: 2px; }
 .auto-update small { color: var(--ink-2); }
+
+/* ---------- party mode ---------- */
+.party-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 4px 0 22px; }
+.party-hint { flex-basis: 100%; margin: 0; }
+.party-card { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: var(--sleeve);
+  box-shadow: inset 0 0 0 1px var(--rule); color: var(--ink); text-decoration: none; }
+.party-card > svg { width: 22px; height: 22px; color: var(--cobalt); }
+.party-card span:not(.btn) { display: flex; flex-direction: column; }
+.party-card small { color: var(--ink-2); }
+.party-page .page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.party-now { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; margin: 8px 0 18px; }
+.party-case { width: min(220px, 60vw); aspect-ratio: 1; }
+.party-title { margin: 2px 0 2px; font-size: clamp(1.6rem, 4vw, 2.4rem); line-height: 1.1; }
+.party-votes { margin-left: 12px; color: var(--ink-2); }
+.party-page .search-box { display: block; max-width: 520px; } /* its own search, on desktop too */

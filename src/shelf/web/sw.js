@@ -1,6 +1,6 @@
 // Keeps the app shell available offline and quick to open. Never caches /api (music, covers
 // and library data always come live from the server).
-const CACHE = "shelf-shell-v47";
+const CACHE = "shelf-shell-v48";
 const SHELL = ["./", "style.css", "js/main.js", "js/api.js", "js/player.js", "js/views.js", "js/util.js", "js/menu.js", "js/settings.js", "js/audio.js", "js/mixer.js", "js/connect.js", "js/lyrics.js", "js/library.js", "js/npv.js", "js/video.js", "js/likes.js", "js/transitions.js", "js/transition-editor.js", "js/server.js", "js/admin.js", "js/native.js", "js/offline.js", "js/sleep.js", "js/dj.js", "sounds/sting.m4a", "fonts/fonts.css", "fonts/archivo-latin.woff2", "fonts/caveat-latin.woff2",
   "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png"];
 

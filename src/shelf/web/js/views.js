@@ -1229,7 +1229,8 @@ function activityRow(a, canBlend) {
 
 /** Friend activity: what the other people here are playing, and Blends with them. */
 export async function peopleView(el) {
-  const [activity, people, shared] = await Promise.all([api.activity(), api.people(), api.sharedPlaylists().catch(() => [])]);
+  const [activity, people, shared, parties] = await Promise.all([api.activity(), api.people(), api.sharedPlaylists().catch(() => []),
+    api.parties().catch(() => [])]);
   setTracks([], null);
   ctx.activity = activity;
   const quiet = people.filter((p) => !activity.some((a) => a.user.id === p.id));
@@ -1237,6 +1238,13 @@ export async function peopleView(el) {
     <div class="page people-page">
       <header class="page-head"><div><h1 class="page-title">Friend activity</h1>
         <p class="page-sub">${people.length ? "What everyone on this server is playing" : "Nobody else uses this server yet"}</p></div></header>
+      <section class="party-strip">
+        ${parties.map((p) => `<a class="party-card" href="#/party/${p.host.id}"><svg><use href="#i-people"/></svg>
+          <span><b>${p.mine ? "Your party" : `${esc(p.host.username)}’s party`}</b><small>${p.people} ${p.people === 1 ? "person" : "people"} there${p.joined ? ", you’re in" : ""}</small></span>
+          <span class="btn btn-small">${p.mine || p.joined ? "Open" : "Join"}</span></a>`).join("")}
+        ${people.length && !parties.some((p) => p.mine) ? `<button class="btn" type="button" data-action="party-start"><svg><use href="#i-plus"/></svg>Start a party</button>
+          <p class="page-sub party-hint">Everyone here can join what you’re playing, add songs and vote to skip.</p>` : ""}
+      </section>
       ${activity.length ? `<ul class="act-list">${activity.map((a) => activityRow(a, people.find((p) => p.id === a.user.id)?.canBlend)).join("")}</ul>` : ""}
       ${quiet.length ? `<h2 class="section-title people-quiet-title">Also here</h2>
         <ul class="act-list">${quiet.map((p) => `
@@ -1435,4 +1443,57 @@ export function wrappedStep(el, step) {
   deck.dataset.at = String(at);
   cards.forEach((c, i) => { c.hidden = i !== at; });
   el.querySelector(".w-count").textContent = `${at + 1} of ${cards.length}`;
+}
+
+
+// ---------- party mode ----------
+
+/** Someone's party: what's playing, vote to skip, up next, and songs to add. Redrawn every few seconds. */
+export async function partyView(el, host) {
+  const p = await api.party(host);
+  if (!p.joined) await api.joinParty(host);
+  const now = p.nowPlaying;
+  const prior = el.querySelector("#party-find")?.value ?? "";
+  setTracks(p.upNext, { label: `${p.host.username}’s party`, href: `#/party/${host}` });
+  el.innerHTML = `
+    <div class="page party-page" data-host="${host}">
+      <header class="page-head"><div><h1 class="page-title">${p.isHost ? "Your party" : `${esc(p.host.username)}’s party`}</h1>
+        <p class="page-sub">${esc(p.members.join(", "))}</p></div>
+        ${p.isHost ? `<button class="btn" type="button" data-action="party-end">End party</button>`
+                   : `<button class="btn" type="button" data-action="party-leave">Leave party</button>`}
+      </header>
+      ${now ? `<section class="party-now">
+        ${caseHtml(now, { size: 320, cls: "party-case" })}
+        <div><p class="hero-kind">${p.playing ? "Playing now" : "Paused"}</p>
+          <h2 class="party-title">${esc(now.title)}</h2><p class="page-sub">${esc(now.artist)}, ${esc(now.album ?? "")}</p>
+          <p><button class="btn${p.youVoted ? "" : " btn-primary"}" type="button" data-action="party-skip"${p.youVoted ? " disabled" : ""}>
+            <svg><use href="#i-next"/></svg>${p.youVoted ? "You voted to skip" : "Vote to skip"}</button>
+            <span class="party-votes">${p.votes} of ${p.needed} ${p.needed === 1 ? "vote" : "votes"} to skip</span></p></div>
+      </section>` : `<div class="empty"><strong>Nothing’s playing yet</strong>${p.isHost ? "Play something on any of your devices, and it plays here." : `When ${esc(p.host.username)} plays something, it shows here.`}</div>`}
+      <section class="row-section"><h2 class="section-title">Add songs</h2>
+        <label class="search-box"><span class="sr-only">Search for songs to add</span><svg><use href="#i-search"/></svg>
+          <input id="party-find" type="search" placeholder="Search for a song" autocomplete="off" value="${esc(prior)}"></label>
+        <div id="party-found" class="track-list"></div>
+      </section>
+      ${p.upNext.length ? `<section class="row-section"><h2 class="section-title">Up next</h2>
+        <div class="track-list">${p.upNext.map((t, i) => trackRow(t, i, { withArt: true })).join("")}</div></section>` : ""}
+    </div>`;
+  const input = el.querySelector("#party-find");
+  const out = el.querySelector("#party-found");
+  let timer;
+  const run = async () => {
+    const q = input.value.trim();
+    if (!q) { out.innerHTML = ""; return; }
+    const r = await api.search(q);
+    if (input.value.trim() !== q) return;
+    out.innerHTML = r.tracks.length ? r.tracks.slice(0, 12).map((t) => `
+      <div class="track-row with-art pl-add-row" data-track="${t.id}">
+        ${caseHtml(t, { size: 160, cls: "case-sm" })}
+        <span class="t-main"><span class="t-title">${esc(t.title)}</span><span class="t-sub">${esc(t.artist)}, ${esc(t.album)}</span></span>
+        <span></span>
+        <button class="btn btn-small" type="button" data-action="party-add" data-track="${t.id}">Add</button>
+      </div>`).join("") : `<p class="page-sub">No songs match “${esc(q)}”.</p>`;
+  };
+  input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => run().catch(() => {}), 180); });
+  if (prior) { input.focus(); await run().catch(() => {}); }
 }
