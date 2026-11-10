@@ -143,9 +143,10 @@ fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConne
             IconButton(onClick = onDevices) {
                 Icon(painterResource(R.drawable.ic_devices), "Play on another device", tint = if (device != null) Shelf.colors.cobalt else Shelf.colors.ink2)
             }
+            // The device's name gives way (with "…") so the buttons after it always fit.
             if (device != null) Text("Playing on $device", style = MaterialTheme.typography.labelLarge, color = Shelf.colors.cobalt,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable(onClick = onDevices))
-            Spacer(Modifier.weight(1f))
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clickable(onClick = onDevices))
+            Spacer(Modifier.weight(0.001f))
             // The song's music video, in the YouTube app, from where the song is (the song pauses).
             val clip by produceState<app.shelf.data.VideoInfo?>(null, t.id) { value = video?.let { runCatching { it(t.id) }.getOrNull() } }
             val context = LocalContext.current
