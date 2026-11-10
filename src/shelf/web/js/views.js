@@ -415,7 +415,7 @@ async function drawRecommendations(el, id, seed) {
       <a class="pl-album" href="#/album/${t.albumId}">${esc(t.album)}</a>
       <span class="pl-added"></span>
       <span></span>
-      <button class="btn btn-small" type="button" data-action="pl-add" data-track="${t.id}">Add</button>
+      <button class="btn btn-small" type="button" data-action="pl-add" data-track="${t.id}" data-suggested="1">Add</button>
     </div>`).join("") : `<p class="page-sub">Everything in your library that fits is already here.</p>`;
 }
 

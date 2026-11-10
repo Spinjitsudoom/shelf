@@ -138,6 +138,16 @@ CREATE TABLE IF NOT EXISTS scrobbles (
 );
 
 -- What people do with the DJ: skips, "switch it up", thumbs on what the host said.
+-- What suggestions learn from: skips, and suggestions taken back out of a playlist (feedback.py).
+CREATE TABLE IF NOT EXISTS feedback (
+    id          INTEGER PRIMARY KEY,
+    user_id     INTEGER NOT NULL,
+    track_id    INTEGER NOT NULL,
+    kind        TEXT NOT NULL,   -- skip, removed
+    playlist_id INTEGER,         -- for removed: the playlist it came out of
+    at          REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS feedback_user ON feedback(user_id, at);
 CREATE TABLE IF NOT EXISTS dj_feedback (
     id        INTEGER PRIMARY KEY,
     user_id   INTEGER NOT NULL,
@@ -198,6 +208,7 @@ def init_db(db_path: Path) -> None:
         _add_column(conn, "playlists", cols, "shared", "INTEGER NOT NULL DEFAULT 0")
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(playlist_tracks)")}
         _add_column(conn, "playlist_tracks", cols, "added_by", "INTEGER")
+        _add_column(conn, "playlist_tracks", cols, "suggested", "INTEGER NOT NULL DEFAULT 0")  # added from its suggestions
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
         _add_column(conn, "users", cols, "share_activity", "INTEGER NOT NULL DEFAULT 1")
         _add_column(conn, "users", cols, "listenbrainz_token", "TEXT")

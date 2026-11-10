@@ -437,7 +437,8 @@ async function runAction(action, el) {
     }
     case "pl-add": {
       const id = parseRoute().id;
-      const r = await api.addToPlaylist(id, [Number(el.dataset.track)]);
+      // From the playlist's suggestions: taking it back out later teaches them.
+      const r = await api.addToPlaylist(id, [Number(el.dataset.track)], { suggested: el.dataset.suggested === "1" });
       toast(`Added to ${r.name}`);
       await redrawPlaylist();
       break;
@@ -1716,7 +1717,7 @@ video.addEventListener("change", () => {
   syncPlayer();
 });
 video.addEventListener("time", () => syncTime());
-video.addEventListener("ended", () => player.next());
+video.addEventListener("ended", () => player.next(true)); // the song was paused for the video: not a skip
 video.addEventListener("error", () => {
   // 101/150: the video's owner only lets it play on YouTube itself (or on sites they've
   // approved). Remember that, and make its cards open YouTube instead.

@@ -409,7 +409,7 @@ export class Controller extends EventTarget {
     this._optimistic({ playing: false, position: this.position });
     this._cmd("pause");
   }
-  next() { this.remoteMode ? this._cmd("next") : this.local.next(); }
+  next(auto = false) { this.remoteMode ? this._cmd("next") : this.local.next(auto); }
   prev() { this.remoteMode ? this._cmd("prev") : this.local.prev(); }
   seek(sec) {
     if (!this.remoteMode) return this.local.seek(sec);

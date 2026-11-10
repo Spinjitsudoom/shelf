@@ -135,7 +135,10 @@ export class Player extends EventTarget {
   }
 
   jumpTo(i) {
-    if (i >= 0 && i < this.queue.length) this._go(i);
+    if (i >= 0 && i < this.queue.length) {
+      if (i !== this.index) this._noteSkip();
+      this._go(i);
+    }
   }
 
   removeAt(i) {
@@ -194,9 +197,19 @@ export class Player extends EventTarget {
     }
   }
 
-  next() {
+  /** Next song: the person's choice (a skip, if early), unless `auto` (a song that failed). */
+  next(auto = false) {
     const i = this.index < this.queue.length - 1 ? this.index + 1 : this.repeat === "all" ? 0 : -1;
-    if (i >= 0) this._go(i);
+    if (i >= 0) {
+      if (!auto) this._noteSkip();
+      this._go(i);
+    }
+  }
+
+  /** Moving on from a song before 30 seconds of it: suggestions learn from that (not in a private session). */
+  _noteSkip() {
+    const t = this.current;
+    if (t && !this._scrobbled && this._heard < 30 && (t.duration ?? 0) > 30 && !settings.get("privateSession")) api.skipped(t.id);
   }
 
   prev() {
@@ -205,6 +218,7 @@ export class Player extends EventTarget {
       this.audio.currentTime = 0;
       return;
     }
+    this._noteSkip();
     this._go(this.index - 1);
   }
 
@@ -690,7 +704,7 @@ export class Player extends EventTarget {
       return;
     }
     toast(`Couldn’t play “${this.current.title}”. Skipping to the next song.`);
-    setTimeout(() => this.next(), 1200);
+    setTimeout(() => this.next(true), 1200);
   }
 
   _resetListen() {

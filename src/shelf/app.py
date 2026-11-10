@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, covers, credits, genres, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, peaks, playlist_maker, releases, ripper, scrobble, sound, together, transcode, uploads, videos
+from . import analysis, covers, credits, feedback, genres, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, peaks, playlist_maker, releases, ripper, scrobble, sound, together, transcode, uploads, videos
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -256,6 +256,7 @@ class SuggestBody(BaseModel):
 
 class PlaylistAdd(BaseModel):
     trackIds: list[int] = Field(max_length=5000)
+    suggested: bool = False  # from the playlist's suggestions (taking them back out teaches them)
 
 
 class PlaylistOrder(BaseModel):
@@ -1681,6 +1682,13 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             "week": {"plays": listened["n"], "seconds": round(listened["secs"])},
         }
 
+    @app.post("/api/tracks/{track_id}/skipped")
+    def skipped(track_id: int):
+        """Moved on before 30 seconds of it (the apps send this; not in a private session)."""
+        with db() as conn:
+            conn.execute("INSERT INTO feedback(user_id, track_id, kind, at) VALUES(?, ?, 'skip', ?)", (uid(), track_id, time.time()))
+        return {"ok": True}
+
     @app.post("/api/tracks/{track_id}/played")
     def played(track_id: int, at: float | None = Query(None)):
         """A listen. `at`: when, for listens made offline and sent later (up to 60 days back)."""
@@ -1950,14 +1958,15 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 raise HTTPException(403, "Only the person who made this playlist can change it")
             raise HTTPException(404, "Playlist not found")
 
-    def _append(conn, pid: int, track_ids: list[int]) -> int:
+    def _append(conn, pid: int, track_ids: list[int], suggested: bool = False) -> int:
         known = {r["id"] for r in conn.execute(
             f"SELECT id FROM tracks WHERE id IN ({','.join('?' * len(track_ids))})", track_ids)} if track_ids else set()
         start = conn.execute("SELECT COALESCE(MAX(position), 0) FROM playlist_tracks WHERE playlist_id = ?", (pid,)).fetchone()[0]
         now = time.time()
         me_id = uid()
-        rows = [(pid, tid, start + i + 1, now, me_id) for i, tid in enumerate(t for t in track_ids if t in known)]
-        conn.executemany("INSERT INTO playlist_tracks(playlist_id, track_id, position, added_at, added_by) VALUES(?, ?, ?, ?, ?)", rows)
+        rows = [(pid, tid, start + i + 1, now, me_id, int(suggested)) for i, tid in enumerate(t for t in track_ids if t in known)]
+        conn.executemany("INSERT INTO playlist_tracks(playlist_id, track_id, position, added_at, added_by, suggested) "
+                         "VALUES(?, ?, ?, ?, ?, ?)", rows)
         return len(rows)
 
     @app.get("/api/playlists")
@@ -2017,7 +2026,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             pool = conn.execute(
                 f"""{TRACK_SELECT} WHERE t.id NOT IN (SELECT track_id FROM playlist_tracks WHERE playlist_id = ?)""",
                 (pid,)).fetchall()
-        return _recommend(mine, pool, seed, limit)
+        return _recommend(mine, pool, seed, limit, playlist_id=pid)
 
     @app.post("/api/playlists/make")
     def make_playlist(body: MakeBody):
@@ -2055,7 +2064,20 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             pool = [r for r in conn.execute(TRACK_SELECT).fetchall() if r["id"] not in skip]
         return _recommend(mine, pool, body.seed, body.limit)
 
-    def _recommend(mine, pool, seed: int, limit: int) -> list[dict]:
+    def _turned_down(playlist_id: int | None):
+        """This person's skips and removed suggestions, as penalties (see feedback.py)."""
+        try:
+            me_id = uid()
+        except Exception:  # outside a request (no one to learn from)
+            return {}, {}, set()
+        with db() as conn:
+            rows = conn.execute(
+                """SELECT f.track_id, COALESCE(a.artist, t.artist) AS artist, f.kind, f.playlist_id, f.at
+                   FROM feedback f JOIN tracks t ON t.id = f.track_id JOIN albums a ON a.key = t.album_key
+                   WHERE f.user_id = ? AND f.at > ?""", (me_id, time.time() - feedback.REMEMBER)).fetchall()
+        return feedback.penalties([(r[0], videos.fold(r[1] or ""), r[2], r[3], r[4]) for r in rows], time.time(), playlist_id)
+
+    def _recommend(mine, pool, seed: int, limit: int, playlist_id: int | None = None) -> list[dict]:
         """Score `pool` by how well each song fits `mine`: shared artists and genres, and
         tempos and keys that sit well together. `seed` shuffles near-ties (Refresh)."""
         if not mine:
@@ -2077,9 +2099,12 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         with_them = together.scores(*together.load(cfg.db_path), set(mine_ids))
         keys = {analysis.camelot(t["musical_key"]) for t in mine} - {None}
         friendly = set().union(*(analysis.camelot_neighbours(k) for k in keys)) if keys else set()
+        song_down, artist_down, banned = _turned_down(playlist_id)
         rng = random.Random(seed)
         scored = []
         for t in pool:
+            if t["id"] in banned:
+                continue
             a = max(artist_n.get(fold(t["artist"]), 0), artist_n.get(fold(t["album_artist_name"] or ""), 0))
             s = 3 * min(a, 5) / 5 + (1.2 if a else 0)
             if genre_n:
@@ -2095,6 +2120,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 s += 0.4
             s += 3 * max(0.0, near.get(t["id"], 0.0))
             s += 2.5 * with_them.get(t["id"], 0.0)
+            s -= song_down.get(t["id"], 0.0) + artist_down.get(fold(t["album_artist_name"] or t["artist"] or ""), 0.0)
             s += rng.random() * (1.6 if seed else 0.3)
             scored.append((s, t))
         scored.sort(key=lambda x: -x[0])
@@ -2345,7 +2371,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     def add_to_playlist(pid: int, body: PlaylistAdd):
         with db() as conn:
             _require_playlist(conn, pid, "tracks")
-            added = _append(conn, pid, body.trackIds)
+            added = _append(conn, pid, body.trackIds, body.suggested)
             _touch(conn, pid)
             return {"added": added, **_playlist_summary(conn, pid)}
 
@@ -2353,9 +2379,14 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     def remove_from_playlist(pid: int, entry_id: int):
         with db() as conn:
             _require_playlist(conn, pid, "tracks")
-            gone = conn.execute("DELETE FROM playlist_tracks WHERE id = ? AND playlist_id = ?", (entry_id, pid)).rowcount
-            if not gone:
+            entry = conn.execute("SELECT track_id, suggested FROM playlist_tracks WHERE id = ? AND playlist_id = ?",
+                                 (entry_id, pid)).fetchone()
+            if not entry:
                 raise HTTPException(404, "That song isn’t in this playlist")
+            conn.execute("DELETE FROM playlist_tracks WHERE id = ?", (entry_id,))
+            if entry["suggested"]:  # a suggestion taken back out: suggestions learn from it
+                conn.execute("INSERT INTO feedback(user_id, track_id, kind, playlist_id, at) VALUES(?, ?, 'removed', ?, ?)",
+                             (uid(), entry["track_id"], pid, time.time()))
             _touch(conn, pid)
             return _playlist_summary(conn, pid)
 
