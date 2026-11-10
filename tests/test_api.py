@@ -123,3 +123,12 @@ def test_similar_history_storage(client):
     assert client.get("/api/storage").json()["transcodeBytes"] > 0
     assert client.post("/api/storage/clear").json()["freedBytes"] > 0
     assert client.get("/api/storage").json()["transcodeBytes"] == 0
+
+
+def test_slow_requests_are_logged(client, caplog):
+    """A request that takes long is named in the server log, so a stuck page can be traced."""
+    import logging
+    client.app.state.slow_after = 0.0  # everything counts as slow here
+    with caplog.at_level(logging.WARNING, logger="shelf"):
+        client.get("/api/ping")
+    assert any("Slow request: GET /api/ping took" in r.getMessage() for r in caplog.records)

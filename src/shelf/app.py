@@ -438,6 +438,18 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     def db():
         return session(cfg.db_path)
 
+    app.state.slow_after = 3.0  # seconds: slower requests are named in the log
+
+    @app.middleware("http")
+    async def timed(request: Request, call_next):
+        """Name slow requests in the log, so a page that hangs can be traced to what it waited on."""
+        start = time.monotonic()
+        response = await call_next(request)
+        took = time.monotonic() - start
+        if took >= app.state.slow_after and not request.url.path.startswith("/api/stream"):
+            log.warning("Slow request: %s %s took %.1f s", request.method, request.url.path, took)
+        return response
+
     @app.middleware("http")
     async def guard(request: Request, call_next):
         path = request.url.path
