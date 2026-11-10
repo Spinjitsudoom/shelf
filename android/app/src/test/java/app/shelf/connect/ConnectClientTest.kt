@@ -36,13 +36,14 @@ class ConnectClientTest {
     private var savedId: String? = null
     private val identity = DeviceIdentity({ savedId }, { savedId = it }, "Redmi", "phone")
     private lateinit var client: ConnectClient
+    @Volatile private var signedIn = true
 
     private val welcome = """{"type":"welcome","you":"x","devices":[{"id":"pc12345678","name":"Desk","kind":"computer"},{"id":"ME","name":"Redmi","kind":"phone"}],
         "active":"pc12345678","state":{"index":0,"playing":true,"position":10},"queue":{"rev":1,"tracks":[{"id":1,"title":"A","artist":"B","albumId":2}]}}"""
 
     @Before fun setUp() {
         server.start(InetAddress.getByName("127.0.0.1"), 0)
-        client = ConnectClient(identity, OkHttpClient(), { server.url("/").toString().trimEnd('/') },
+        client = ConnectClient(identity, OkHttpClient(), { if (signedIn) server.url("/").toString().trimEnd('/') else null },
             clock = { now }, post = { it.run() }, schedule = { _, r -> reconnects.add(r) })
     }
 
@@ -107,5 +108,15 @@ class ConnectClientTest {
         val hello2 = h2.next()!!
         assertNotEquals(first, savedId)
         assertTrue(hello2.contains(savedId!!))
+    }
+
+    @Test fun waitsForSignInThenConnects() {
+        signedIn = false
+        val h = hub()
+        client.start()
+        assertNull("no sign-in: no connection", h.got.poll(500, TimeUnit.MILLISECONDS))
+        signedIn = true
+        client.nudge()
+        assertTrue(h.next()!!.contains("hello"))
     }
 }

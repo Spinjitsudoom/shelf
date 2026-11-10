@@ -40,7 +40,8 @@ class AppContainer(context: Context) {
 
     /** Shelf Connect: this phone among the user's devices (started by the player service). */
     val connect by lazy {
-        app.shelf.connect.ConnectClient(app.shelf.connect.DeviceIdentity.of(context.applicationContext), okHttp, { store.server })
+        app.shelf.connect.ConnectClient(app.shelf.connect.DeviceIdentity.of(context.applicationContext), okHttp,
+            { store.server?.takeIf { store.token != null } }) // the server refuses devices that aren't signed in
     }
 
     private var cachedFor: String? = null

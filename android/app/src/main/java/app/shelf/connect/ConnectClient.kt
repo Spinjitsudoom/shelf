@@ -84,8 +84,12 @@ class ConnectClient(
     /** Start again (another server, or signed in again). */
     fun restart() { stop(); start() }
 
+    /** Connect now if it's waiting (just signed in, say), instead of at the next retry. */
+    fun nudge() { post { if (started && socket == null) { retry = 0; connect() } } }
+
     private fun connect() {
-        val base = server() ?: return
+        // No server or no sign-in yet: look again later (nudge() does it sooner).
+        val base = server() ?: run { val gen = generation; schedule(30_000) { if (started && socket == null && gen == generation) connect() }; return }
         val gen = ++generation
         _ui.update { it.copy(selfId = identity.id) }
         val request = runCatching { Request.Builder().url("$base/api/connect").build() }.getOrNull() ?: return

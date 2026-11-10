@@ -94,6 +94,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     val playingOn = if (connectUi.remote) connectUi.activeDevice?.name?.ifBlank { "Web browser" } else null
     var devicesOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { container.likes.refresh() }
+    LaunchedEffect(container.store.token) { container.connect.nudge() } // signed in: join the other devices now
     var menu by remember { mutableStateOf<Pair<app.shelf.data.Track, (() -> Unit)?>?>(null) }
     var adding by remember { mutableStateOf<app.shelf.data.Track?>(null) }
     var playlists by remember { mutableStateOf<List<app.shelf.data.PlaylistSummary>?>(null) }
