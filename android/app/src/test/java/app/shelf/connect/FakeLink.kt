@@ -16,6 +16,7 @@ class FakeLink(ui: ConnectUi) : RemoteLink {
     override fun cmd(name: String, vararg args: JsonElement) { cmds += name to args.toList() }
     override fun send(msg: JsonObject) { sent += msg }
     override fun optimistic(change: (RemoteState) -> RemoteState) = ui.update { u -> u.state?.let { u.copy(state = change(it)) } ?: u }
+    override fun optimisticQueue(change: (List<Track>) -> List<Track>) = ui.update { u -> u.copy(queue = change(u.queue)) }
 }
 
 fun remoteUi(now: Long = 0) = ConnectUi(

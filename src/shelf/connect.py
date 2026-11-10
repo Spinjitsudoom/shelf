@@ -12,7 +12,7 @@ Messages are JSON objects with a "type". From devices:
   rename {name, kind}
   claim                                  "I've started playing here"
   state {state, queue?}                  active device only: what's playing (queue when it changed)
-  cmd {name, args}                       control the active device
+  cmd {name, args}                       control the active device (moveItem [from, to] reorders up next)
   transfer {to, snapshot?}               move playback to device `to`
   blocked                                "the browser here won't play without a tap"
 To devices:
@@ -43,7 +43,7 @@ ID_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 KINDS = {"computer", "phone", "tablet", "tv", "speaker"}
 GRACE_SECONDS = 20  # how long an active device may drop off (e.g. a phone switching networks)
 COMMANDS = {
-    "playList", "playNext", "addToQueue", "jumpTo", "removeAt", "clearUpNext",
+    "playList", "playNext", "addToQueue", "jumpTo", "removeAt", "moveItem", "clearUpNext",
     "toggle", "play", "pause", "next", "prev", "seek", "setVolume", "toggleShuffle", "cycleRepeat",
 }
 

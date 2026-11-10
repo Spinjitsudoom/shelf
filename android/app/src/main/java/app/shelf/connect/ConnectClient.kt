@@ -34,6 +34,8 @@ interface RemoteLink {
     fun cmd(name: String, vararg args: JsonElement)
     fun send(msg: JsonObject)
     fun optimistic(change: (RemoteState) -> RemoteState)
+    /** Show a change to the other device's queue now, before its next report confirms it. */
+    fun optimisticQueue(change: (List<Track>) -> List<Track>)
 }
 
 /** What the player side hears from Connect (on the main thread). */
@@ -176,4 +178,6 @@ class ConnectClient(
     /** Show a control's effect straight away, before the playing device confirms it. */
     override fun optimistic(change: (RemoteState) -> RemoteState) =
         _ui.update { u -> u.state?.let { s -> u.copy(state = change(s), at = clock()) } ?: u }
+
+    override fun optimisticQueue(change: (List<Track>) -> List<Track>) = _ui.update { u -> u.copy(queue = change(u.queue)) }
 }

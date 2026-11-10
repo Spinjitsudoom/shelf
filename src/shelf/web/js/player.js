@@ -148,6 +148,16 @@ export class Player extends EventTarget {
     this._queueChanged();
   }
 
+  /** Move a song that's still to come; it stays among the songs to come (as the phone's queue drags it). */
+  moveItem(from, to) {
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from <= this.index || from >= this.queue.length) return;
+    to = Math.min(Math.max(to, this.index + 1), this.queue.length - 1);
+    if (to === from) return;
+    const [t] = this.queue.splice(from, 1);
+    this.queue.splice(to, 0, t);
+    this._queueChanged();
+  }
+
   clearUpNext() {
     this.queue.splice(this.index + 1);
     this.original = null;

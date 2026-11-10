@@ -309,6 +309,7 @@ export class Controller extends EventTarget {
       addToQueue: (tracks) => p.addToQueue(tracks),
       jumpTo: (i) => p.jumpTo(i),
       removeAt: (i) => p.removeAt(i),
+      moveItem: (from, to) => p.moveItem(Number(from), Number(to)),
       clearUpNext: () => p.clearUpNext(),
       toggle: () => p.toggle(),
       play: () => p.play(),
@@ -396,6 +397,7 @@ export class Controller extends EventTarget {
   }
   jumpTo(i) { this.remoteMode ? this._cmd("jumpTo", i) : this.local.jumpTo(i); }
   removeAt(i) { this.remoteMode ? this._cmd("removeAt", i) : this.local.removeAt(i); }
+  moveItem(from, to) { this.remoteMode ? this._cmd("moveItem", from, to) : this.local.moveItem(from, to); }
   clearUpNext() { this.remoteMode ? this._cmd("clearUpNext") : this.local.clearUpNext(); }
   toggle() {
     if (!this.remoteMode) return this.local.toggle();

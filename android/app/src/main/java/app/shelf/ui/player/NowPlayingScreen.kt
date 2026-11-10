@@ -168,21 +168,10 @@ fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConne
     if (queueOpen) {
         ModalBottomSheet(onDismissRequest = { queueOpen = false }, containerColor = Shelf.colors.sleeve) {
             Text("Queue", style = MaterialTheme.typography.headlineSmall, color = Shelf.colors.ink, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
-            val list = rememberLazyListState(initialFirstVisibleItemIndex = state.index.coerceAtLeast(0))
-            LazyColumn(state = list, modifier = Modifier.fillMaxWidth().height(480.dp)) {
-                itemsIndexed(state.queue) { i, q ->
-                    val now = i == state.index
-                    Row(Modifier.fillMaxWidth().clickable { player.skipTo(i) }.padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        CaseCover(source.coverUrl(q.albumId, q.cover, 160), q.album, fallbackColor(q.album), Modifier.size(44.dp))
-                        Spacer(Modifier.size(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(q.title, style = MaterialTheme.typography.titleSmall, color = if (now) Shelf.colors.cobalt else Shelf.colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(q.artist, style = MaterialTheme.typography.bodySmall, color = Shelf.colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Text(fmtTime(q.duration), style = MaterialTheme.typography.bodySmall, color = Shelf.colors.ink2)
-                    }
-                }
-            }
+            QueueList(state.queue, state.index, canReorder = state.remote || !state.shuffle,
+                onPlay = { player.skipTo(it) }, onMove = { f, t -> player.moveItem(f, t) },
+                leading = { q -> CaseCover(source.coverUrl(q.albumId, q.cover, 160), q.album, fallbackColor(q.album), Modifier.size(44.dp)) },
+                modifier = Modifier.height(480.dp))
         }
     }
 }

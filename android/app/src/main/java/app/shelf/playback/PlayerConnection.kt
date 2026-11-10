@@ -19,6 +19,8 @@ data class PlayerUi(
     val playing: Boolean = false, val positionMs: Long = 0, val durationMs: Long = 0,
     val queue: List<Track> = emptyList(), val index: Int = -1, val context: PlayContext? = null,
     val shuffle: Boolean = false, val repeat: Int = Player.REPEAT_MODE_OFF,
+    /** Another device is playing; this queue is that device's (in its playing order, even shuffled). */
+    val remote: Boolean = false,
 )
 
 /** The screens' line to the player service: its state as a flow, and the buttons. */
@@ -65,6 +67,7 @@ class PlayerConnection(context: Context, private val source: () -> LibrarySource
             positionMs = c.currentPosition, durationMs = c.duration.coerceAtLeast(0),
             queue = queue, index = i, context = c.currentMediaItem?.playContext(),
             shuffle = c.shuffleModeEnabled, repeat = c.repeatMode,
+            remote = c.deviceInfo.playbackType == androidx.media3.common.DeviceInfo.PLAYBACK_TYPE_REMOTE,
         )
     }
 
@@ -112,6 +115,8 @@ class PlayerConnection(context: Context, private val source: () -> LibrarySource
     /** Back to the start of the song, or the song before when near its start (like every player). */
     fun previous() { controller?.seekToPrevious() }
     fun seekTo(ms: Long) { controller?.seekTo(ms) }
+    /** Move a song still to come (see [queueMove]); on another device, Connect carries it there. */
+    fun moveItem(from: Int, to: Int) { controller?.let { c -> queueMove(c.mediaItemCount, c.currentMediaItemIndex, from, to)?.let { (f, t) -> c.moveMediaItem(f, t) } } }
     fun skipTo(index: Int) { controller?.let { it.seekTo(index, 0); it.play() } }
     fun toggleShuffle() { controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled } }
     fun cycleRepeat() { controller?.let { it.repeatMode = when (it.repeatMode) { Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL; Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE; else -> Player.REPEAT_MODE_OFF } } }

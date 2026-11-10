@@ -41,6 +41,18 @@ class RemotePlayerTest {
         player.seekTo(2, 0); assertEquals("jumpTo" to listOf(JsonPrimitive(2)), link.cmds.last())
     }
 
+    @Test fun moveSendsMoveItem() {
+        player.moveMediaItem(2, 1) // song 2 is playing and song 3 is the only one up next: nowhere to go
+        player.moveMediaItem(1, 2)
+        assertTrue("the playing song isn't moved", link.cmds.none { it.first == "moveItem" })
+        val wide = FakeLink(remoteUi(now = 1000).let { u -> u.copy(queue = listOf(tr(1), tr(2), tr(3), tr(4), tr(5))) })
+        val p = RemotePlayer(Looper.getMainLooper(), wide, { null }, clock = { 1000 })
+        p.moveMediaItem(4, 2)
+        assertEquals("moveItem" to listOf(JsonPrimitive(4), JsonPrimitive(2)), wide.cmds.last())
+        assertEquals("shown moved straight away", listOf("Song 1", "Song 2", "Song 5", "Song 3", "Song 4"),
+            (0 until p.mediaItemCount).map { p.getMediaItemAt(it).mediaMetadata.title.toString() })
+    }
+
     @Test fun volumeGoesToRemote() {
         assertEquals(MediaDeviceInfo.PLAYBACK_TYPE_REMOTE, player.deviceInfo.playbackType)
         assertEquals(50, player.deviceVolume)

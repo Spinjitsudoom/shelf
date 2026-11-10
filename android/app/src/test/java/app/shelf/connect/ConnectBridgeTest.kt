@@ -76,6 +76,15 @@ class ConnectBridgeTest {
         bridge.onCmd("toggle", JsonArray(emptyList())); assertFalse(exo.playWhenReady)
     }
 
+    @Test fun moveItemReordersUpNext() {
+        load(4)
+        bridge.onCmd("moveItem", JsonArray(listOf(JsonPrimitive(3), JsonPrimitive(1))))
+        assertEquals(listOf("Song 1", "Song 4", "Song 2", "Song 3"), (0 until exo.mediaItemCount).map { exo.getMediaItemAt(it).mediaMetadata.title.toString() })
+        bridge.onCmd("moveItem", JsonArray(listOf(JsonPrimitive(0), JsonPrimitive(2)))) // the playing song stays put
+        assertEquals(0, exo.currentMediaItemIndex)
+        assertEquals("Song 1", exo.getMediaItemAt(0).mediaMetadata.title)
+    }
+
     @Test fun takeoverLoadsSnapshot() {
         bridge.onTakeover(Snapshot(listOf(tr(1), tr(2), tr(3)), 2, 42.0, true))
         assertEquals(3, exo.mediaItemCount); assertEquals(2, exo.currentMediaItemIndex)

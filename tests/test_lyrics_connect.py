@@ -144,6 +144,9 @@ def test_connect_remote_control_and_transfer(client):
         # The phone's pause button reaches the TV.
         phone.send_json({"type": "cmd", "name": "pause", "args": []})
         assert recv_until(tv, "cmd") == {"type": "cmd", "name": "pause", "args": []}
+        # Dragging a song in the phone's queue reorders the TV's.
+        phone.send_json({"type": "cmd", "name": "moveItem", "args": [4, 2]})
+        assert recv_until(tv, "cmd") == {"type": "cmd", "name": "moveItem", "args": [4, 2]}
         phone.send_json({"type": "cmd", "name": "eval", "args": ["x"]})  # unknown commands are dropped
 
         # Move playback to the phone: TV is told to stop, phone gets the queue and position.

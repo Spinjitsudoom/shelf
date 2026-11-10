@@ -5,6 +5,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import app.shelf.data.Track
 import app.shelf.playback.PlayContext
+import app.shelf.playback.queueMove
 import app.shelf.playback.playContext
 import app.shelf.playback.track
 import kotlinx.serialization.builtins.ListSerializer
@@ -171,6 +172,10 @@ class ConnectBridge(
             }
             "jumpTo" -> args.num(0)?.toInt()?.takeIf { it in 0 until p.mediaItemCount }?.let { p.seekTo(it, 0) }
             "removeAt" -> args.num(0)?.toInt()?.takeIf { it in 0 until p.mediaItemCount }?.let { p.removeMediaItem(it) }
+            "moveItem" -> {
+                val from = args.num(0)?.toInt(); val to = args.num(1)?.toInt()
+                if (from != null && to != null) queueMove(p.mediaItemCount, p.currentMediaItemIndex, from, to)?.let { (f, t) -> p.moveMediaItem(f, t) }
+            }
             "clearUpNext" -> if (p.currentMediaItemIndex + 1 < p.mediaItemCount) p.removeMediaItems(p.currentMediaItemIndex + 1, p.mediaItemCount)
             "toggle" -> if (p.playWhenReady) p.pause() else { p.prepare(); p.play() }
             "play" -> { p.prepare(); p.play() }

@@ -9,7 +9,9 @@ import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.UnstableApi
 import app.shelf.data.LibrarySource
+import app.shelf.data.moveItem
 import app.shelf.playback.PlayContext
+import app.shelf.playback.queueMove
 import app.shelf.playback.playContext
 import app.shelf.playback.toControllerItem
 import app.shelf.playback.track
@@ -149,6 +151,16 @@ class RemotePlayer(
 
     override fun handleRemoveMediaItems(fromIndex: Int, toIndex: Int): ListenableFuture<*> {
         for (i in toIndex - 1 downTo fromIndex) link.cmd("removeAt", JsonPrimitive(i))
+        return done
+    }
+
+    /** One song at a time (the queue sheet drags one): sent as "moveItem", shown moved straight away. */
+    override fun handleMoveMediaItems(fromIndex: Int, toIndex: Int, newIndex: Int): ListenableFuture<*> {
+        val u = link.ui.value
+        if (toIndex - fromIndex != 1) return done
+        val (from, to) = queueMove(u.queue.size, u.state?.index ?: 0, fromIndex, newIndex) ?: return done
+        link.optimisticQueue { q -> moveItem(q, from, to) }
+        link.cmd("moveItem", JsonPrimitive(from), JsonPrimitive(to))
         return done
     }
 
