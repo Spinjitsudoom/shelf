@@ -2063,17 +2063,24 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             s += rng.random() * (1.6 if seed else 0.3)
             scored.append((s, t))
         scored.sort(key=lambda x: -x[0])
-        out, per_album, per_artist = [], {}, {}
+        # Variety: songs by the artists already there take at most a fifth of the places (at
+        # least two), and any other artist at most two, so the rest is music that fits rather
+        # than more of the same bands. Only when nothing else fits do the held-back songs fill up.
+        own_cap = max(2, limit // 5)
+        out, held, per_album, per_artist, own = [], [], {}, {}, 0
         for _s, t in scored:
             al, ar = t["album_id"], fold(t["artist"])
-            if per_album.get(al, 0) >= 2 or per_artist.get(ar, 0) >= 4:
+            mine_artist = ar in artist_n or fold(t["album_artist_name"] or "") in artist_n
+            if per_album.get(al, 0) >= 2 or per_artist.get(ar, 0) >= 2 or (mine_artist and own >= own_cap):
+                held.append(t)
                 continue
             per_album[al] = per_album.get(al, 0) + 1
             per_artist[ar] = per_artist.get(ar, 0) + 1
+            own += mine_artist
             out.append(track_json(t))
             if len(out) >= limit:
-                break
-        return out
+                return out
+        return out + [track_json(t) for t in held[:limit - len(out)]]
 
     # ---------- sharing ----------
 

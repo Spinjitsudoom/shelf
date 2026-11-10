@@ -51,6 +51,35 @@ def test_recommendations_fit_the_playlist(client):
     assert client.get(f"/api/playlists/{empty['id']}/recommendations").json() == []
 
 
+def test_recommendations_reach_beyond_the_playlists_artists(client, library):
+    """A metal playlist of two bands gets other metal bands suggested, not just more of those two."""
+    from conftest import make_track
+    bands = {"Metallica": 6, "Avenged Sevenfold": 6, "Slayer": 3, "Megadeth": 3, "Iron Maiden": 3, "Gojira": 3}
+    for band, n in bands.items():
+        for i in range(n):
+            make_track(library / band / f"Album {i % 3}" / f"{i:02d} {band} {i}.mp3", title=f"{band} {i}",
+                       artist=band, album=f"{band} album {i % 3}", track=i + 1)
+    client.app.state.scanner.run_once()
+    login(client)
+    db = client.app.state.cfg.db_path
+    with session(db) as conn:
+        conn.execute("UPDATE tracks SET genre = 'Metal', bpm = 140")
+        conn.execute("UPDATE tracks SET genre = 'Jazz', bpm = 80 WHERE title IN ('Opening', 'Closer', 'Late', 'Early')")
+    t = all_tracks(client)
+    seed = [t["Metallica 0"]["id"], t["Metallica 1"]["id"], t["Avenged Sevenfold 0"]["id"], t["Avenged Sevenfold 1"]["id"]]
+    p = client.post("/api/playlists", json={"name": "Metal", "trackIds": seed}).json()
+    recs = client.get(f"/api/playlists/{p['id']}/recommendations?limit=10").json()
+    artists = [r["artist"] for r in recs]
+    assert len(recs) == 10
+    assert sum(a in ("Metallica", "Avenged Sevenfold") for a in artists) <= 2, artists
+    assert {"Slayer", "Megadeth", "Iron Maiden", "Gojira"} <= set(artists), artists
+    assert "Band" not in artists and "band" not in artists  # the jazz isn't suggested over the metal
+
+    # With nothing else that fits, it still suggests more by the same bands rather than nothing.
+    only = client.post("/api/suggest", json={"trackIds": [t["Opening"]["id"]], "limit": 3}).json()
+    assert len(only) == 3
+
+
 def test_artist_about_checks_it_is_a_musician(client, monkeypatch):
     login(client)
     client.app.state.cfg.artist_info = True
