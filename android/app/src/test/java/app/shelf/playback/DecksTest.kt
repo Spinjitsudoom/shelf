@@ -88,4 +88,11 @@ class DecksTest {
         b.seekTo(2, 0); idle()
         assertSame(b, seen.last())
     }
+
+    @Test fun repeatOneNeverTransitions() {
+        load(3)
+        a.repeatMode = Player.REPEAT_MODE_ONE
+        decks.tick(0)
+        assertEquals("the song repeats, nothing fades in", 0, b.mediaItemCount)
+    }
 }

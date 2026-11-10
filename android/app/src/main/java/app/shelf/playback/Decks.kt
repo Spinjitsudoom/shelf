@@ -109,6 +109,8 @@ class Decks(
         }
         val p = current
         if (!p.playWhenReady || p.playbackState == Player.STATE_ENDED) return
+        // Repeat one: the song plays again (Media3's "next" would skip to the next song here).
+        if (p.repeatMode == Player.REPEAT_MODE_ONE) return
         val next = p.nextMediaItemIndex
         if (next == C.INDEX_UNSET) return
         val cur = p.currentMediaItem?.track() ?: return
