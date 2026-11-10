@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, covers, credits, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, peaks, playlist_maker, releases, ripper, scrobble, sound, transcode, uploads, videos
+from . import analysis, covers, credits, genres, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, peaks, playlist_maker, releases, ripper, scrobble, sound, transcode, uploads, videos
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -2030,14 +2030,14 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             plays = [(r[0], r[1]) for r in conn.execute(
                 "SELECT track_id, played_at FROM plays WHERE user_id = ? AND played_at > ?", (me_id, now - 400 * 86400))]
             liked = {r[0] for r in conn.execute("SELECT track_id FROM likes WHERE user_id = ?", (me_id,))}
-        genres = sorted({r["genre"] for r in rows if r["genre"]})
+        known = releases.artist_genres(cfg.db_path)
         artists = sorted({a for r in rows for a in (r["artist"], r["album_artist_name"]) if a})
-        want = playlist_maker.understand(body.prompt, genres, artists)
+        want = playlist_maker.understand(body.prompt, genres.library_genres(rows, known), artists)
         if want.empty:
             raise HTTPException(400, "Shelf didn’t recognise any of that. Try a genre, an artist, a mood (workout, "
                                      "chill, party, feel good, melancholy, heavy), “high energy” or a decade like 90s.")
         ids = playlist_maker.make(rows, sound.energy(rows), mixes.affinity(plays, liked, now), want, _recommend,
-                                  size=body.size, seed=f"{me_id}:{now}")
+                                  size=body.size, seed=f"{me_id}:{now}", genres_of=lambda r: genres.song_genres(r, known))
         if not ids:
             raise HTTPException(400, "Nothing on your shelf fits all of that. Try fewer words.")
         name = body.prompt.strip()
@@ -2061,12 +2061,13 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         if not mine:
             return []
         fold = videos.fold
+        known = releases.artist_genres(cfg.db_path)  # MusicBrainz's, per artist, besides the tags
         artist_n, genre_n, album_ids = {}, {}, set()
         for t in mine:
             for a in {fold(t["artist"]), fold(t["album_artist_name"] or "")} - {""}:
                 artist_n[a] = artist_n.get(a, 0) + 1
-            if t["genre"]:
-                genre_n[fold(t["genre"])] = genre_n.get(fold(t["genre"]), 0) + 1
+            for g in genres.song_genres(t, known):
+                genre_n[g] = genre_n.get(g, 0) + 1
             album_ids.add(t["album_id"])
         bpms = [t["bpm"] for t in mine if t["bpm"]]
         # Sounds like: how close each song's sound is to the average sound of `mine`.
@@ -2079,8 +2080,10 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         for t in pool:
             a = max(artist_n.get(fold(t["artist"]), 0), artist_n.get(fold(t["album_artist_name"] or ""), 0))
             s = 3 * min(a, 5) / 5 + (1.2 if a else 0)
-            if t["genre"] and genre_n:
-                s += 2 * genre_n.get(fold(t["genre"]), 0) / len(mine)
+            if genre_n:
+                shared = [genre_n.get(g, 0) for g in genres.song_genres(t, known)]
+                if shared:
+                    s += 2 * max(shared) / len(mine)
             if t["bpm"] and bpms:
                 d = min(min(abs(t["bpm"] - b), abs(2 * t["bpm"] - b), abs(t["bpm"] - 2 * b)) for b in bpms)
                 s += 1.5 * max(0.0, 1 - d / 15)

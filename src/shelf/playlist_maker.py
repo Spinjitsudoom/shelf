@@ -130,15 +130,20 @@ Recommend = Callable[[list, list, int, int], list]
 
 
 def make(rows, energy: dict[int, float], score: dict[int, float], want: Want, recommend: Recommend,
-         size: int = 30, seed: str = "") -> list[int]:
-    """Song ids for the playlist, in a playing order where an artist doesn't repeat back to back."""
+         size: int = 30, seed: str = "", genres_of: Callable | None = None) -> list[int]:
+    """Song ids for the playlist, in a playing order where an artist doesn't repeat back to back.
+    `genres_of(row)`: a song's genres (lowercase), by default its tags (see genres.py)."""
+    from . import genres as g
+
+    genres_of = genres_of or (lambda r: g.split_tag(r["genre"]))
+    wanted = {g.norm(x) for x in want.genres}
     rng = random.Random(f"{seed}:{norm(' '.join(describe(want)))}")
     named = {norm(a) for a in want.artists}
     artist_of = lambda r: norm(r["album_artist_name"] or r["artist"] or "")
     by_named = lambda r: norm(r["artist"]) in named or artist_of(r) in named
 
     def allowed(r) -> bool:
-        if want.genres and r["genre"] not in want.genres:
+        if wanted and not (genres_of(r) & wanted):
             return False
         if want.years and not (r["year"] and want.years[0] <= r["year"] <= want.years[1]):
             return False

@@ -4,6 +4,9 @@ it yet, from MusicBrainz (the open music encyclopedia), with covers from the Cov
 Checked once a day in the background (MusicBrainz asks for at most one request a second, so
 a library with many artists takes a while), and on request from the admin dashboard. Only
 artist names are sent. Off when `artist_info` is off in config.toml.
+
+The same check learns each artist's genres (MusicBrainz's, most votes first), once a month per
+artist, for suggestions and Make a playlist (see genres.py).
 """
 
 from __future__ import annotations
@@ -27,6 +30,14 @@ MB = "https://musicbrainz.org/ws/2"
 AGENT = f"Shelf/{__version__} (self-hosted music server)"
 DAY = 86400
 SKIP = {"various artists", "various", "soundtrack", "unknown artist"}
+GENRES_EVERY = 30 * DAY
+
+
+def artist_genres(db_path: Path) -> dict[str, list[str]]:
+    """{folded artist name: their MusicBrainz genres, most votes first}."""
+    with session(db_path) as conn:
+        known = json.loads(get_meta(conn, "mb_artist_genres") or "{}")
+    return {k: v["genres"] for k, v in known.items() if v.get("genres")}
 
 
 def _get(url: str, timeout: float = 20) -> bytes:
@@ -111,6 +122,7 @@ class Releases:
         with session(self.db_path) as conn:
             rows = conn.execute("SELECT artist, title FROM albums").fetchall()
             ids = json.loads(get_meta(conn, "mb_artist_ids") or "{}")
+            genres = json.loads(get_meta(conn, "mb_artist_genres") or "{}")
         owned: dict[str, set[str]] = {}
         names: dict[str, str] = {}
         shelf = [(fold(r["artist"]), base_title(r["title"])) for r in rows]
@@ -128,6 +140,10 @@ class Releases:
                     break
                 try:
                     mbid = self._artist_id(name, ids)
+                    if mbid and time.time() - genres.get(key, {}).get("at", 0) > GENRES_EVERY:
+                        a = self._mb(f"artist/{mbid}", inc="genres")
+                        voted = sorted((g for g in a.get("genres") or [] if g.get("count", 0) > 0), key=lambda g: -g["count"])
+                        genres[key] = {"genres": [g["name"] for g in voted[:6]], "at": time.time()}
                     if mbid:
                         r = self._mb("release-group", artist=mbid, type="album|ep", limit=100)
                         for g in r.get("release-groups", []):
@@ -147,6 +163,7 @@ class Releases:
             set_meta(conn, "releases", json.dumps(found))
             set_meta(conn, "releases_checked", str(time.time()))
             set_meta(conn, "mb_artist_ids", json.dumps(ids))
+            set_meta(conn, "mb_artist_genres", json.dumps(genres))
         log.info("Found %d releases by your artists that aren't on the shelf", len(found))
         return found
 
