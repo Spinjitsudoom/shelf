@@ -32,6 +32,9 @@ data class Track(
     val trackNo: Int? = null, val discNo: Int? = null, val duration: Double = 0.0, val codec: String? = null,
     val bits: Int? = null, val sampleRate: Int? = null, val lufs: Double? = null, val peak: Double? = null,
     val entryId: Int? = null, // its place in a playlist (to remove or move it)
+    val bpm: Int? = null, val camelot: String? = null, // for Mix: tempo and key
+    val mix: app.shelf.playback.MixPoints? = null,     // for Mix: where it starts, ends, and its beats
+    val transition: kotlinx.serialization.json.JsonElement? = null, // in a Mix playlist: how it hands over to the next song
 )
 
 @Serializable data class ArtistSummary(val name: String, val albums: Int = 0, val tracks: Int = 0, val coverAlbumId: Int? = null, val cover: String? = null)
@@ -54,7 +57,7 @@ data class PlaylistSummary(
 data class PlaylistDetail(
     val id: Int, val name: String, val description: String? = null, val trackCount: Int = 0,
     val duration: Double = 0.0, val covers: List<CoverRef> = emptyList(), val canEdit: Boolean = false,
-    val tracks: List<Track> = emptyList(),
+    val tracks: List<Track> = emptyList(), val mix: Boolean = false, // Mix: songs hand over like a DJ set
 )
 
 @Serializable
