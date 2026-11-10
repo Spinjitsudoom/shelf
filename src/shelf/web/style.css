@@ -2217,3 +2217,6 @@ input.range.balance::-moz-range-progress { background: transparent; }
 @media (prefers-reduced-motion: reduce) { .w-card { animation: none; } }
 .home-stats { color: inherit; text-decoration: none; }
 .home-stats:hover, .home-stats:focus-visible { text-decoration: underline; color: var(--ink); }
+.auto-update { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 640px; margin: 4px 0 0; }
+.auto-update span { display: flex; flex-direction: column; gap: 2px; }
+.auto-update small { color: var(--ink-2); }

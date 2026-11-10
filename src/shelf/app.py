@@ -240,6 +240,10 @@ def transition_json(raw: str | None) -> dict:
     return {"preset": raw}
 
 
+class AutoUpdateBody(BaseModel):
+    enabled: bool
+
+
 class MakeBody(BaseModel):
     """A playlist from a few words."""
     prompt: str = Field(min_length=1, max_length=200)
@@ -384,7 +388,18 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     scanner = ScanManager(cfg)
     scrobbler = scrobble.Scrobbler(cfg.db_path)
     new_releases = releases.Releases(cfg.db_path, enabled=cfg.artist_info)
-    new_version = updates.Updates(enabled=cfg.check_updates)
+    listening = {"at": 0.0}
+
+    def last_listening() -> float:
+        """When music last played here: now, if a device is playing; else the latest play."""
+        now = time.time()
+        if any(h.state and h.state.get("playing") and h.active in h.devices for h in list(hubs.values())):
+            listening["at"] = now
+        with session(cfg.db_path) as conn:
+            last = conn.execute("SELECT MAX(played_at) FROM plays").fetchone()[0] or 0.0
+        return max(listening["at"], last)
+
+    new_version = updates.Updates(enabled=cfg.check_updates, db_path=cfg.db_path, idle_since=last_listening)
     cd = ripper.Ripper(on_done=scanner.trigger)
     dj_voice = dj.Voice(Path(os.environ.get("SHELF_TTS_DIR") or cfg.data_dir / "tts"), cfg.data_dir / "dj-voice")
     natural = dj.Chatterbox(Path(os.environ.get("SHELF_CHATTERBOX_DIR") or cfg.data_dir / "tts-chatterbox"))
@@ -686,6 +701,13 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         """Look for a newer Shelf now (it also looks every six hours)."""
         admin_only()
         return new_version.check()
+
+    @app.patch("/api/admin/update/auto")
+    def update_auto(body: AutoUpdateBody):
+        """Install updates by themselves (at night, when nothing's playing), or only when asked."""
+        admin_only()
+        new_version.set_auto(body.enabled)
+        return new_version.info()
 
     @app.post("/api/admin/update")
     def update_now():

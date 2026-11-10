@@ -108,6 +108,7 @@ export const api = {
   adminOverview: () => request("GET", "admin/overview"),
   checkUpdate: () => request("POST", "admin/update/check"),
   updateServer: () => request("POST", "admin/update"),
+  autoUpdate: (enabled) => request("PATCH", "admin/update/auto", { enabled }),
   clearSignins: (address) => request("DELETE", `admin/signins${address ? `?address=${encodeURIComponent(address)}` : ""}`),
   logout: () => { invalidate(); return request("POST", "logout"); },
   library: () => request("GET", "library"),

@@ -198,6 +198,10 @@ function page(o, dirs, me) {
       <p class="about">Shelf server ${esc(o.version)}${o.update?.checkedAt && !o.update.available
         ? `, up to date (checked ${esc(ago(o.update.checkedAt))})` : ""}
         <button class="link-btn" type="button" data-admin="update-check">Check for updates</button></p>
+      ${o.update && o.update.kind !== "manual" ? `<div class="auto-update">
+        <span><b>Install updates by themselves</b><small>At night, once nothing has played on any device for half an hour, so music is never cut off.</small></span>
+        <button class="switch" type="button" role="switch" data-admin="update-auto" aria-checked="${!!o.update.auto}" aria-label="Install updates by themselves"></button>
+      </div>` : ""}
     </div>`;
 }
 
@@ -695,6 +699,13 @@ export async function adminView(el, session, { dialog }) {
       }).catch((err) => toast(err.message));
     }
     if (b.dataset.admin === "update-now") updateNow(b);
+    if (b.dataset.admin === "update-auto") {
+      const on = b.getAttribute("aria-checked") !== "true";
+      api.autoUpdate(on).then((u) => {
+        b.setAttribute("aria-checked", String(!!u.auto));
+        toast(u.auto ? "Shelf installs updates by itself now, at night" : "Shelf only updates when you choose Update now");
+      }).catch((err) => toast(err.message));
+    }
     if (b.dataset.admin === "person-menu") personMenu(b);
   };
   el.addEventListener("click", onClick);

@@ -11,6 +11,11 @@ Update button, which works one of four ways depending on how this copy was insta
 - the Windows installer: download the new installer and run it silently; it closes Shelf
   Server, installs over it and starts it again.
 - anything else: no button, just a link to the release.
+
+Installing automatically (on by default for the Windows installer and install.sh, off for a git
+checkout; a switch in the admin dashboard): only once nothing has played on any device for half
+an hour, between 2 and 6 at night, so music is never cut off. If three days go by without such a
+night (a server that's always busy at night), the next half hour of quiet will do.
 """
 
 from __future__ import annotations
@@ -28,6 +33,7 @@ import urllib.request
 from pathlib import Path
 
 from . import __version__
+from .db import get_meta, session, set_meta
 
 log = logging.getLogger("shelf.updates")
 
@@ -48,6 +54,20 @@ def parse(version: str) -> tuple[int, ...]:
             break
         out.append(int(digits))
     return tuple(out)
+
+
+QUIET = 30 * 60  # nothing played for this long
+NIGHT = range(2, 6)  # hours (server time) to install in
+PATIENCE = 3 * 86400  # after this long without a quiet night, any quiet half hour
+AUTO_EVERY = 10 * 60  # how often to see whether it's a good moment
+
+
+def should_install(hour: int, idle: float, pending: float) -> bool:
+    """Whether now is a good moment to install an update: `idle` seconds since anything played,
+    the update `pending` for that long, at `hour` o'clock."""
+    if idle < QUIET:
+        return False
+    return hour in NIGHT or pending >= PATIENCE
 
 
 def newer(latest: str, current: str = __version__) -> bool:
@@ -72,8 +92,13 @@ def _get(url: str, timeout: float = 20):
 
 
 class Updates:
-    def __init__(self, enabled: bool = True):
+    def __init__(self, enabled: bool = True, db_path: Path | None = None, idle_since=None, restart=None):
+        """`idle_since()`: when anything last played (0 if never); `restart`: re-runs this server."""
         self.enabled = enabled
+        self.db_path = db_path
+        self.idle_since = idle_since or (lambda: 0.0)
+        self._restart = restart or restart_in_place
+        self._available_since: float | None = None
         self.state: dict = {"current": __version__, "latest": None, "url": None, "notes": None,
                             "available": False, "checkedAt": None, "error": None, "updating": False,
                             "kind": install_kind()}
@@ -92,9 +117,44 @@ class Updates:
 
     def _loop(self) -> None:
         self._stop.wait(30)  # let the server settle first
+        last_check = 0.0
         while not self._stop.is_set():
-            self.check()
-            self._stop.wait(CHECK_EVERY)
+            if time.time() - last_check >= CHECK_EVERY:
+                self.check()
+                last_check = time.time()
+            self.auto_step(time.time())
+            self._stop.wait(AUTO_EVERY)
+
+    # ---------- installing by itself ----------
+
+    def auto(self) -> bool:
+        """Whether updates install by themselves (see the module docstring)."""
+        saved = None
+        if self.db_path:
+            with session(self.db_path) as conn:
+                saved = get_meta(conn, "auto_update")
+        return saved == "1" if saved is not None else self.state["kind"] in ("windows", "script")
+
+    def set_auto(self, on: bool) -> None:
+        if self.db_path:
+            with session(self.db_path) as conn:
+                set_meta(conn, "auto_update", "1" if on else "0")
+
+    def auto_step(self, now: float) -> None:
+        """Install the waiting update if updates install by themselves and it's a good moment."""
+        s = self.state
+        if not (s["available"] and s["kind"] != "manual" and not s["updating"]) or not self.auto():
+            return
+        hour = time.localtime(now).tm_hour
+        idle = now - (self.idle_since() or 0.0)
+        pending = now - (self._available_since or now)
+        if not should_install(hour, idle, pending):
+            return
+        log.info("Installing Shelf %s by itself (nothing has played for %d minutes)", s["latest"], idle // 60)
+        try:
+            self.update(self._restart)
+        except Exception:
+            log.exception("Installing the update by itself failed")
 
     def check(self) -> dict:
         try:
@@ -104,6 +164,10 @@ class Updates:
             self._assets = {a["name"]: a["browser_download_url"] for a in rel.get("assets", [])}
             self.state.update(latest=tag.lstrip("vV"), url=rel.get("html_url"), notes=(rel.get("body") or "")[:4000],
                               available=newer(tag), checkedAt=time.time(), error=None)
+            if self.state["available"] and self._available_since is None:
+                self._available_since = time.time()
+            elif not self.state["available"]:
+                self._available_since = None
             if self.state["available"]:
                 log.info("Shelf %s is available (this is %s)", tag, __version__)
         except Exception as e:  # offline, rate-limited, no releases yet: try again later
@@ -113,6 +177,7 @@ class Updates:
     def info(self) -> dict:
         s = dict(self.state)
         s["canUpdate"] = s["available"] and s["kind"] != "manual" and not s["updating"]
+        s["auto"] = self.auto()
         return s
 
     # ---------- updating ----------

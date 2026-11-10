@@ -103,3 +103,62 @@ def test_git_checkout_pulls_and_restarts(tmp_path, monkeypatch):
     except ValueError as e:
         assert "changes of its own" in str(e)
     assert not u2.state["updating"]
+
+
+HOUR = 3600
+
+
+def test_installs_only_when_quiet_and_at_night():
+    t = 1_000_000.0
+    quiet = updates.should_install
+    assert quiet(hour=3, idle=45 * 60, pending=HOUR)  # night, nothing played for 45 minutes
+    assert not quiet(hour=3, idle=10 * 60, pending=HOUR)  # someone's still listening
+    assert not quiet(hour=15, idle=5 * HOUR, pending=HOUR)  # quiet, but daytime
+    assert quiet(hour=15, idle=45 * 60, pending=4 * 24 * HOUR)  # no quiet night in three days: when it's quiet
+    assert not quiet(hour=15, idle=5 * 60, pending=4 * 24 * HOUR)  # but never while music plays
+
+
+def test_auto_update_step(monkeypatch, tmp_path):
+    from shelf.db import init_db
+    db = tmp_path / "x.db"
+    init_db(db)
+    fake_release(monkeypatch, "v99.0.0")
+    last_play = [0.0]
+    u = updates.Updates(db_path=db, idle_since=lambda: last_play[0])
+    u.state["kind"] = "windows"
+    started = []
+    monkeypatch.setattr(updates.Updates, "update", lambda self, restart: started.append(1) or "Updating.")
+    u.check()
+    night = lambda h: __import__("datetime").datetime(2026, 11, 11, h, 30).timestamp()
+
+    last_play[0] = night(3) - 5 * 60
+    u.auto_step(night(3))
+    assert started == []  # music five minutes ago
+    last_play[0] = night(2) - HOUR
+    u.auto_step(night(3))
+    assert started == [1]  # quiet night: installed
+
+    u.set_auto(False)
+    started.clear()
+    u.auto_step(night(4))
+    assert started == [] and u.info()["auto"] is False
+
+
+def test_auto_update_is_on_for_installed_copies(tmp_path):
+    from shelf.db import init_db
+    db = tmp_path / "x.db"
+    init_db(db)
+    u = updates.Updates(db_path=db)
+    u.state["kind"] = "windows"
+    assert u.auto() is True
+    u.state["kind"] = "git"
+    assert u.auto() is False  # a developer's checkout: only when asked
+    u.set_auto(True)
+    assert u.auto() is True
+
+
+def test_admin_auto_update_switch(client):
+    login(client)
+    assert client.patch("/api/admin/update/auto", json={"enabled": True}).json()["auto"] is True
+    assert client.get("/api/admin/overview").json()["update"]["auto"] is True
+    assert client.patch("/api/admin/update/auto", json={"enabled": False}).json()["auto"] is False
