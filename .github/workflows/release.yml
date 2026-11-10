@@ -181,6 +181,17 @@ jobs:
           Start-Sleep -Seconds 5
           Get-Process -Name "Shelf Server", "shelf-server" -ErrorAction SilentlyContinue | Stop-Process -Force
           python packaging/smoke_test.py "$env:LOCALAPPDATA\Programs\Shelf Server\shelf-server.exe"
+      - name: The installed copy measures songs (tempo, key, "sounds like") without Essentia
+        run: |
+          $exe = "$env:LOCALAPPDATA\Programs\Shelf Server\shelf-server.exe"
+          # 40 seconds of clicks at 120 BPM.
+          ffmpeg -v error -y -f lavfi -i "aevalsrc='if(lt(mod(t,0.5),0.03),sin(2*PI*1000*t)*exp(-100*mod(t,0.5)),0)+0.002*(random(0)-0.5)':s=44100:d=40" clicks.wav
+          $a = (& $exe --module shelf.analysis clicks.wav | Select-Object -Last 1) | ConvertFrom-Json
+          if (-not $a.bpm -or [math]::Abs($a.bpm - 120) -gt 3) { throw "Tempo not measured: $($a | ConvertTo-Json -Compress)" }
+          if (-not $a.mix) { throw "Mix points not measured" }
+          $v = (& $exe --module shelf.sound clicks.wav 40 | Select-Object -Last 1) | ConvertFrom-Json
+          if ($v.Count -ne 52) { throw "Sound fingerprint not measured: $v" }
+          "Measured: $($a.bpm) BPM, key $($a.key), fingerprint of $($v.Count) numbers"
       - uses: actions/upload-artifact@v7
         with:
           name: server-windows
