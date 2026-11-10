@@ -104,6 +104,24 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
     }
 }
 
+/** A Blend with someone: the same page as a mix. */
+@Composable
+fun BlendScreen(otherId: Int, api: app.shelf.data.ShelfApi, onPlay: OnPlay, onBack: () -> Unit, signedOut: SignedOutHandler) {
+    val (state, retry) = rememberLoad("blend", otherId) { api.blend(otherId) }
+    LoadContent(state, retry, signedOut) { m ->
+        val color = albumColor(m.color, m.name)
+        val ctx = PlayContext(m.name, "blend/$otherId")
+        TrackListPage(
+            color = color, kind = "Blend", title = m.name,
+            cover = { TapeCover(m.name, color, m.covers.mapNotNull { api.coverUrl(it.albumId, it.cover, 160) }) },
+            byline = m.description.takeIf { it.isNotBlank() }?.let { { Text(it, style = MaterialTheme.typography.bodyMedium, color = Shelf.colors.ink2) } },
+            facts = facts(plural(m.tracks.size, "song"), fmtLength(m.tracks.sumOf { it.duration })),
+            tracks = m.tracks, numbered = false, coverUrl = { api.coverUrl(it.albumId, it.cover, 160) },
+            onTrack = { onPlay(m.tracks, it, ctx) }, onShuffle = { onPlay(m.tracks.shuffled(), 0, ctx) }, onBack = onBack,
+        )
+    }
+}
+
 /** Song or artist radio: the same page as a mix. */
 @Composable
 fun RadioScreen(track: Int?, artist: String?, api: app.shelf.data.ShelfApi, onPlay: OnPlay, onBack: () -> Unit, signedOut: SignedOutHandler) {

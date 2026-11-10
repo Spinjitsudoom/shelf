@@ -48,7 +48,7 @@ private fun greeting(name: String?): String {
 
 @Composable
 fun HomeScreen(source: LibrarySource, username: String?, onAlbum: (Int) -> Unit, onMix: (String) -> Unit, onPlayAlbum: (Int) -> Unit, signedOut: SignedOutHandler,
-               onSettings: () -> Unit = {}) {
+               onSettings: () -> Unit = {}, onPeople: (() -> Unit)? = null) {
     val (state, retry) = rememberLoad("home") {
         coroutineScope { val h = async { source.home() }; val m = async { source.mixes() }; HomeData(h.await(), m.await()) }
     }
@@ -59,6 +59,9 @@ fun HomeScreen(source: LibrarySource, username: String?, onAlbum: (Int) -> Unit,
                     Column(Modifier.weight(1f)) {
                         Text("Home", style = MaterialTheme.typography.displayMedium, color = Theme.colors.ink)
                         Text(greeting(username), style = MaterialTheme.typography.bodyLarge, color = Theme.colors.ink2)
+                    }
+                    if (onPeople != null) androidx.compose.material3.IconButton(onClick = onPeople) {
+                        androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_artists), "People", tint = Theme.colors.ink)
                     }
                     androidx.compose.material3.IconButton(onClick = onSettings) {
                         androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_settings), "Settings", tint = Theme.colors.ink)

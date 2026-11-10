@@ -184,4 +184,25 @@ class ShelfApiTest {
         assertTrue(v.found)
         assertEquals(false, api.video(8).found)
     }
+
+    @Test fun peopleAndBlend() = runTest {
+        json("""[{"id":2,"username":"Sam","canBlend":true},{"id":3,"username":"Kit","canBlend":false}]""")
+        json("""{"key":"blend-2","kind":"blend","name":"Listener + Sam","with":"Sam","description":"A Blend of your tastes. You’re a 72% taste match",
+            "match":72,"color":"#d6336c","tracks":[{"id":5,"title":"A","artist":"B","albumId":1,"blendFor":"both"}],"covers":[],"trackCount":1}""")
+        json("""[{"user":{"id":2,"username":"Sam"},"now":{"track":{"id":5,"title":"A","artist":"B","albumId":1},"playing":true,"context":{"label":"Rock","href":"#/mix/x"},"device":"Desk"},
+            "last":null,"sort":1}]""")
+        assertEquals(listOf("Sam" to true, "Kit" to false), api.people().map { it.username to it.canBlend })
+        val b = api.blend(2)
+        assertEquals("/api/blend/2", server.takeRequest().let { server.takeRequest() }.url.encodedPath)
+        assertEquals("Listener + Sam", b.name); assertEquals(listOf(5), b.tracks.map { it.id })
+        val a = api.activity().single()
+        assertEquals("Sam", a.user.username); assertEquals("Desk", a.now!!.device); assertTrue(a.now!!.playing)
+    }
+
+    @Test fun privateBlendSaysSo() = runTest {
+        json("""{"detail":"Kit keeps their listening to themselves"}""", code = 403)
+        try { api.blend(3); fail("expected an error") } catch (e: ShelfError.Server) {
+            assertEquals(403, e.code); assertEquals("Kit keeps their listening to themselves", e.message)
+        }
+    }
 }

@@ -89,3 +89,14 @@ data class Lyrics(val kind: String = "none", val lines: List<LyricLine> = emptyL
 /** A song's official video on YouTube, if the server found one. */
 @Serializable
 data class VideoInfo(val found: Boolean = false, val videoId: String? = null, val title: String? = null, val channel: String? = null)
+
+/** Someone else on this server (for Blend). */
+@Serializable data class Person(val id: Int, val username: String, val canBlend: Boolean = false)
+
+@Serializable data class ActivityUser(val id: Int, val username: String)
+@Serializable data class ActivityContext(val label: String = "", val href: String? = null)
+@Serializable data class NowListening(val track: Track, val playing: Boolean = false, val context: ActivityContext? = null, val device: String? = null)
+@Serializable data class LastListened(val track: Track, val at: Double = 0.0)
+
+/** Friend activity: what someone is playing now, or played last. */
+@Serializable data class Activity(val user: ActivityUser, val now: NowListening? = null, val last: LastListened? = null)

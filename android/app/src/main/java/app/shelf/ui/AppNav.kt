@@ -65,6 +65,8 @@ object Routes {
     const val SEARCH = "search"
     const val ADMIN = "web/admin"
     const val EQUALIZER = "settings/eq"
+    const val PEOPLE = "people"
+    fun blend(id: Int) = "blend/$id"
     fun album(id: Int) = "album/$id"
     fun artist(name: String) = "artist/${android.net.Uri.encode(name)}"
     fun playlist(id: Int) = "playlist/$id"
@@ -138,7 +140,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             val back: () -> Unit = { nav.popBackStack() }
             composable(Routes.HOME) {
                 HomeScreen(source, container.store.username, openAlbum, { nav.navigate(Routes.mix(it)) }, openAlbum, signedOut,
-                    onSettings = { nav.navigate(Routes.SETTINGS) })
+                    onSettings = { nav.navigate(Routes.SETTINGS) }, onPeople = api?.let { { nav.navigate(Routes.PEOPLE) } })
             }
             composable(Routes.SEARCH) { app.shelf.ui.search.SearchScreen(container.api!!, onPlay, openAlbum, openArtist) }
             composable(Routes.LIBRARY) {
@@ -159,6 +161,10 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                 PlaylistScreen(it.arguments!!.getInt("id"), source, onPlay, back, signedOut, api = api, say = say)
             }
             if (api != null) {
+                composable(Routes.PEOPLE) { app.shelf.ui.browse.PeopleScreen(api, { nav.navigate(Routes.blend(it)) }, openAlbum, back, signedOut) }
+                composable("blend/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
+                    app.shelf.ui.browse.BlendScreen(it.arguments!!.getInt("id"), api, onPlay, back, signedOut)
+                }
                 composable("radio/track/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
                     app.shelf.ui.browse.RadioScreen(it.arguments!!.getInt("id"), null, api, onPlay, back, signedOut)
                 }
