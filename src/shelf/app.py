@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, covers, credits, feedback, genres, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, peaks, playlist_maker, releases, ripper, scrobble, sound, together, transcode, uploads, videos
+from . import analysis, covers, credits, feedback, genres, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -2166,6 +2166,27 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             ids = [r["id"] for r in conn.execute(
                 "SELECT id FROM playlists WHERE shared >= 1 AND user_id != ? ORDER BY updated_at DESC LIMIT 30", (uid(),))]
             return [s for s in (_playlist_summary(conn, i) for i in ids) if s and s["trackCount"]]
+
+    @app.get("/api/stats")
+    def listening_stats(period: str = Query("year", pattern=r"^(month|year|all|\d{4})$"),
+                        tz: int = Query(0, ge=-840, le=840)):
+        """Your listening: totals, tops, when you listen, streaks, On this day, and the years there
+        are to look back on (Wrapped). `tz`: the app's offset from UTC in minutes (east positive)."""
+        me_id = uid()
+        now = time.time()
+        with db() as conn:
+            plays = [(r[0], r[1]) for r in conn.execute("SELECT track_id, played_at FROM plays WHERE user_id = ?", (me_id,))]
+            rows = {r["id"]: r for r in conn.execute(TRACK_SELECT)}
+            known = releases.artist_genres(cfg.db_path)
+            s = stats.summary(plays, rows, lambda t: genres.song_genres(t, known), tz, period, now)
+            album_ids = [a["albumId"] for a in s["topAlbums"]]
+            albums = {a["id"]: a for a in conn.execute(
+                f"SELECT * FROM albums WHERE id IN ({','.join('?' * len(album_ids)) or 'NULL'})", album_ids)}
+        s["topSongs"] = [track_json(rows[x["id"]]) | {"plays": x["plays"]} for x in s["topSongs"]]
+        s["topAlbums"] = [album_json(albums[x["albumId"]]) | {"plays": x["plays"]} for x in s["topAlbums"] if x["albumId"] in albums]
+        s["onThisDay"] = [track_json(rows[i]) for i in stats.on_this_day(plays, tz, now)[:10] if i in rows]
+        s["years"] = stats.years(plays, tz)
+        return s
 
     @app.get("/api/activity")
     def friend_activity():
