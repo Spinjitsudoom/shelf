@@ -58,6 +58,8 @@ class Decks(
                     seekedHere -> callOff()
                 }
             }
+            // The song coming in won't play: no transition; the playing song carries on (and the queue moves on at its end).
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) { if (active != null) callOff() }
         }
         a.addListener(watch); b.addListener(watch)
     }
@@ -70,6 +72,7 @@ class Decks(
             override fun onIsPlayingChanged(isPlaying: Boolean) { if (deck === current) l.onIsPlayingChanged(isPlaying) }
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) { if (deck === current) l.onPlayWhenReadyChanged(playWhenReady, reason) }
             override fun onPlaybackStateChanged(playbackState: Int) { if (deck === current) l.onPlaybackStateChanged(playbackState) }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) { if (deck === current) l.onPlayerError(error) }
             override fun onTimelineChanged(timeline: Timeline, reason: Int) { if (deck === current) l.onTimelineChanged(timeline, reason) }
             override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
                 if (deck === current) l.onPositionDiscontinuity(oldPosition, newPosition, reason)

@@ -18,7 +18,7 @@ class MediaItemsTest {
     @Test fun mapsMetadataAndArtwork() {
         val item = track.toMediaItem(api, "original", ctx)
         assertEquals("12", item.mediaId)
-        assertEquals("http://192.168.1.20:4533/api/tracks/12/stream?q=original", item.localConfiguration!!.uri.toString())
+        assertEquals("http://192.168.1.20:4533/api/tracks/12/stream?q=original", item.localConfiguration!!.uri.toString().substringBefore("#pick="))
         assertEquals("Wherever I May Roam", item.mediaMetadata.title)
         assertEquals("Metallica", item.mediaMetadata.artist)
         assertEquals("The Black Album", item.mediaMetadata.albumTitle)
@@ -36,6 +36,6 @@ class MediaItemsTest {
         // A downloaded song plays from the address it was downloaded with (the copy on the phone), whatever the quality setting is now.
         val downloaded = "http://192.168.1.20:4533/api/tracks/12/stream?q=original"
         assertEquals(downloaded, track.toMediaItem(api, "low", ctx, downloaded).localConfiguration!!.uri.toString())
-        assertEquals("http://192.168.1.20:4533/api/tracks/12/stream?q=low", track.toMediaItem(api, "low", ctx, null).localConfiguration!!.uri.toString())
+        assertEquals("http://192.168.1.20:4533/api/tracks/12/stream?q=low", track.toMediaItem(api, "low", ctx, null).localConfiguration!!.uri.toString().substringBefore("#pick="))
     }
 }

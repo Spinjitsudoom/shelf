@@ -14,9 +14,10 @@ private const val TRACK = "shelf.track"
 private const val CONTEXT = "shelf.context"
 
 /** A song as the player plays it: streamed from the server (or from its download, when there is one), with what the notification and
- * lock screen show, and the song itself and where it was played from carried along. */
+ * lock screen show, and the song itself and where it was played from carried along. A stream's quality is picked again as it
+ * loads (pickQuality), so the address carries the song's format. */
 fun Track.toMediaItem(api: ShelfApi, quality: String, context: PlayContext?, downloaded: String? = null): MediaItem =
-    toControllerItem(api, context).buildUpon().setUri(downloaded ?: api.streamUrl(id, quality)).build()
+    toControllerItem(api, context).buildUpon().setUri(downloaded ?: (api.streamUrl(id, quality) + "#pick=" + (codec ?: ""))).build()
 
 /** The same item without its stream address (what a screen hands the player service, which
  * adds the address itself). */

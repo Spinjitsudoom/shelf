@@ -85,4 +85,4 @@ fun needsFetch(old: Downloadable?, new: Downloadable, states: Map<Int, Int>): Bo
  * [wanted] now, to fetch again. Addresses that aren't Shelf streams are left alone.
  */
 fun toRefetch(done: Map<Int, String>, wanted: (Int) -> String): Set<Int> =
-    done.filter { (id, uri) -> Regex("""/stream\?(?:.*&)?q=([^&]+)""").find(uri)?.groupValues?.get(1)?.let { it != wanted(id) } == true }.keys
+    done.filter { (id, uri) -> app.shelf.playback.qualityIn(uri)?.let { it != wanted(id) } == true }.keys

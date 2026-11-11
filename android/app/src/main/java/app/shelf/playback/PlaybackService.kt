@@ -104,8 +104,15 @@ class PlaybackService : MediaLibraryService() {
         val recent = CacheDataSource.Factory().setCache(MusicStorage.recent(this)).setUpstreamDataSourceFactory(upstream)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
         // Downloads first (read only: the download manager writes them), then recently played, then the server.
-        val dataSource = CacheDataSource.Factory().setCache(MusicStorage.downloads(this)).setUpstreamDataSourceFactory(recent)
+        val fromPhone = CacheDataSource.Factory().setCache(MusicStorage.downloads(this)).setUpstreamDataSourceFactory(recent)
             .setCacheWriteDataSinkFactory(null)
+        // A streamed song's quality is picked as it loads (Wi-Fi or mobile data now), not when it was queued.
+        val dataSource = androidx.media3.datasource.ResolvingDataSource.Factory(fromPhone) { spec ->
+            val uri = spec.uri.toString()
+            val picked = pickQuality(uri, ::qualityFor)
+            if (picked == uri) spec else spec.withUri(android.net.Uri.parse(picked))
+        }
+        if (app.container.settings.movedToOriginal) forgetConvertedCopies()
         // Two decks, so songs can crossfade and Mix; each has its own equalizer, balance and mono on the way to the speaker.
         val attrs = AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build()
         fun deck(sound: ShelfAudioProcessor, focus: Boolean): ExoPlayer {
@@ -136,7 +143,8 @@ class PlaybackService : MediaLibraryService() {
                 level(item)
                 save()
             }
-            override fun onIsPlayingChanged(isPlaying: Boolean) { save() }
+            override fun onIsPlayingChanged(isPlaying: Boolean) { if (isPlaying) errors.played(); save() }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) { skipFailed() }
         })
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -229,6 +237,32 @@ class PlaybackService : MediaLibraryService() {
         val s = app.container.settings.settings.value
         val q = if (!metered()) s.wifiQuality else if (s.dataQuality == "auto") streamQuality(codec, true) else s.dataQuality
         return playableQuality(codec, q, Decoders::has)
+    }
+
+    private val errors = ErrorSkip()
+
+    /** A song that won't play (a missing file, a format the phone can't play, the server out of reach): say so and go on to the next. */
+    private fun skipFailed() {
+        val p = player
+        val title = p.currentMediaItem?.track()?.title
+        val next = errors.failed(p.hasNextMediaItem())
+        android.widget.Toast.makeText(this, when {
+            next -> "Couldn’t play ${title ?: "that song"}. Skipping to the next one."
+            p.hasNextMediaItem() -> "Several songs in a row wouldn’t play. Check the connection to the server."
+            else -> "Couldn’t play ${title ?: "that song"}."
+        }, android.widget.Toast.LENGTH_LONG).show()
+        if (next) { p.seekToNextMediaItem(); p.prepare(); p.play() }
+    }
+
+    /**
+     * Once, after the move to Original (0.7.5): drops converted copies from the recently played
+     * cache. Copies kept before the server's fix may not play, and would be read before the server.
+     */
+    private fun forgetConvertedCopies() {
+        val cache = MusicStorage.recent(this)
+        scope.launch(Dispatchers.IO) {
+            runCatching { cache.keys.filter { (qualityIn(it) ?: "original") != "original" }.forEach { cache.removeResource(it) } }
+        }
     }
 
     private var autoplaying = false
