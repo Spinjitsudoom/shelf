@@ -648,6 +648,35 @@ async function runAction(action, el) {
       toast("Last.fm disconnected");
       render();
       break;
+    case "subsonic-on":
+    case "subsonic-show": {
+      const d = action === "subsonic-on" ? await api.subsonicOn() : await api.subsonic();
+      if (action === "subsonic-on") { session.user = { ...session.user, subsonic: true }; render(); }
+      await dialog({
+        title: "Sign in to other music apps",
+        text: "In the app, add a Subsonic (or Navidrome) server with these details. The app password only works in those apps; your own password stays yours.",
+        fields: [
+          { name: "server", label: "Server address", value: currentServer() },
+          { name: "username", label: "Username", value: d.username },
+          { name: "password", label: "App password", value: d.password ?? "" },
+        ],
+        confirm: "Done",
+      });
+      break;
+    }
+    case "subsonic-off": {
+      const ok = await dialog({
+        title: "Turn off other music apps?",
+        text: "Apps signed in with your app password stop working. Setting up again makes a new password.",
+        confirm: "Turn off", danger: true,
+      });
+      if (!ok) break;
+      await api.subsonicOff();
+      session.user = { ...session.user, subsonic: false };
+      toast("Other music apps can’t sign in now");
+      render();
+      break;
+    }
     case "lb-disconnect":
       session.user = { ...session.user, ...(await api.editMe({ listenbrainzToken: "" })) };
       toast("ListenBrainz disconnected");

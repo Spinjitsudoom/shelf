@@ -186,6 +186,10 @@ class Auth:
             window.popleft()
         return len(window) >= LOCK_AFTER
 
+    def failed(self, client: str) -> None:
+        """A wrong password from somewhere other than the sign-in page (the Subsonic API)."""
+        self._failures[client].append(time.time())
+
     def failures(self) -> list[dict]:
         """Addresses with wrong passwords in the last 15 minutes, for the admin dashboard."""
         now = time.time()

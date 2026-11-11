@@ -893,6 +893,13 @@ export async function settingsView(el, player, { user, version }) {
         user?.lastfm
           ? `<button class="btn" type="button" data-action="lfm-disconnect">Disconnect</button>`
           : user?.lastfmAvailable ? `<button class="btn" type="button" data-action="lfm-connect">Connect</button>` : "")}
+      ${row("Other music apps", user?.subsonic
+        ? "Apps made for Subsonic, like Symfonium, Feishin and Substreamer, can play from Shelf with your app password."
+        : "Play your music here from apps made for Subsonic, like Symfonium, Feishin, Substreamer and DSub. Setting up makes an app password to sign in to them with.",
+        user?.subsonic
+          ? `<button class="btn btn-small" type="button" data-action="subsonic-off">Turn off</button>
+             <button class="btn" type="button" data-action="subsonic-show">Show details</button>`
+          : `<button class="btn" type="button" data-action="subsonic-on">Set up</button>`)}
       ${row("Server", `Connected to <b>${esc(server)}</b>.`, `<button class="btn" type="button" data-action="change-server">Change server</button>`)}
       ${user?.admin ? row("Admin dashboard", "Add people, manage music folders, rescan the library and see how the server is doing.",
         `<a class="btn" href="#/admin"><svg><use href="#i-admin"/></svg>Open dashboard</a>`) : ""}

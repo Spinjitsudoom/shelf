@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, backups, covers, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, covers, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -518,12 +518,13 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     def _me_json(user: User) -> dict:
         with db() as conn:
-            r = conn.execute("SELECT share_activity, listenbrainz_user, listenbrainz_token, lastfm_user, lastfm_session FROM users WHERE id = ?",
+            r = conn.execute("SELECT share_activity, listenbrainz_user, listenbrainz_token, lastfm_user, lastfm_session, subsonic_secret FROM users WHERE id = ?",
                              (user.id,)).fetchone()
         return user.json() | {"shareActivity": bool(r["share_activity"]) if r else True,
                               "listenbrainz": (r["listenbrainz_user"] or "ListenBrainz") if r and r["listenbrainz_token"] else None,
                               "lastfm": (r["lastfm_user"] or "Last.fm") if r and r["lastfm_session"] else None,
-                              "lastfmAvailable": lastfm.keys(cfg.db_path) is not None}
+                              "lastfmAvailable": lastfm.keys(cfg.db_path) is not None,
+                              "subsonic": bool(r and r["subsonic_secret"])}
 
     @app.get("/api/session")
     def get_session(request: Request):
@@ -623,6 +624,28 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         except backups.BackupError as e:
             raise HTTPException(400, str(e))
         return {"before": safety.name, **_backups_view()}
+
+    # ---------- Subsonic apps ----------
+
+    sub_api = subsonic.Subsonic(cfg, auth, scrobbler=scrobbler, scanner=scanner, set_user=CURRENT.set)
+    subsonic.mount(app, sub_api)
+
+    @app.get("/api/me/subsonic")
+    def my_app_password():
+        """The app password for Subsonic apps (Symfonium, Feishin...), if one's been made."""
+        return {"username": me().username, "password": sub_api.app_password(uid())}
+
+    @app.post("/api/me/subsonic")
+    def new_app_password():
+        """Make (or replace) the app password: apps using the old one have to sign in again."""
+        password = subsonic.new_app_password()
+        sub_api.set_app_password(uid(), password)
+        return {"username": me().username, "password": password}
+
+    @app.delete("/api/me/subsonic")
+    def remove_app_password():
+        sub_api.set_app_password(uid(), None)
+        return {"username": me().username, "password": None}
 
     # ---------- Last.fm ----------
 

@@ -167,6 +167,16 @@ CREATE TABLE IF NOT EXISTS playlist_follows (
     PRIMARY KEY (user_id, playlist_id)
 );
 
+-- Stars on albums and artists from Subsonic apps (a starred song is a like). ref: the album's
+-- key, or the artist's folded name, so they last through rescans.
+CREATE TABLE IF NOT EXISTS stars (
+    user_id INTEGER NOT NULL,
+    kind    TEXT NOT NULL,
+    ref     TEXT NOT NULL,
+    at      REAL NOT NULL,
+    PRIMARY KEY (user_id, kind, ref)
+);
+
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT
@@ -216,6 +226,7 @@ def init_db(db_path: Path) -> None:
         _add_column(conn, "users", cols, "lastfm_session", "TEXT")
         _add_column(conn, "users", cols, "lastfm_user", "TEXT")
         _add_column(conn, "users", cols, "lastfm_token", "TEXT")  # waiting to be approved on last.fm
+        _add_column(conn, "users", cols, "subsonic_secret", "TEXT")  # the app password for Subsonic apps, sealed
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(scrobbles)")}
         _add_column(conn, "scrobbles", cols, "service", "TEXT NOT NULL DEFAULT 'listenbrainz'")
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(plays)")}

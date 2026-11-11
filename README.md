@@ -18,6 +18,9 @@ At a glance:
   and (experimental, off by default) an AI radio host.
 - **Getting music in:** upload from the browser, rip CDs in the server's drive, and see what
   your artists have out that you don't have yet.
+- **Other apps:** a Subsonic API, so apps like Symfonium, Feishin, Substreamer and DSub play
+  from Shelf too.
+- **Backups:** the database (accounts, Favourites, playlists, history) is backed up every day.
 
 The details:
 
@@ -400,6 +403,23 @@ that sound like the ones they start from, alongside artist, genre, tempo and key
   listenbrainz.org/settings. Every song you play is sent there (artist, title, album, when),
   listens made offline included; they wait in a queue if ListenBrainz is down.
 
+## Other music apps (Subsonic)
+
+Shelf speaks the Subsonic API (with the OpenSubsonic additions), so apps made for Subsonic
+or Navidrome work with it: Symfonium, Tempo and DSub on Android, play:Sub and Substreamer on
+iPhone, Feishin and Sonixd on the desktop, and many more.
+
+Each person turns it on in **Settings → Account → Other music apps → Set up**, which makes an
+app password and shows the details to type into the app: the server address, your username
+and that password. Most apps sign in with a token made from the password, which only works
+with a password the server can read back, so your own password is never used for it (apps that
+send the password itself can use either). **Turn off** stops every app using it.
+
+In those apps, starring a song likes it in Shelf, playlists are your Shelf playlists, and
+what you play counts as a play (and goes on to ListenBrainz or Last.fm if you've connected
+them). Albums and artists can be starred too. Smaller copies are made when an app asks for a
+lower bitrate.
+
 ## Chromecast
 
 Not yet: Google's Cast library only works on https pages (and not at all inside the Android
@@ -480,6 +500,11 @@ ads and rules apply. If lookups start failing after a YouTube change, update yt-
 | The program | `~/.local/share/shelf/app` | `%LOCALAPPDATA%\Programs\Shelf Server` | this folder |
 
 Keep the database on a local disk: SQLite can corrupt on network shares.
+
+**Backups.** Once a day Shelf copies the database into `backups/` next to it (a week of daily
+copies and two months of weekly ones are kept). The admin dashboard lists them, makes one on
+demand, downloads one, and moves them to another folder: a different drive is safer. **Restore**
+puts one back while Shelf runs; what was there is backed up first, so it can be undone.
 
 ## Development
 
