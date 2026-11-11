@@ -21,7 +21,8 @@ _locks: dict[str, asyncio.Lock] = {}
 
 
 def _target(cache_dir: Path, src: Path, mtime: float, kbps: int) -> Path:
-    digest = hashlib.sha1(f"{src}|{mtime}|{kbps}".encode()).hexdigest()[:24]
+    # "v2": copies kept before 0.7.5 may hold a fragment of unknown size, which Android can't play.
+    digest = hashlib.sha1(f"v2|{src}|{mtime}|{kbps}".encode()).hexdigest()[:24]
     return cache_dir / f"{digest}.m4a"
 
 
@@ -66,7 +67,10 @@ async def stream_transcode(cache_dir: Path, src: Path, mtime: float, kbps: int, 
     proc = await asyncio.create_subprocess_exec(
         "ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(src),
         "-map", "0:a:0", "-vn", "-c:a", "aac", "-b:a", f"{kbps}k",
-        "-movflags", "+frag_keyframe+empty_moov+default_base_moof", "-f", "mp4", "pipe:1",
+        # Every audio frame is a keyframe, so without a fragment length ffmpeg 9 writes the whole
+        # song as one fragment whose size (unknown in a pipe) is left as 0, which Android can't read.
+        "-movflags", "+frag_keyframe+empty_moov+default_base_moof", "-frag_duration", "2000000",
+        "-f", "mp4", "pipe:1",
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, **procs.no_window(),
     )
     out = open(tmp, "wb") if tmp else None
