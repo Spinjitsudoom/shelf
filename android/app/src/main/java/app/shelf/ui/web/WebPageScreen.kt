@@ -33,7 +33,13 @@ fun WebPageScreen(server: String, token: String?, path: String, onClose: () -> U
                 CookieManager.getInstance().setCookie(server, "shelf_session=$token; path=/")
                 CookieManager.getInstance().flush()
             }
+            // Like Shelf Lite: the page can be inspected from a computer (chrome://inspect) when something breaks.
+            WebView.setWebContentsDebuggingEnabled(true)
             WebView(ctx).apply {
+                // Without this the WebView is "wrap content": it gives the page a 0 px tall window, and
+                // the web app (sized to the window's height) collapses to nothing.
+                layoutParams = android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -42,6 +48,13 @@ fun WebPageScreen(server: String, token: String?, path: String, onClose: () -> U
                     override fun shouldOverrideUrlLoading(view: WebView, request: android.webkit.WebResourceRequest): Boolean {
                         if (request.url.toString().startsWith(server)) return false
                         runCatching { view.context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, request.url)) }
+                        return true
+                    }
+                }
+                webChromeClient = object : android.webkit.WebChromeClient() {
+                    override fun onConsoleMessage(m: android.webkit.ConsoleMessage): Boolean {
+                        if (m.messageLevel() == android.webkit.ConsoleMessage.MessageLevel.ERROR)
+                            android.util.Log.w("ShelfWeb", "${m.message()} (${m.sourceId()}:${m.lineNumber()})")
                         return true
                     }
                 }
