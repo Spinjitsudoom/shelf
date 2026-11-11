@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lossy, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lossy, lyrics, mixes, moods, party, peaks, playlist_maker, releases, resume, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -247,6 +247,10 @@ def transition_json(raw: str | None) -> dict:
 
 class WatchBody(BaseModel):
     path: str = Field(max_length=1000)
+
+
+class ResumeBody(BaseModel):
+    position: float = Field(ge=0, le=7 * 86400)
 
 
 class BackupFolderBody(BaseModel):
@@ -2013,6 +2017,21 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             "rediscover": [album_json(r) for r in rediscover],
             "week": {"plays": listened["n"], "seconds": round(listened["secs"])},
         }
+
+    @app.get("/api/tracks/{track_id}/resume")
+    def get_resume(track_id: int):
+        """Where you stopped in a long track (0: from the start)."""
+        with db() as conn:
+            return {"position": resume.get(conn, uid(), track_id)}
+
+    @app.put("/api/tracks/{track_id}/resume")
+    def put_resume(track_id: int, body: ResumeBody):
+        with db() as conn:
+            row = conn.execute("SELECT duration FROM tracks WHERE id = ?", (track_id,)).fetchone()
+            if not row:
+                raise HTTPException(404, "Track not found")
+            resume.put(conn, uid(), track_id, body.position, row["duration"] or 0)
+        return {"ok": True}
 
     @app.post("/api/tracks/{track_id}/skipped")
     def skipped(track_id: int):

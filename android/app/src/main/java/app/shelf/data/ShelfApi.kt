@@ -111,6 +111,15 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     /** Moved on before 30 seconds of it: suggestions learn from skips. */
     suspend fun skipped(trackId: Int) { send("POST", "api/tracks/$trackId/skipped") }
 
+    /** Where you stopped in a long track, in seconds (0: from the start). */
+    suspend fun resumeAt(trackId: Int): Double =
+        call("api/tracks/$trackId/resume", JsonObject.serializer())["position"]?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toDoubleOrNull() } ?: 0.0
+
+    /** Keep your place in a long track (the server forgets it at the start or the end). */
+    suspend fun keepPlace(trackId: Int, seconds: Double) {
+        send("PUT", "api/tracks/$trackId/resume", """{"position":${seconds.coerceAtLeast(0.0)}}""")
+    }
+
     /** A listen, for history, mixes and recommendations. */
     suspend fun played(trackId: Int) {
         call("api/tracks/$trackId/played", JsonObject.serializer(), ByteArray(0).toRequestBody(null))

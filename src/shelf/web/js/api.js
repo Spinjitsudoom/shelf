@@ -165,6 +165,8 @@ export const api = {
   deletePlaylist: (id) => changed(request("DELETE", `playlists/${id}`)),
   addToPlaylist: (id, trackIds, { suggested = false } = {}) => changed(request("POST", `playlists/${id}/tracks`, { trackIds, suggested })),
   skipped: (id) => request("POST", `tracks/${id}/skipped`).catch(() => {}),
+  resumeAt: (id) => request("GET", `tracks/${id}/resume`),
+  keepPlace: (id, position) => request("PUT", `tracks/${id}/resume`, { position: Math.max(0, position) }).catch(() => {}),
   removeFromPlaylist: (id, entryId) => changed(request("DELETE", `playlists/${id}/tracks/${entryId}`)),
   reorderPlaylist: (id, entryIds) => changed(request("PUT", `playlists/${id}/order`, { entryIds })),
   similar: (id) => request("GET", `tracks/${id}/similar?limit=40`),

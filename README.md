@@ -414,6 +414,11 @@ that sound like the ones they start from, alongside artist, genre, tempo and key
 - **ListenBrainz:** Settings → Account → ListenBrainz → Connect, with your user token from
   listenbrainz.org/settings. Every song you play is sent there (artist, title, album, when),
   listens made offline included; they wait in a queue if ListenBrainz is down.
+- **Long tracks pick up where you stopped:** tracks of 15 minutes or more (live sets, DJ mixes,
+  audiobooks) remember your place, kept on the server every 15 seconds and when you pause or
+  move on, so it carries over between the web, the phone and the desktop. Starting one again
+  jumps there ("Picking up where you stopped, at 12:34"); finishing it or going back to the
+  start forgets the place.
 
 ## Other music apps (Subsonic)
 
@@ -430,7 +435,7 @@ send the password itself can use either). **Turn off** stops every app using it.
 In those apps, starring a song likes it in Shelf, playlists are your Shelf playlists, and
 what you play counts as a play (and goes on to ListenBrainz or Last.fm if you've connected
 them). Albums and artists can be starred too. Smaller copies are made when an app asks for a
-lower bitrate.
+lower bitrate. Bookmarks in those apps are the same places in long tracks as Shelf keeps.
 
 ## Chromecast
 

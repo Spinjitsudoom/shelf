@@ -34,7 +34,7 @@ from typing import Callable
 from fastapi import Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
 
-from . import __version__, covers, credits, lyrics, transcode, videos
+from . import __version__, covers, credits, lyrics, resume, transcode, videos
 from . import artists as artist_info
 from .auth import verify_password
 from .db import get_meta, session, set_meta
@@ -897,7 +897,28 @@ class Subsonic:
         return {"newestPodcasts": {}}
 
     def m_getBookmarks(self, p, user):
-        return {"bookmarks": {}}
+        """Bookmarks are Shelf's places in long tracks (resume.py), in milliseconds."""
+        with self.db() as conn:
+            marks = resume.all_for(conn, user.id)
+        if not marks:
+            return {"bookmarks": {}}
+        ids = [m["track_id"] for m in marks]
+        songs = {s["id"]: s for s in self._songs(user, f"WHERE t.id IN ({','.join('?' * len(ids))})", tuple(ids), "t.id", len(ids))}
+        out = [{"position": int(m["position"] * 1000), "username": user.username, "comment": m["comment"] or "",
+                "created": iso(m["updated_at"]), "changed": iso(m["updated_at"]), "entry": songs[str(m["track_id"])]}
+               for m in marks if str(m["track_id"]) in songs]
+        return {"bookmarks": {"bookmark": out}}
+
+    def m_createBookmark(self, p, user):
+        with self.db() as conn:
+            row = self._track_row(conn, p.need("id"))
+            resume.put(conn, user.id, row["id"], p.int("position", 0) / 1000, row["duration"] or 0, p.get("comment"))
+        return {}
+
+    def m_deleteBookmark(self, p, user):
+        with self.db() as conn:
+            resume.forget(conn, user.id, self._track_row(conn, p.need("id"))["id"])
+        return {}
 
     def m_getShares(self, p, user):
         return {"shares": {}}
@@ -908,10 +929,6 @@ class Subsonic:
     def m_getChatMessages(self, p, user):
         return {"chatMessages": {}}
 
-    def m_createBookmark(self, p, user):
-        return {}
-
-    m_deleteBookmark = m_createBookmark
 
     # files (these answer with the file itself)
 

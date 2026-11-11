@@ -77,11 +77,15 @@ class PlaybackService : MediaLibraryService() {
         scope.launch(Dispatchers.IO) { runCatching { a.played(id) } }
     }
 
-    /** Every second while playing: count what's heard, and save where it is every ten. */
+    /** Your place in long tracks, kept on the server (and picked up again on any device). */
+    private val places = PlaceKeeper({ id, at -> api?.let { a -> scope.launch(Dispatchers.IO) { runCatching { a.keepPlace(id, at) } } } })
+
+    /** Every second while playing: count what's heard, keep the place in a long track, and save where it is every ten. */
     private val tick = object : Runnable {
         override fun run() {
             if (player.isPlaying) {
                 counter.onPosition(player.currentPosition / 1000.0)
+                places.onPosition(player.currentMediaItem?.track(), player.currentPosition / 1000.0, android.os.SystemClock.elapsedRealtime())
                 if (System.currentTimeMillis() - lastSave > 10_000) save()
             }
             bridge.tick()
@@ -139,11 +143,15 @@ class PlaybackService : MediaLibraryService() {
                     api?.let { a -> scope.launch(Dispatchers.IO) { runCatching { a.skipped(id) } } }
                 }
                 autoplayIfLast()
-                item?.track()?.let { counter.onTrackStarted(it.id, it.duration) }
+                places.leftFor(item?.track())
+                item?.track()?.let { counter.onTrackStarted(it.id, it.duration); pickUp(it) }
                 level(item)
                 save()
             }
-            override fun onIsPlayingChanged(isPlaying: Boolean) { if (isPlaying) errors.played(); save() }
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (isPlaying) errors.played() else places.paused()
+                save()
+            }
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) { skipFailed() }
         })
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
@@ -240,6 +248,21 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private val errors = ErrorSkip()
+
+    /** A long track starting from the beginning picks up where you stopped (not one started at a place, like a restored queue). */
+    private fun pickUp(t: Track) {
+        if (!isLong(t) || player.currentPosition > 5_000) return
+        val a = api ?: return
+        scope.launch {
+            val at = runCatching { kotlinx.coroutines.withContext(Dispatchers.IO) { a.resumeAt(t.id) } }.getOrDefault(0.0)
+            if (at > 0 && player.currentMediaItem?.track()?.id == t.id && player.currentPosition < 5_000) {
+                player.seekTo((at * 1000).toLong())
+                val s = at.toLong()
+                val clock = if (s >= 3600) "%d:%02d:%02d".format(s / 3600, s / 60 % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
+                android.widget.Toast.makeText(this@PlaybackService, "Picking up where you stopped, at $clock", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     /** A song that won't play (a missing file, a format the phone can't play, the server out of reach): say so and go on to the next. */
     private fun skipFailed() {

@@ -21,7 +21,8 @@ import { api } from "./api.js";
 import { AudioEngine } from "./audio.js";
 import { LOUDNESS_TARGETS, QUALITY_TIERS, settings } from "./settings.js";
 import { automation, plan as planTransition } from "./transitions.js";
-import { coverUrl, shuffled, store, toast } from "./util.js";
+import { coverUrl, fmtTime, shuffled, store, toast } from "./util.js";
+import { isLong, keepPlace, placeIn } from "./resume.js";
 
 const SMART_EVERY = 3; // smart shuffle: a suggestion after every this many songs
 
@@ -196,7 +197,7 @@ export class Player extends EventTarget {
   // ---- transport ----
 
   play() { if (this.current && this.audio.paused) this._play(); }
-  pause() { this._finishFade(); this.audio.pause(); }
+  pause() { this._finishFade(); this.audio.pause(); this._keepPlace(true); }
 
   toggle() {
     if (!this.current) return;
@@ -204,6 +205,7 @@ export class Player extends EventTarget {
     else {
       this._finishFade();
       this.audio.pause();
+      this._keepPlace(true);
     }
   }
 
@@ -384,6 +386,7 @@ export class Player extends EventTarget {
   _go(i, startAt = 0) {
     const t = this.queue[i];
     if (!t) return;
+    this._keepPlace(true); // leaving a long track: where it was (at its end, the server forgets it)
     this._finishFade();
     const sb = this.standby;
     if ((settings.get("gapless") || this._mixOn()) && sb.dataset.url === this._url(t) && !sb.error) {
@@ -391,6 +394,7 @@ export class Player extends EventTarget {
       if (startAt > 0) try { sb.currentTime = startAt; } catch { /* not seekable yet */ }
       this.audio = sb;
       this.index = i;
+      this._startAt = startAt;
       this.currentQuality = this._qualityFor(t);
       if (this.engine.active) this.engine.setFade(sb, 1);
       this._play();
@@ -408,6 +412,7 @@ export class Player extends EventTarget {
     if (!t) return;
     this.currentQuality = this._qualityFor(t);
     const url = this._url(t);
+    this._startAt = startAt;
     this.audio.src = url;
     this.audio.dataset.url = url;
     this.audio.playbackRate = 1;
@@ -428,6 +433,22 @@ export class Player extends EventTarget {
     this._emit("state");
     this._emit("time");
     this._save(true);
+    this._resume();
+  }
+
+  /** Where you stopped in a long track: it picks up there (unless it was started at a place on purpose). */
+  async _resume() {
+    const t = this.current;
+    if (!isLong(t) || this._startAt > 0) return;
+    const at = await placeIn(t);
+    if (at > 0 && this.current === t && this.audio.currentTime < 5) {
+      const go = () => { this.seek(at); toast(`Picking up where you stopped, at ${fmtTime(at)}`); };
+      if (this.audio.readyState >= 1) go(); else this.audio.addEventListener("loadedmetadata", go, { once: true });
+    }
+  }
+
+  _keepPlace(force) {
+    if (this.current && this.audio.getAttribute("src")) keepPlace(this.current, this.audio.currentTime, force);
   }
 
   _queueChanged() {
@@ -726,6 +747,7 @@ export class Player extends EventTarget {
   _onTime() {
     this._emit("time");
     this._save(false);
+    if (!this.audio.paused) this._keepPlace(false);
     const d = this.duration, c = this.audio.currentTime;
     if (!d) return;
 
