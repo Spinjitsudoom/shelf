@@ -480,6 +480,19 @@ with a sparkle; the check mark keeps it, and turning shuffle off takes them out 
 On a playlist, **Add** opens a side panel with suggestions, recently played songs, your
 favourites and a search.
 
+## Library health
+
+**Admin → Library health → Check library** looks through the shelf and lists what needs a look:
+albums without a cover or with a small one (under 500 pixels), gaps in track numbers, the same
+song twice on different albums (with the best copy marked), songs with no artist tag, albums
+whose songs disagree on the year, and files Shelf can't read. Looking changes nothing.
+
+**Find covers** looks up every album without a cover on MusicBrainz and takes a cover from the
+Cover Art Archive only when the title and artist match closely (one album a second, as
+MusicBrainz asks). **Choose cover** on an album shows what MusicBrainz has, to pick by hand.
+Found covers are kept in Shelf's data folder (`found-covers/`), never written into your music
+folders, and win over the album's own art from then on; **Use the album's own** goes back.
+
 ## Music folders
 
 Add, change or remove music folders in **Admin > Library**. A folder picker lists the

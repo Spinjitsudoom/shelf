@@ -11,7 +11,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import covers, credits
+from . import coverfix, covers, credits
 from .config import Config
 from .db import get_meta, session, set_meta
 from .tags import AUDIO_EXTS, read_tags
@@ -159,7 +159,7 @@ def scan(cfg: Config, progress=None) -> ScanResult:
             conn.executemany("DELETE FROM tracks WHERE id = ?", gone)
             result.removed = len(gone)
 
-        rebuild_albums(conn, roots)
+        rebuild_albums(conn, roots, cfg.found_cover_dir)
         result.tracks = conn.execute("SELECT COUNT(*) FROM tracks").fetchone()[0]
         result.albums = conn.execute("SELECT COUNT(*) FROM albums").fetchone()[0]
         set_meta(conn, "last_scan", str(time.time()))
@@ -187,7 +187,13 @@ def _pick_album_artist(rows: list[sqlite3.Row], roots: list[Path]) -> str:
     return "Various Artists"
 
 
-def _pick_cover(rows: list[sqlite3.Row]) -> str | None:
+def _pick_cover(rows: list[sqlite3.Row], found_dir: Path | None = None, key: str | None = None) -> str | None:
+    """A cover found for the album in the admin dashboard (coverfix.py) wins; then an image in
+    the album's folder; then art inside the files."""
+    if found_dir is not None and key is not None:
+        found = coverfix.override_path(found_dir, key)
+        if found.is_file():
+            return f"file:{found}"
     first = Path(rows[0]["path"])
     folder_img = covers.find_folder_image(first.parent) or covers.find_folder_image(album_dir(first))
     if folder_img:
@@ -196,7 +202,7 @@ def _pick_cover(rows: list[sqlite3.Row]) -> str | None:
     return f"embedded:{with_art['path']}" if with_art else None
 
 
-def rebuild_albums(conn: sqlite3.Connection, roots: list[Path]) -> None:
+def rebuild_albums(conn: sqlite3.Connection, roots: list[Path], found_dir: Path | None = None) -> None:
     rows = conn.execute(
         "SELECT * FROM tracks ORDER BY album_key, COALESCE(disc_no, 1), COALESCE(track_no, 9999), path"
     ).fetchall()
@@ -219,7 +225,7 @@ def rebuild_albums(conn: sqlite3.Connection, roots: list[Path]) -> None:
         titles = Counter(t["album"] for t in tracks)
         years = Counter(t["year"] for t in tracks if t["year"])
         genres = Counter(t["genre"] for t in tracks if t["genre"])
-        cover_src = _pick_cover(tracks)
+        cover_src = _pick_cover(tracks, found_dir, key)
         old_cover, old_color = existing.get(key, (None, None))
         color = old_color if old_cover == cover_src else None
         conn.execute(

@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, backups, covers, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -31,6 +31,7 @@ from .auth import COOKIE, MAX_AGE, Auth, User, check_username, token_from
 from .config import Config
 from .db import get_meta, init_db, session, set_meta
 from .scanner import scan, warm_covers
+from . import scanner as scanner_mod
 
 log = logging.getLogger("shelf")
 WEB_DIR = Path(__file__).parent / "web"
@@ -84,6 +85,7 @@ class ScanManager:
             self.state["last"] = {
                 "added": result.added, "updated": result.updated, "removed": result.removed,
                 "failed": len(result.failed), "seconds": result.seconds, "finishedAt": time.time(),
+                "failedFiles": result.failed[:500],  # every scan tries them again, so this is all of them
             }
             self.state["running"] = False
             # Measure loudness for volume normalization (slow, so it runs after the scan is done).
@@ -625,6 +627,107 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         except backups.BackupError as e:
             raise HTTPException(400, str(e))
         return {"before": safety.name, **_backups_view()}
+
+    # ---------- library health ----------
+
+    cover_sizes: dict[tuple[str, float], tuple[int, int] | None] = {}
+
+    def _cover_size(src: str) -> tuple[int, int] | None:
+        """The size of an album's cover at its source (remembered until the file changes)."""
+        import io
+
+        from PIL import Image
+
+        path = Path(src.partition(":")[2])
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            return None
+        if (src, mtime) not in cover_sizes:
+            raw = covers._load_source_bytes(src)
+            try:
+                cover_sizes[(src, mtime)] = Image.open(io.BytesIO(raw)).size if raw else None
+            except Exception:  # not a picture Pillow can read
+                cover_sizes[(src, mtime)] = None
+        return cover_sizes[(src, mtime)]
+
+    def _use_found_cover(album: dict, data: bytes) -> None:
+        coverfix.save(cfg.found_cover_dir, album["key"], data)
+        with db() as conn:
+            conn.execute("UPDATE albums SET cover_src = ?, color = NULL WHERE id = ?",
+                         (f"file:{coverfix.override_path(cfg.found_cover_dir, album['key'])}", album["id"]))
+
+    def _albums_without_covers() -> list[dict]:
+        with db() as conn:
+            return [dict(r) for r in conn.execute("SELECT id, key, title, artist FROM albums WHERE cover_src IS NULL")]
+
+    cover_finder = coverfix.Finder(_albums_without_covers, _use_found_cover)
+    app.state.cover_finder = cover_finder
+
+    @app.get("/api/admin/health")
+    def library_health():
+        """What's missing or wrong on the shelf; nothing is changed by looking."""
+        admin_only()
+        unreadable = (scanner.state.get("last") or {}).get("failedFiles", [])
+        with db() as conn:
+            found = health.report(conn, _cover_size, unreadable)
+        return {**found, "finder": cover_finder.state}
+
+    def _album_row(album_id: int):
+        with db() as conn:
+            row = conn.execute("SELECT * FROM albums WHERE id = ?", (album_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Album not found")
+        return row
+
+    @app.post("/api/admin/covers/find-missing")
+    def find_missing_covers():
+        """Look for covers for every album without one (taking only close matches)."""
+        admin_only()
+        cover_finder.start()
+        return cover_finder.state
+
+    @app.get("/api/admin/covers/{album_id}/candidates")
+    def cover_candidates(album_id: int):
+        admin_only()
+        row = _album_row(album_id)
+        try:
+            found = coverfix.candidates(row["artist"], row["title"])
+        except (OSError, ValueError):
+            raise HTTPException(502, "MusicBrainz can’t be reached right now")
+        return [{**c, "image": f"api/releases/{c['mbid']}/cover"} for c in found]
+
+    @app.post("/api/admin/covers/{album_id}")
+    def use_cover(album_id: int, body: dict):
+        """Use a release's cover from the Cover Art Archive for this album."""
+        admin_only()
+        row = _album_row(album_id)
+        mbid = str(body.get("mbid") or "")
+        if not re.fullmatch(r"[0-9a-f-]{36}", mbid):
+            raise HTTPException(400, "Pick one of the covers")
+        data = coverfix.download(mbid)
+        if not data:
+            raise HTTPException(502, "That cover couldn’t be downloaded")
+        try:
+            _use_found_cover(dict(row), data)
+        except OSError as e:
+            raise HTTPException(500, f"Couldn’t keep the cover: {e}")
+        except Exception:
+            raise HTTPException(502, "That cover isn’t a picture Shelf can read")
+        return album_json(_album_row(album_id))
+
+    @app.delete("/api/admin/covers/{album_id}")
+    def drop_found_cover(album_id: int):
+        """Go back to the album's own cover (or none)."""
+        admin_only()
+        row = _album_row(album_id)
+        coverfix.override_path(cfg.found_cover_dir, row["key"]).unlink(missing_ok=True)
+        with db() as conn:
+            tracks = conn.execute("SELECT path, has_art FROM tracks WHERE album_key = ? ORDER BY COALESCE(disc_no, 1),"
+                                  " COALESCE(track_no, 9999), path", (row["key"],)).fetchall()
+            src = scanner_mod._pick_cover(tracks) if tracks else None
+            conn.execute("UPDATE albums SET cover_src = ?, color = NULL WHERE id = ?", (src, album_id))
+        return album_json(_album_row(album_id))
 
     # ---------- Subsonic apps ----------
 

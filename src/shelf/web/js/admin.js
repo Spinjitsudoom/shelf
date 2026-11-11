@@ -110,6 +110,7 @@ function libraryPart(o, dirs) {
       `${o.watch?.path ? `<button class="btn btn-small" type="button" data-action="watch-off">Turn off</button>` : ""}
        <button class="btn" type="button" data-action="watch-set">${o.watch?.path ? "Change" : "Choose folder"}</button>`)}
 
+    <div id="health-slot"></div>
     <div id="dj-slot"></div>
     <div id="cd-slot"></div>
 
@@ -118,6 +119,85 @@ function libraryPart(o, dirs) {
       `<button class="btn" type="button" data-action="clear-storage" ${o.storage.transcodeBytes ? "" : "disabled"}>Clear</button>`)}
     ${row("Cover images", `${fmtBytes(o.storage.coverBytes)} of resized artwork.`, "")}
     ${backupsPart(o.backups)}`;
+}
+
+/** Library health: the report, or the button that asks for it. */
+function healthHtml(r) {
+  const intro = "Albums without covers, gaps in track numbers, the same song twice and files Shelf can’t read. Looking changes nothing.";
+  if (!r) {
+    return `<h2 class="settings-section">Library health</h2>
+      ${row("Check your library", intro, `<button class="btn" type="button" data-admin="health-check">Check library</button>`)}`;
+  }
+  const c = r.counts;
+  const total = Object.values(c).reduce((a, b) => a + b, 0);
+  const more = (kind, shown) => c[kind] > shown ? `<li class="health-more">And ${c[kind] - shown} more.</li>` : "";
+  const album = (a) => `<b>${esc(a.title)}</b> <span class="health-by">by ${esc(a.artist)}</span>`;
+  const coverBtn = (a, label) => `<button class="btn btn-small" type="button" data-admin="cover-choose" data-id="${a.id}" data-title="${esc(a.title)}">${label}</button>`;
+  const f = r.finder;
+  const finding = f.running ? `Looking for covers: ${f.done} of ${f.total} albums, ${plural(f.found, "cover")} found so far…`
+    : f.finishedAt ? `Last look: ${plural(f.found, "cover")} found for ${plural(f.total, "album")}. Albums it didn’t match closely enough can be picked by hand.` : "";
+  const kinds = [
+    ["noCover", "Albums without a cover", "Shelf can look them up on MusicBrainz. Found covers are kept in Shelf’s data folder; nothing in your music folders changes.",
+      r.noCover.map((a) => `<li>${album(a)}${coverBtn(a, "Choose cover")}</li>`).join(""),
+      `<button class="btn" type="button" data-admin="covers-find"${f.running ? " disabled" : ""}>Find covers</button>`],
+    ["smallCover", "Small covers", "Under 500 pixels across, so they look soft on a big screen.",
+      r.smallCover.map((a) => `<li>${album(a)} <span class="health-by">${a.size[0]}×${a.size[1]}</span>${coverBtn(a, "Find a bigger one")}</li>`).join(""), ""],
+    ["gaps", "Gaps in track numbers", "Songs that may be missing from these albums (or were never ripped).",
+      r.gaps.map((g) => `<li>${album(g)} <span class="health-by">${g.disc > 1 ? `disc ${g.disc}, ` : ""}no track ${esc(g.missing.join(", "))}</span></li>`).join(""), ""],
+    ["duplicates", "The same song twice", "The same artist and title, the same length, on different albums. The best copy is marked.",
+      r.duplicates.map((d) => `<li><b>${esc(d.title)}</b> <span class="health-by">by ${esc(d.artist)}</span><ul class="health-copies">${d.copies.map((x) =>
+        `<li>${esc(x.album)} <span class="health-by">${esc((x.codec || "").toUpperCase())}${x.bitrate ? ` ${Math.round(x.bitrate / 1000)} kbps` : ""}</span>${x.id === d.best ? `<span class="tag">Best copy</span>` : ""}</li>`).join("")}</ul></li>`).join(""), ""],
+    ["noArtist", "Songs with no artist", "Their files have no artist tag, so they show as Unknown Artist.",
+      r.noArtist.map((t) => `<li><b>${esc(t.title)}</b> <span class="health-path">${esc(t.path)}</span></li>`).join(""), ""],
+    ["mixedYears", "Albums with mixed years", "Their songs disagree on the year, often a remaster mixed with the original.",
+      r.mixedYears.map((m) => `<li>${album(m)} <span class="health-by">${esc(m.years.join(", "))}</span></li>`).join(""), ""],
+    ["unreadable", "Files Shelf can’t read", "Damaged, or in a format Shelf doesn’t know. They’re left out of the library.",
+      r.unreadable.map((p) => `<li><span class="health-path">${esc(p)}</span></li>`).join(""), ""],
+  ].filter(([k]) => c[k]);
+  return `
+    <div class="people-head"><h2 class="settings-section">Library health</h2>
+      <button class="btn" type="button" data-admin="health-check">Check again</button></div>
+    ${finding ? `<p class="people-note">${esc(finding)}</p>` : ""}
+    ${total ? kinds.map(([k, title, note, items, action]) => `
+      <details class="health" data-kind="${k}">
+        <summary><span class="health-count">${c[k].toLocaleString()}</span><span class="health-title">${title}</span>${action}</summary>
+        <p class="health-note">${note}</p>
+        <ul class="health-list">${items}${more(k, r[k].length)}</ul>
+      </details>`).join("") : `<p class="people-note">All clear: every album has a cover, no gaps, no doubles, and every file reads.</p>`}`;
+}
+
+/** Pick a cover for an album from what MusicBrainz has. */
+async function chooseCover(albumId, title, done) {
+  const d = document.createElement("dialog");
+  d.className = "dialog cover-dialog";
+  d.innerHTML = `<form method="dialog"><h2>A cover for ${esc(title)}</h2>
+    <p class="cover-status">Looking on MusicBrainz…</p><div class="cover-grid"></div>
+    <div class="dialog-actions"><button class="btn" type="button" data-cover="own">Use the album’s own</button><button class="btn" value="cancel">Close</button></div></form>`;
+  document.body.append(d);
+  d.addEventListener("close", () => d.remove());
+  d.showModal();
+  const status = d.querySelector(".cover-status");
+  try {
+    const found = await api.coverCandidates(albumId);
+    status.textContent = found.length ? "Pick the one that’s this album. It’s downloaded at full size." : "MusicBrainz has nothing under that title and artist.";
+    d.querySelector(".cover-grid").innerHTML = found.map((c) => `
+      <button class="cover-pick" type="button" data-mbid="${esc(c.mbid)}">
+        <img src="${esc(c.image)}" alt="" loading="lazy" onerror="this.closest('.cover-pick').hidden = true">
+        <span><b>${esc(c.title)}</b>${esc(c.artist)}${c.year ? `, ${c.year}` : ""}${c.type ? ` (${esc(c.type)})` : ""}</span>
+      </button>`).join("");
+  } catch (err) { status.textContent = err.message; }
+  d.addEventListener("click", async (e) => {
+    const own = e.target.closest('[data-cover="own"]');
+    const pick = e.target.closest(".cover-pick");
+    if (!own && !pick) return;
+    status.textContent = own ? "Going back to the album’s own cover…" : "Downloading the cover…";
+    try {
+      if (own) await api.dropFoundCover(albumId); else await api.useCover(albumId, pick.dataset.mbid);
+      toast(own ? "Back to the album’s own cover" : `New cover for ${title}`);
+      d.close();
+      done?.();
+    } catch (err) { status.textContent = err.message; }
+  });
 }
 
 /** Copies of the database: accounts, likes, playlists and play history, which a rescan can't bring back. */
@@ -253,6 +333,10 @@ export async function adminView(el, session, { dialog }) {
   cdBox.className = "cd-box";
   const djBox = document.createElement("section");
   djBox.className = "dj-box";
+  // Library health lives on across redraws too: it's only worked out when asked for.
+  const healthBox = document.createElement("section");
+  healthBox.className = "health-box";
+  healthBox.innerHTML = healthHtml(null);
   const draw = () => {
     const html = page(o, dirs, me);
     if (html === shown) return;
@@ -260,6 +344,7 @@ export async function adminView(el, session, { dialog }) {
     el.innerHTML = html;
     el.querySelector("#cd-slot")?.replaceWith(cdBox);
     el.querySelector("#dj-slot")?.replaceWith(djBox);
+    el.querySelector("#health-slot")?.replaceWith(healthBox);
     el.scrollTop = top;
     shown = html;
   };
@@ -751,6 +836,13 @@ export async function adminView(el, session, { dialog }) {
         toast(u.auto ? "Shelf installs updates by itself now, at night" : "Shelf only updates when you choose Update now");
       }).catch((err) => toast(err.message));
     }
+    if (b.dataset.admin === "health-check") checkHealth();
+    if (b.dataset.admin === "covers-find") {
+      b.disabled = true;
+      api.findMissingCovers().then(() => { toast("Looking for covers: one album a second"); checkHealth(); })
+        .catch((err) => { toast(err.message); b.disabled = false; });
+    }
+    if (b.dataset.admin === "cover-choose") chooseCover(Number(b.dataset.id), b.dataset.title, checkHealth);
     if (b.dataset.admin === "backup-now") {
       b.disabled = true;
       api.backUpNow().then(() => { toast("Backed up"); refresh(); })
@@ -767,8 +859,26 @@ export async function adminView(el, session, { dialog }) {
     }
     if (b.dataset.admin === "person-menu") personMenu(b);
   };
+  let healthPoll = 0;
+  async function checkHealth() {
+    const btn = healthBox.querySelector('[data-admin="health-check"]');
+    if (btn) { btn.disabled = true; btn.textContent = "Checking…"; }
+    try {
+      const r = await api.libraryHealth();
+      const open = [...healthBox.querySelectorAll("details[open]")].map((d) => d.dataset.kind);
+      healthBox.innerHTML = healthHtml(r);
+      for (const k of open) healthBox.querySelector(`details[data-kind="${k}"]`)?.setAttribute("open", "");
+      clearTimeout(healthPoll);
+      if (r.finder.running) healthPoll = setTimeout(checkHealth, 3000); // the cover search is still going
+      else if (r.finder.finishedAt && Date.now() / 1000 - r.finder.finishedAt < 8 && r.finder.done) refresh();
+    } catch (err) {
+      toast(err.message);
+      if (btn) { btn.disabled = false; btn.textContent = "Check library"; }
+    }
+  }
+
   el.addEventListener("click", onClick);
-  return () => { clearInterval(timer); clearTimeout(cdTimer); clearTimeout(llmPoll); el.removeEventListener("click", onClick); };
+  return () => { clearTimeout(healthPoll); clearInterval(timer); clearTimeout(cdTimer); clearTimeout(llmPoll); el.removeEventListener("click", onClick); };
 }
 
 

@@ -46,6 +46,11 @@ class Config:
         return self.data_dir / "covers"
 
     @property
+    def found_cover_dir(self) -> Path:
+        """Covers the admin found online for albums (coverfix.py); they win over the album's own."""
+        return self.data_dir / "found-covers"
+
+    @property
     def transcode_dir(self) -> Path:
         return self.data_dir / "transcodes"
 

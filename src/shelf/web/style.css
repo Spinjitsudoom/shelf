@@ -448,6 +448,30 @@ a.npv-context[href]:hover { text-decoration: underline; }
 .smart-limit input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--cobalt); }
 .smart-preview { min-height: 1.4em; font-size: 14.5px; }
 .pl-rules { font-weight: 600; }
+
+/* library health (admin) */
+.health { border-top: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
+.health summary { display: flex; align-items: center; gap: 12px; padding: 12px 0; cursor: pointer; list-style: none; }
+.health summary::-webkit-details-marker { display: none; }
+.health summary .btn { margin-left: auto; }
+.health-count { min-width: 3ch; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--cobalt); }
+.health-title { font-weight: 650; }
+.health-title::after { content: " ›"; color: var(--ink-2); }
+.health[open] .health-title::after { content: " ⌄"; }
+.health-note { margin: 0 0 8px; color: var(--ink-2); font-size: 14px; }
+.health-list { margin: 0 0 12px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.health-list > li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.health-list > li .btn { margin-left: auto; }
+.health-by { color: var(--ink-2); font-size: 14px; }
+.health-path { color: var(--ink-2); font-size: 13px; overflow-wrap: anywhere; }
+.health-more { color: var(--ink-2); font-size: 14px; }
+.health-copies { width: 100%; margin: 0; padding-left: 18px; font-size: 14px; }
+.cover-dialog { width: min(640px, calc(100vw - 32px)); }
+.cover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; max-height: 56vh; overflow-y: auto; }
+.cover-pick { display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 10px; text-align: left; font-size: 13px; color: var(--ink-2); }
+.cover-pick:hover, .cover-pick:focus-visible { background: var(--hover); }
+.cover-pick img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; background: var(--tray); }
+.cover-pick b { display: block; color: var(--ink); }
 .btn-danger { background: #c4302b; color: #fff; box-shadow: none; }
 .btn-danger:hover { background: #a82722; }
 
