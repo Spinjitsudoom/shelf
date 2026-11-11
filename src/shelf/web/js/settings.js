@@ -64,6 +64,7 @@ const DEFAULTS = {
   autoplay: true,
   mono: false,
   normalize: !IS_IOS, // needs the sound engine, which can stop lock-screen playback on iOS
+  visualizer: !IS_IOS, // the ring of bars on Now Playing (the same sound engine)
   loudness: "normal",
   eqEnabled: false,
   eqPreset: "Flat",
@@ -90,5 +91,5 @@ export const settings = {
   onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
   /** True when any setting needs audio to run through the sound engine. */
   needsEngine: () =>
-    values.eqEnabled || values.normalize || values.crossfade > 0 || values.mono || Math.abs(values.balance) > 0.001,
+    values.eqEnabled || values.normalize || values.visualizer || values.crossfade > 0 || values.mono || Math.abs(values.balance) > 0.001,
 };

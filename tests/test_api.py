@@ -132,3 +132,12 @@ def test_slow_requests_are_logged(client, caplog):
     with caplog.at_level(logging.WARNING, logger="shelf"):
         client.get("/api/ping")
     assert any("Slow request: GET /api/ping took" in r.getMessage() for r in caplog.records)
+
+
+def test_every_script_is_kept_for_offline():
+    """The service worker's shell lists every module the app imports: one missing breaks the app offline."""
+    import re
+    from pathlib import Path
+    web = Path(__file__).parent.parent / "src" / "shelf" / "web"
+    shell = set(re.findall(r'"(js/[a-z-]+\.js)"', (web / "sw.js").read_text()))
+    assert {f"js/{p.name}" for p in (web / "js").glob("*.js")} <= shell

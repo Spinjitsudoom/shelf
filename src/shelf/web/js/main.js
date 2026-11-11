@@ -19,6 +19,7 @@ import { clearNative, mountNative } from "./native.js";
 import { mountSleep } from "./sleep.js";
 import { mountDJ } from "./dj.js";
 import { follow as followHost } from "./party.js";
+import { startRing } from "./visualizer.js";
 import { applyAlbumColor, caseHtml, coverUrl, esc, fmtTime, playlistCover, plural, quality, store, toast } from "./util.js";
 import {
   albumView, albumsView, artistHref, artistItems, artistLinks, artistView, artistsView, balanceLabel, ctx, homeView, mixerView,
@@ -1392,6 +1393,30 @@ function morphNowPlaying(open) {
   }).catch(() => {});
 }
 
+// ---------- the visualizer (a ring of bars around the disc) ----------
+
+let stopRing = null;
+const motionOff = window.matchMedia("(prefers-reduced-motion: reduce)");
+function refreshVisualizer() {
+  const on = !!settings.get("visualizer");
+  $("np-viz").setAttribute("aria-pressed", String(on));
+  const show = on && !$("nowplaying").hidden && !motionOff.matches && !player.remoteMode;
+  if (show && !stopRing) {
+    local.enableEngineIfNeeded();
+    const np = $("nowplaying");
+    stopRing = startRing($("np-viz-ring"), $("np-deck").querySelector(".disc") ?? $("np-deck"), () => (local.engine.active ? local.engine.spectrum() : null),
+      () => getComputedStyle(np).getPropertyValue("--album-strong").trim() || getComputedStyle(np).color);
+  } else if (!show && stopRing) { stopRing(); stopRing = null; }
+}
+$("np-viz").addEventListener("click", () => {
+  settings.set({ visualizer: !settings.get("visualizer") });
+  refreshVisualizer();
+  toast(settings.get("visualizer") ? "Visualizer on" : "Visualizer off");
+});
+
+// Start and stop with Now Playing itself (it opens and closes with an animation).
+new MutationObserver(refreshVisualizer).observe($("nowplaying"), { attributes: true, attributeFilter: ["hidden"] });
+
 function openNowPlaying() {
   if (!player.current || !$("nowplaying").hidden) return;
   setNpLyrics(!!store.get("npLyrics", false), true);
@@ -1400,6 +1425,7 @@ function openNowPlaying() {
 }
 function closeNowPlaying(animate = true) {
   if ($("nowplaying").hidden) return;
+  if (stopRing) { stopRing(); stopRing = null; }
   if (video.active && !$("np-video").hidden) video.stop(true);
   npLyricsOff?.();
   npLyricsOff = null;

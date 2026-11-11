@@ -2238,3 +2238,7 @@ input.range.balance::-moz-range-progress { background: transparent; }
 .party-here { display: flex; align-items: center; gap: 12px; margin-top: 12px; max-width: 520px; }
 .party-here span { display: flex; flex-direction: column; }
 .party-here small { color: var(--ink-2); }
+
+/* The visualizer: a ring of bars drawn around the disc (a canvas over the whole of Now Playing, under its content). */
+.np-viz { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+#nowplaying > .np-inner { position: relative; z-index: 1; }
