@@ -41,8 +41,11 @@ fun AlbumScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onArtist: (Strin
             facts = facts(a.year?.toString(), plural(a.tracks.size, "song"), fmtLength(a.duration)),
             tracks = a.tracks, numbered = true, coverUrl = { null },
             onTrack = { onPlay(a.tracks, it, ctx) }, onShuffle = { onPlay(a.tracks.shuffled(), 0, ctx) }, onBack = onBack,
-            actions = { app.shelf.ui.common.DownloadButton(app.shelf.downloads.Downloadable("album", a.id, a.title, a.artist, a.color,
-                listOf(app.shelf.data.CoverRef(a.id, a.cover)), a.tracks)) },
+            actions = {
+                app.shelf.ui.common.DownloadButton(app.shelf.downloads.Downloadable("album", a.id, a.title, a.artist, a.color,
+                    listOf(app.shelf.data.CoverRef(a.id, a.cover)), a.tracks))
+                app.shelf.ui.common.ShareLinkButton("album", a.id, a.title, a.artist)
+            },
         )
     }
 }
@@ -87,6 +90,7 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
             onRemove = if (editable) { i -> p.tracks[i].entryId?.let { e -> change("Removed from ${p.name}") { api!!.removeFromPlaylist(p.id, e) } } } else null,
             actions = {
                 app.shelf.ui.common.DownloadButton(app.shelf.downloads.Downloadable("playlist", p.id, p.name, p.description ?: "", null, p.covers, p.tracks))
+                app.shelf.ui.common.ShareLinkButton("playlist", p.id, p.name, null)
                 if (editable) androidx.compose.foundation.layout.Box {
                     androidx.compose.material3.OutlinedIconButton(onClick = { menu = true }) {
                         androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_edit), "Edit playlist", tint = Shelf.colors.ink)

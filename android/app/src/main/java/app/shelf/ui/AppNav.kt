@@ -132,7 +132,11 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     val failed = "Couldn’t save that. Check the connection and try again."
     LaunchedEffect(adding) { if (adding != null) playlists = try { source.playlists() } catch (e: app.shelf.data.ShelfError) { emptyList() } }
     val actions = remember { app.shelf.ui.common.SongActions(open = { t, remove -> menu = t to remove }) }
-    CompositionLocalProvider(app.shelf.ui.common.LocalSongActions provides actions, app.shelf.downloads.LocalDownloads provides container.downloads) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val shareOn by androidx.compose.runtime.produceState(false, api) { value = runCatching { api?.session()?.user?.shareLinks == true }.getOrDefault(false) }
+    val shareLinks = remember(shareOn, api) { app.shelf.ui.common.ShareLinks(shareOn, api, context, scope, say) }
+    CompositionLocalProvider(app.shelf.ui.common.LocalSongActions provides actions, app.shelf.downloads.LocalDownloads provides container.downloads,
+        app.shelf.ui.common.LocalShareLinks provides shareLinks) {
     Box(Modifier.fillMaxSize()) {
     val entry by nav.currentBackStackEntryAsState()
     val current = entry?.destination?.route
@@ -258,6 +262,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             if (api != null) {
                 add(app.shelf.ui.common.MenuItem("Add to playlist…", R.drawable.ic_playlist) { playlists = null; adding = t })
                 add(app.shelf.ui.common.MenuItem("Song radio", R.drawable.ic_radio) { nowPlaying = false; nav.navigate(Routes.trackRadio(t.id)) })
+                if (shareOn) add(app.shelf.ui.common.MenuItem("Share link", R.drawable.ic_link) { shareLinks.share("track", t.id, t.title, t.artist) })
             }
             if (remove != null) add(app.shelf.ui.common.MenuItem("Remove from this playlist", R.drawable.ic_trash) { remove() })
             add(app.shelf.ui.common.MenuItem("Go to album", R.drawable.ic_album_go) { nowPlaying = false; nav.navigate(Routes.album(t.albumId)) })

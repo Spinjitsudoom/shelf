@@ -111,6 +111,13 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     /** Moved on before 30 seconds of it: suggestions learn from skips. */
     suspend fun skipped(trackId: Int) { send("POST", "api/tracks/$trackId/skipped") }
 
+    /** A link anyone can listen to `kind` ("track", "album" or "playlist") with, for `days` (null: until stopped). */
+    suspend fun makeShare(kind: String, id: Int, days: Int?): ShareLink =
+        call("api/shares", ShareLink.serializer(), buildJsonObject { put("kind", kind); put("id", id); put("days", days) }.toString().toRequestBody(JSON))
+
+    /** A path on this server ("/s/…") as a whole address, to send to someone. */
+    fun linkFor(path: String): String = url(path.removePrefix("/")).toString()
+
     /** Where you stopped in a long track, in seconds (0: from the start). */
     suspend fun resumeAt(trackId: Int): Double =
         call("api/tracks/$trackId/resume", JsonObject.serializer())["position"]?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toDoubleOrNull() } ?: 0.0
