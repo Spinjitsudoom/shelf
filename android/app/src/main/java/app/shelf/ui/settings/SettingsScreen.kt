@@ -57,8 +57,8 @@ fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: 
         item { Section("Listening") }
         item { Choice("Quality on Wi-Fi", "Original sends your files as they are.", s.wifiQuality, QUALITIES) { v -> set { it.copy(wifiQuality = v) } } }
         item {
-            Choice("Quality on mobile data", "Automatic makes lossless files smaller and sends the rest as they are.", s.dataQuality,
-                listOf("auto" to "Automatic") + QUALITIES.drop(1)) { v -> set { it.copy(dataQuality = v) } }
+            Choice("Quality on mobile data", "Original sends your files as they are. Automatic makes lossless files smaller to save data.", s.dataQuality,
+                QUALITIES.take(1) + ("auto" to "Automatic") + QUALITIES.drop(1)) { v -> set { it.copy(dataQuality = v) } }
         }
         item { Toggle("Autoplay", "When the music runs out, carry on with similar songs.", s.autoplay) { v -> set { it.copy(autoplay = v) } } }
         item {

@@ -79,3 +79,10 @@ fun needsFetch(old: Downloadable?, new: Downloadable, states: Map<Int, Int>): Bo
     if (old.tracks.map { it.id } != new.tracks.map { it.id } || old.name != new.name) return true
     return new.tracks.any { states[it.id] == null || states[it.id] == Download.STATE_FAILED }
 }
+
+/**
+ * Downloaded songs (id to the address they were fetched from) saved in another quality than
+ * [wanted] now, to fetch again. Addresses that aren't Shelf streams are left alone.
+ */
+fun toRefetch(done: Map<Int, String>, wanted: (Int) -> String): Set<Int> =
+    done.filter { (id, uri) -> Regex("""/stream\?(?:.*&)?q=([^&]+)""").find(uri)?.groupValues?.get(1)?.let { it != wanted(id) } == true }.keys

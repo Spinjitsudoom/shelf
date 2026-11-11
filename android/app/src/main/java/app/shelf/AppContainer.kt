@@ -41,6 +41,7 @@ class AppContainer(context: Context) {
     /** Albums, playlists and Favourites kept on the phone (created on first use, on the main thread). */
     val downloads by lazy {
         app.shelf.downloads.Downloads(context.applicationContext, okHttp, { api }, { settings.settings.value.downloadQuality })
+            .also { if (settings.movedToOriginal) it.refetchOtherQuality() }
     }
 
     /** Shelf Connect: this phone among the user's devices (started by the player service). */

@@ -80,4 +80,16 @@ class DownloadIndexTest {
         assertTrue("a song was added", needsFetch(album, album.copy(tracks = album.tracks + t(4)), done))
         assertTrue("renamed", needsFetch(playlist, playlist.copy(name = "Road trip 2"), mapOf(2 to Download.STATE_COMPLETED, 7 to Download.STATE_COMPLETED)))
     }
+
+    /** Songs downloaded in another quality than wanted now (converted copies, before Original was the default) are fetched again. */
+    @Test fun downloadsInAnotherQualityAreFetchedAgain() {
+        val done = mapOf(
+            1 to "http://shelf:4533/api/tracks/1/stream?q=veryhigh",
+            2 to "http://shelf:4533/api/tracks/2/stream?q=original",
+            3 to "http://shelf:4533/api/tracks/3/stream?q=high",
+        )
+        assertEquals(setOf(1, 3), toRefetch(done) { "original" })
+        assertEquals(setOf(3), toRefetch(done) { id -> if (id == 1) "veryhigh" else "original" }) // a copy is still wanted for 1
+        assertEquals(emptySet<Int>(), toRefetch(mapOf(4 to "content://somewhere/4")) { "original" }) // not a stream address: leave it
+    }
 }

@@ -72,8 +72,25 @@ class Downloads(private val context: Context, okHttp: OkHttpClient, private val 
             override fun onDownloadRemoved(m: DownloadManager, download: Download) {
                 val id = download.request.id.toIntOrNull() ?: return
                 states = states - id; uris = uris - id; percents = percents - id; publish()
+                if (id in refetching) {
+                    refetching = refetching - id
+                    if (refetching.isEmpty()) index.all().forEach { download(it) } // fetches what's missing now
+                }
             }
         })
+    }
+
+    private var refetching = emptySet<Int>()
+
+    /**
+     * Downloads saved in another quality than the setting's (converted copies, before Original was
+     * the default) are deleted and fetched again as it says.
+     */
+    fun refetchOtherQuality() {
+        val q = quality()
+        val codecs = index.all().flatMap { it.tracks }.associate { it.id to it.codec }
+        refetching = toRefetch(uris) { id -> playableQuality(codecs[id], q, Decoders::has) }
+        refetching.forEach { DownloadService.sendRemoveDownload(context, ShelfDownloadService::class.java, it.toString(), false) }
     }
 
     private fun remember(d: Download) {
