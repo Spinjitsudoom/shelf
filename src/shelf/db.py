@@ -213,6 +213,11 @@ def init_db(db_path: Path) -> None:
         _add_column(conn, "users", cols, "share_activity", "INTEGER NOT NULL DEFAULT 1")
         _add_column(conn, "users", cols, "listenbrainz_token", "TEXT")
         _add_column(conn, "users", cols, "listenbrainz_user", "TEXT")
+        _add_column(conn, "users", cols, "lastfm_session", "TEXT")
+        _add_column(conn, "users", cols, "lastfm_user", "TEXT")
+        _add_column(conn, "users", cols, "lastfm_token", "TEXT")  # waiting to be approved on last.fm
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(scrobbles)")}
+        _add_column(conn, "scrobbles", cols, "service", "TEXT NOT NULL DEFAULT 'listenbrainz'")
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(plays)")}
         _add_column(conn, "plays", cols, "user_id", "INTEGER NOT NULL DEFAULT 1")
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(likes)")}

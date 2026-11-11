@@ -62,11 +62,15 @@ class Scrobbler:
         self._wake.set()
 
     def queue(self, user_id: int, track_id: int, at: float) -> None:
-        """A listen, for sending if this person has connected ListenBrainz."""
+        """A listen, for sending to each service this person has connected (ListenBrainz, Last.fm)."""
         with session(self.db_path) as conn:
-            if not conn.execute("SELECT 1 FROM users WHERE id = ? AND listenbrainz_token IS NOT NULL", (user_id,)).fetchone():
+            u = conn.execute("SELECT listenbrainz_token, lastfm_session FROM users WHERE id = ?", (user_id,)).fetchone()
+            if not u:
                 return
-            conn.execute("INSERT INTO scrobbles(user_id, track_id, played_at) VALUES(?, ?, ?)", (user_id, track_id, at))
+            for service, connected in (("listenbrainz", u["listenbrainz_token"]), ("lastfm", u["lastfm_session"])):
+                if connected:
+                    conn.execute("INSERT INTO scrobbles(user_id, track_id, played_at, service) VALUES(?, ?, ?, ?)",
+                                 (user_id, track_id, at, service))
         self._wake.set()
 
     def _loop(self) -> None:
@@ -79,12 +83,54 @@ class Scrobbler:
             self._wake.clear()
 
     def flush(self) -> int:
+        return self._flush_listenbrainz() + self._flush_lastfm()
+
+    def _flush_lastfm(self) -> int:
+        from . import lastfm
+
+        account = lastfm.keys(self.db_path)
+        if not account:
+            return 0
+        with session(self.db_path) as conn:
+            rows = conn.execute(
+                """SELECT s.id, s.user_id, s.played_at, u.lastfm_session AS sk, t.title, t.artist, t.album, t.duration
+                   FROM scrobbles s JOIN users u ON u.id = s.user_id JOIN tracks t ON t.id = s.track_id
+                   WHERE s.service = 'lastfm' AND u.lastfm_session IS NOT NULL ORDER BY s.user_id, s.played_at LIMIT 500""").fetchall()
+        sent = 0
+        by_user: dict[int, list] = {}
+        for r in rows:
+            by_user.setdefault(r["user_id"], []).append(r)
+        for uid, listens in by_user.items():
+            for i in range(0, len(listens), 50):
+                batch = listens[i:i + 50]
+                try:
+                    lastfm.scrobble(*account, batch[0]["sk"], [{"artist": r["artist"], "track": r["title"], "album": r["album"],
+                                                               "timestamp": int(r["played_at"]), "duration": int(r["duration"] or 0)}
+                                                              for r in batch])
+                except lastfm.LastfmError as e:
+                    if e.code in (4, 9, 14):  # the session was withdrawn: stop trying for this person
+                        with session(self.db_path) as conn:
+                            conn.execute("UPDATE users SET lastfm_session = NULL, lastfm_user = NULL WHERE id = ?", (uid,))
+                            conn.execute("DELETE FROM scrobbles WHERE user_id = ? AND service = 'lastfm'", (uid,))
+                        log.warning("Last.fm rejected user %s's session; disconnected", uid)
+                    break  # anything else (rate limit, Last.fm down): they stay queued
+                except (urllib.error.URLError, OSError):
+                    break
+                with session(self.db_path) as conn:
+                    conn.executemany("DELETE FROM scrobbles WHERE id = ?", [(r["id"],) for r in batch])
+                sent += len(batch)
+        if sent:
+            log.info("Sent %d listens to Last.fm", sent)
+        return sent
+
+    def _flush_listenbrainz(self) -> int:
         with session(self.db_path) as conn:
             rows = conn.execute(
                 """SELECT s.id, s.user_id, s.played_at, u.listenbrainz_token AS token,
                           t.title, t.artist, t.album, t.duration
                    FROM scrobbles s JOIN users u ON u.id = s.user_id JOIN tracks t ON t.id = s.track_id
-                   WHERE u.listenbrainz_token IS NOT NULL ORDER BY s.user_id, s.played_at LIMIT 500""").fetchall()
+                   WHERE s.service = 'listenbrainz' AND u.listenbrainz_token IS NOT NULL
+                   ORDER BY s.user_id, s.played_at LIMIT 500""").fetchall()
         sent = 0
         by_user: dict[int, list] = {}
         for r in rows:
@@ -105,7 +151,7 @@ class Scrobbler:
                 if e.code == 401:  # token withdrawn: stop trying for this person
                     with session(self.db_path) as conn:
                         conn.execute("UPDATE users SET listenbrainz_token = NULL WHERE id = ?", (uid,))
-                        conn.execute("DELETE FROM scrobbles WHERE user_id = ?", (uid,))
+                        conn.execute("DELETE FROM scrobbles WHERE user_id = ? AND service = 'listenbrainz'", (uid,))
                     log.warning("ListenBrainz rejected user %s's token; disconnected", uid)
                 continue
             except (urllib.error.URLError, OSError):

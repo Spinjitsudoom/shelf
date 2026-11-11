@@ -23,13 +23,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, covers, credits, feedback, genres, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos
+from . import analysis, covers, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
 from .auth import COOKIE, MAX_AGE, Auth, User, check_username, token_from
 from .config import Config
-from .db import get_meta, init_db, session
+from .db import get_meta, init_db, session, set_meta
 from .scanner import scan, warm_covers
 
 log = logging.getLogger("shelf")
@@ -240,6 +240,11 @@ def transition_json(raw: str | None) -> dict:
     return {"preset": raw}
 
 
+class LastfmKeysBody(BaseModel):
+    key: str = Field(max_length=100)
+    secret: str = Field(max_length=100)
+
+
 class AutoUpdateBody(BaseModel):
     enabled: bool
 
@@ -431,6 +436,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     app = FastAPI(title="Shelf", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.scanner = scanner
+    app.state.scrobbler = scrobbler
     app.state.cfg = cfg
     hubs: dict[int, Hub] = {}  # Connect: each person's devices only see each other
     app.state.hubs = hubs
@@ -485,10 +491,12 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     def _me_json(user: User) -> dict:
         with db() as conn:
-            r = conn.execute("SELECT share_activity, listenbrainz_user, listenbrainz_token FROM users WHERE id = ?",
+            r = conn.execute("SELECT share_activity, listenbrainz_user, listenbrainz_token, lastfm_user, lastfm_session FROM users WHERE id = ?",
                              (user.id,)).fetchone()
         return user.json() | {"shareActivity": bool(r["share_activity"]) if r else True,
-                              "listenbrainz": (r["listenbrainz_user"] or "ListenBrainz") if r and r["listenbrainz_token"] else None}
+                              "listenbrainz": (r["listenbrainz_user"] or "ListenBrainz") if r and r["listenbrainz_token"] else None,
+                              "lastfm": (r["lastfm_user"] or "Last.fm") if r and r["lastfm_session"] else None,
+                              "lastfmAvailable": lastfm.keys(cfg.db_path) is not None}
 
     @app.get("/api/session")
     def get_session(request: Request):
@@ -515,8 +523,63 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 conn.execute("UPDATE users SET listenbrainz_token = ?, listenbrainz_user = ? WHERE id = ?",
                              (token or None, name, user.id))
                 if not token:
-                    conn.execute("DELETE FROM scrobbles WHERE user_id = ?", (user.id,))
+                    conn.execute("DELETE FROM scrobbles WHERE user_id = ? AND service = 'listenbrainz'", (user.id,))
         return _me_json(user)
+
+    # ---------- Last.fm ----------
+
+    @app.patch("/api/admin/lastfm")
+    def set_lastfm_keys(body: LastfmKeysBody):
+        """The server's Last.fm API account (made at last.fm/api/account/create); empty removes it."""
+        admin_only()
+        with db() as conn:
+            set_meta(conn, "lastfm_key", body.key.strip())
+            set_meta(conn, "lastfm_secret", body.secret.strip())
+        return {"configured": lastfm.keys(cfg.db_path) is not None}
+
+    def _lastfm_account() -> tuple[str, str]:
+        account = lastfm.keys(cfg.db_path)
+        if not account:
+            raise HTTPException(409, "An admin needs to add a Last.fm API account first (in the admin dashboard)")
+        return account
+
+    @app.post("/api/me/lastfm/start")
+    def lastfm_start():
+        """Step 1: a link to approve Shelf on last.fm."""
+        key, secret = _lastfm_account()
+        try:
+            token = lastfm.call("auth.getToken", key, secret)["token"]
+        except (lastfm.LastfmError, OSError) as e:
+            raise HTTPException(502, f"Last.fm didn’t answer: {e}") from e
+        with db() as conn:
+            conn.execute("UPDATE users SET lastfm_token = ? WHERE id = ?", (token, uid()))
+        return {"url": f"{lastfm.AUTH}?api_key={urllib.parse.quote(key)}&token={urllib.parse.quote(token)}"}
+
+    @app.post("/api/me/lastfm/finish")
+    def lastfm_finish():
+        """Step 2, once approved on last.fm: connected."""
+        key, secret = _lastfm_account()
+        with db() as conn:
+            token = conn.execute("SELECT lastfm_token FROM users WHERE id = ?", (uid(),)).fetchone()["lastfm_token"]
+        if not token:
+            raise HTTPException(409, "Start connecting Last.fm first")
+        try:
+            s = lastfm.call("auth.getSession", key, secret, token=token)["session"]
+        except lastfm.LastfmError as e:
+            raise HTTPException(409, "Approve Shelf on last.fm first, then choose Done") from e
+        except OSError as e:
+            raise HTTPException(502, f"Last.fm didn’t answer: {e}") from e
+        with db() as conn:
+            conn.execute("UPDATE users SET lastfm_session = ?, lastfm_user = ?, lastfm_token = NULL WHERE id = ?",
+                         (s["key"], s["name"], uid()))
+        return {"lastfm": s["name"]}
+
+    @app.delete("/api/me/lastfm")
+    def lastfm_disconnect():
+        with db() as conn:
+            conn.execute("UPDATE users SET lastfm_session = NULL, lastfm_user = NULL, lastfm_token = NULL WHERE id = ?", (uid(),))
+            conn.execute("DELETE FROM scrobbles WHERE user_id = ? AND service = 'lastfm'", (uid(),))
+        return {"lastfm": None}
 
     @app.post("/api/setup")
     def setup(body: SetupBody, request: Request, response: Response):
@@ -706,6 +769,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             "devices": sum(len(h.devices) for h in hubs.values()),
             "version": __version__,
             "update": new_version.info(),
+            "lastfm": lastfm.keys(cfg.db_path) is not None,
         }
 
     @app.post("/api/admin/update/check")

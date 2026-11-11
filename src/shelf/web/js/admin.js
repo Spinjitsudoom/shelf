@@ -195,13 +195,15 @@ function page(o, dirs, me) {
 
       ${libraryPart(o, dirs)}
 
+      <h2 class="settings-section">Services</h2>
+      ${row("Last.fm", o.lastfm ? "People here can scrobble to Last.fm from Settings." : "Add the server’s Last.fm API account so people here can scrobble to Last.fm.",
+        `<button class="btn" type="button" data-admin="lastfm">${o.lastfm ? "Change" : "Set up"}</button>`)}
+      ${o.update && o.update.kind !== "manual" ? row("Install updates by themselves", "At night, once nothing has played on any device for half an hour, so music is never cut off.",
+        `<button class="switch" type="button" role="switch" data-admin="update-auto" aria-checked="${!!o.update.auto}" aria-label="Install updates by themselves"></button>`) : ""}
+
       <p class="about">Shelf server ${esc(o.version)}${o.update?.checkedAt && !o.update.available
         ? `, up to date (checked ${esc(ago(o.update.checkedAt))})` : ""}
         <button class="link-btn" type="button" data-admin="update-check">Check for updates</button></p>
-      ${o.update && o.update.kind !== "manual" ? `<div class="auto-update">
-        <span><b>Install updates by themselves</b><small>At night, once nothing has played on any device for half an hour, so music is never cut off.</small></span>
-        <button class="switch" type="button" role="switch" data-admin="update-auto" aria-checked="${!!o.update.auto}" aria-label="Install updates by themselves"></button>
-      </div>` : ""}
     </div>`;
 }
 
@@ -699,6 +701,16 @@ export async function adminView(el, session, { dialog }) {
       }).catch((err) => toast(err.message));
     }
     if (b.dataset.admin === "update-now") updateNow(b);
+    if (b.dataset.admin === "lastfm") {
+      dialog({
+        title: "Last.fm API account",
+        text: "Make one at last.fm/api/account/create (any name; the callback URL can stay empty), then paste its API key and shared secret here.",
+        fields: [{ name: "key", label: "API key" }, { name: "secret", label: "Shared secret" }],
+        confirm: "Save",
+        submit: (v) => api.setLastfmKeys(v.key.trim(), v.secret.trim()),
+      }).then((r) => { if (r) { toast(r.configured ? "Last.fm is set up: people can connect it in Settings" : "Last.fm removed"); refresh(); } })
+        .catch((err) => toast(err.message));
+    }
     if (b.dataset.admin === "update-auto") {
       const on = b.getAttribute("aria-checked") !== "true";
       api.autoUpdate(on).then((u) => {

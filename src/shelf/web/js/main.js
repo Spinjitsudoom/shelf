@@ -603,6 +603,30 @@ async function runAction(action, el) {
       render();
       break;
     }
+    case "lfm-connect": {
+      const tab = window.open("", "_blank"); // now, while it's a click: browsers block tabs opened later
+      try {
+        const { url } = await api.lastfmStart();
+        if (tab) tab.location = url; else window.open(url, "_blank");
+      } catch (e) { tab?.close(); toast(e.message); break; }
+      const me = await dialog({
+        title: "Connect Last.fm",
+        text: "Last.fm opened in a new tab. Choose “Yes, allow access” there, then come back and choose Done.",
+        confirm: "Done",
+        submit: () => api.lastfmFinish(),
+      });
+      if (!me) break;
+      session.user = { ...session.user, lastfm: me.lastfm };
+      toast(`Scrobbling to Last.fm as ${me.lastfm}`);
+      render();
+      break;
+    }
+    case "lfm-disconnect":
+      await api.lastfmDisconnect();
+      session.user = { ...session.user, lastfm: null };
+      toast("Last.fm disconnected");
+      render();
+      break;
     case "lb-disconnect":
       session.user = { ...session.user, ...(await api.editMe({ listenbrainzToken: "" })) };
       toast("ListenBrainz disconnected");

@@ -885,6 +885,14 @@ export async function settingsView(el, player, { user, version }) {
         user?.listenbrainz
           ? `<button class="btn" type="button" data-action="lb-disconnect">Disconnect</button>`
           : `<button class="btn" type="button" data-action="lb-connect">Connect</button>`)}
+      ${row("Last.fm", user?.lastfm
+        ? `Your listens go to Last.fm as <b>${esc(user.lastfm)}</b>.`
+        : user?.lastfmAvailable
+          ? "Scrobble everything you play to your Last.fm profile. Sends the artist, title and album of each song you play."
+          : user?.admin ? "To scrobble to Last.fm, first add a Last.fm API account in the admin dashboard." : "An admin can set up Last.fm on this server, then you can scrobble to it.",
+        user?.lastfm
+          ? `<button class="btn" type="button" data-action="lfm-disconnect">Disconnect</button>`
+          : user?.lastfmAvailable ? `<button class="btn" type="button" data-action="lfm-connect">Connect</button>` : "")}
       ${row("Server", `Connected to <b>${esc(server)}</b>.`, `<button class="btn" type="button" data-action="change-server">Change server</button>`)}
       ${user?.admin ? row("Admin dashboard", "Add people, manage music folders, rescan the library and see how the server is doing.",
         `<a class="btn" href="#/admin"><svg><use href="#i-admin"/></svg>Open dashboard</a>`) : ""}
