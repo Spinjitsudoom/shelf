@@ -526,7 +526,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             # password isn't typed in the clear. (Signed in, the web app moves itself, sign-in and all.)
             to = secure.redirect_for(request.url.scheme, request.headers.get("host", ""), path,
                                      request.url.query, app.state.secure_url)
-            if to and auth.user_for(token_from(request.headers, request.cookies)) is None:
+            if to and "ShelfAndroid/" not in request.headers.get("user-agent", "") \
+                    and auth.user_for(token_from(request.headers, request.cookies)) is None:  # Shelf Lite moves itself
                 return RedirectResponse(to, status_code=307)
         if path.startswith("/api/") and path not in OPEN_PATHS:
             user = auth.user_for(token_from(request.headers, request.cookies))

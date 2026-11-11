@@ -111,9 +111,28 @@ public class MainActivity extends Activity {
     }
 
     private static void openServer() {
-        String server = server();
-        if (server == null) web.loadUrl(START);
-        else web.loadUrl(server + "/");
+        final String server = server();
+        if (server == null) { web.loadUrl(START); return; }
+        web.loadUrl(server + "/");
+        // On plain http from the internet, and the server has a secure address: move there, signed in.
+        if (!SecureMove.worthAsking(server)) return;
+        new Thread(new Runnable() {
+            public void run() {
+                final String to = SecureMove.target(server);
+                if (to == null) return;
+                MAIN.post(new Runnable() {
+                    public void run() {
+                        if (web == null || !server.equals(server())) return;
+                        SecureMove.carrySignIn(server, to);
+                        prefs().edit().putString("server", to).apply();
+                        web.clearHistory();
+                        web.loadUrl(to + "/");
+                        android.widget.Toast.makeText(app, "Shelf now connects securely, at " + to.replace("https://", ""),
+                            android.widget.Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        }, "secure-move").start();
     }
 
     /** The web view, on a context that can move from screen to screen. */

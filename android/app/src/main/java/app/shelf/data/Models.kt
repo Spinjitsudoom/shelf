@@ -11,7 +11,8 @@ import kotlinx.serialization.Serializable
 /** A share link just made (see ShareLinks). */
 @Serializable data class ShareLink(val token: String, val path: String, val title: String = "", val expiresAt: Double? = null)
 
-@Serializable data class Session(val setup: Boolean = false, val signedIn: Boolean = false, val user: User? = null, val version: String = "")
+@Serializable data class Session(val setup: Boolean = false, val signedIn: Boolean = false, val user: User? = null, val version: String = "",
+                                  val secureUrl: String? = null)
 
 @Serializable data class LoginResult(val token: String, val user: User)
 

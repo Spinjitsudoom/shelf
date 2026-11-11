@@ -19,6 +19,17 @@ class ServerStore(private val prefs: SharedPreferences) {
         get() = prefs.getBoolean("native", false)
         set(v) = prefs.edit().putBoolean("native", v).apply()
 
+    /** Addresses of this server the app has moved away from (to its secure address): requests to them go to [server]. */
+    val formerServers: Set<String>
+        get() = prefs.getStringSet("formerServers", emptySet()) ?: emptySet()
+
+    /** The same server at another address (its secure one), signed in as before. */
+    fun moveTo(url: String) {
+        val old = server
+        prefs.edit().putString("server", url)
+            .putStringSet("formerServers", formerServers + listOfNotNull(old) - url).apply()
+    }
+
     /** Forget the sign-in, keep the server (so signing in again is one step). */
     fun signOut() = prefs.edit().remove("token").apply()
 }

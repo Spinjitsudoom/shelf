@@ -148,6 +148,9 @@ def test_sign_in_page_over_plain_http_from_the_internet_moves_to_the_secure_addr
     assert r.status_code == 307 and r.headers["location"] == SECURE + "/"
     # The API isn't redirected (older apps would lose their sign-in on the way), nor the Subsonic one.
     assert guest.get("/api/ping", follow_redirects=False).status_code == 200
+    # Shelf Lite moves itself (signed in); sent off by the server it would open the browser instead.
+    lite = guest.get("/", follow_redirects=False, headers={"user-agent": "Mozilla/5.0 (Linux; Android 10; wv) ShelfAndroid/0.7.6"})
+    assert lite.status_code == 200
     # At home, or already on the secure address: nothing changes.
     assert TestClient(client.app, base_url="http://192.168.0.64:4533").get("/", follow_redirects=False).status_code == 200
     assert TestClient(client.app, base_url=SECURE).get("/", follow_redirects=False).status_code == 200

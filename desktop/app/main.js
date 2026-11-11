@@ -55,6 +55,44 @@ async function check(url) {
   }
 }
 
+// ---------- moving to the server's secure address (see src/shelf/secure.py) ----------
+
+const PRIVATE_SUFFIXES = [".local", ".lan", ".home", ".internal", ".home.arpa", ".ts.net"];
+
+/** At home or on the tailnet: loopback, LAN, Tailscale's 100.64/10, bare names, .local and such. */
+function isPrivate(host) {
+  host = host.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+  const v4 = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return a === 10 || a === 127 || a === 0 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
+      || (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127);
+  }
+  if (host.includes(":")) return host === "::1" || /^f[cd]/.test(host) || /^fe[89ab]/.test(host);
+  return host === "localhost" || !host.includes(".") || PRIVATE_SUFFIXES.some((x) => host.endsWith(x));
+}
+
+/** On plain http from the internet, and the server has a secure address: move there, signed in.
+ * Resolves to the new address, or null to stay. */
+async function moveToSecure(server) {
+  try {
+    const here = new URL(server);
+    if (here.protocol !== "http:" || isPrivate(here.hostname)) return null;
+    const s = await (await net.fetch(`${server}/api/session`, { cache: "no-store", signal: AbortSignal.timeout(7000) })).json();
+    const to = String(s?.secureUrl || "").replace(/\/+$/, "");
+    if (!to.startsWith("https://") || new URL(to).hostname === here.hostname || await check(to)) return null;
+    const jar = session.defaultSession.cookies;
+    for (const c of await jar.get({ url: server, name: "shelf_session" })) {
+      await jar.set({ url: to, name: c.name, value: c.value, path: "/", secure: true, httpOnly: true,
+        expirationDate: c.expirationDate ?? Date.now() / 1000 + 365 * 86400 });
+    }
+    writeSettings({ server: to });
+    return to;
+  } catch {
+    return null;
+  }
+}
+
 function showStart(error = "") {
   const server = (readSettings().server || "").replace(/^https?:\/\//, "");
   win.loadFile(START, { query: { server, error } });
@@ -62,8 +100,9 @@ function showStart(error = "") {
 
 function openServer() {
   const { server } = readSettings();
-  if (server) win.loadURL(`${server}/`);
-  else showStart();
+  if (!server) return showStart();
+  win.loadURL(`${server}/`);
+  moveToSecure(server).then((to) => { if (to && win) win.loadURL(`${to}/`); });
 }
 
 const serverOrigin = () => {

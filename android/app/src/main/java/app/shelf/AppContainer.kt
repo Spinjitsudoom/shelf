@@ -18,8 +18,10 @@ class AppContainer(context: Context) {
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .addInterceptor { chain ->
-            val req = chain.request()
+            var req = chain.request()
             val server = store.server?.let { runCatching { "$it/".toHttpUrl() }.getOrNull() }
+            // Moved to the secure address: songs queued or downloaded before still name the old one.
+            if (server != null) app.shelf.data.rebase(req.url, store.formerServers, server)?.let { req = req.newBuilder().url(it).build() }
             val token = store.token
             val ours = server != null && req.url.host == server.host && req.url.port == server.port
             chain.proceed(if (ours && token != null && req.header("Authorization") == null)
@@ -58,6 +60,17 @@ class AppContainer(context: Context) {
 
     /** The API of any server address (checking one that was just typed, before it's saved). */
     fun apiFor(server: String): ShelfApi = ShelfApi("$server/".toHttpUrl(), { store.token }, okHttp)
+
+    /** On plain http from the internet, and the server has a secure address: move there (checked first).
+     * Returns the new address, or null if nothing changed. */
+    suspend fun moveToSecure(): String? {
+        val server = store.server ?: return null
+        if (store.token == null) return null
+        val target = app.shelf.data.secureMoveTarget(server, runCatching { api?.session()?.secureUrl }.getOrNull()) ?: return null
+        if (runCatching { apiFor(target).ping() }.isFailure) return null
+        store.moveTo(target)
+        return target
+    }
 
     /** The API for the chosen server (null before one is chosen). */
     val api: ShelfApi?

@@ -101,6 +101,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     val sleepState by container.sleep.state.collectAsStateWithLifecycle()
     var sleepOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { container.likes.refresh() }
+    // On plain http from the internet, and the server has a secure address: move there.
+    LaunchedEffect(Unit) { container.moveToSecure()?.let { say("Shelf now connects securely, at ${it.removePrefix("https://")}") } }
     LaunchedEffect(container.store.token) { container.connect.nudge() } // signed in: join the other devices now
     var menu by remember { mutableStateOf<Pair<app.shelf.data.Track, (() -> Unit)?>?>(null) }
     var adding by remember { mutableStateOf<app.shelf.data.Track?>(null) }
