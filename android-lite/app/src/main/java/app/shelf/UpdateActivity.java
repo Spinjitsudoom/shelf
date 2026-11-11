@@ -54,6 +54,7 @@ public class UpdateActivity extends Activity {
             return;
         }
         Updater.clearNotification(this);
+        if ("xiaomi".equalsIgnoreCase(Build.MANUFACTURER)) { systemInstaller(); return; } // MIUI turns down direct installs
         try {
             PackageInstaller installer = getPackageManager().getPackageInstaller();
             PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
@@ -70,9 +71,19 @@ public class UpdateActivity extends Activity {
                 session.commit(PendingIntent.getActivity(this, 1, back, flags).getIntentSender());
             }
         } catch (Exception e) {
-            Toast.makeText(this, "Couldn’t install the update: " + e.getMessage(), Toast.LENGTH_LONG).show();
-            finish();
+            systemInstaller(); // installing directly didn't work here: Android's installer screen instead
         }
+    }
+
+    /** Android's own "update this app?" screen, given the downloaded APK. */
+    private void systemInstaller() {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(ApkProvider.uri(this), "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (Exception e) {
+            Toast.makeText(this, "Couldn’t install the update: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+        finish();
     }
 
     @SuppressWarnings("deprecation")
@@ -84,6 +95,8 @@ public class UpdateActivity extends Activity {
             return;
         }
         if (status != PackageInstaller.STATUS_SUCCESS && status != PackageInstaller.STATUS_FAILURE_ABORTED) {
+            // Turned down here (MIUI says "Permission Denied", for one): Android's installer screen instead.
+            if (new File(getCacheDir(), "update.apk").exists()) { systemInstaller(); return; }
             String msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
             Toast.makeText(this, "The update didn’t install" + (msg != null ? ": " + msg : ""), Toast.LENGTH_LONG).show();
         }

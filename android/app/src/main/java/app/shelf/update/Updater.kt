@@ -39,6 +39,12 @@ fun apkAsset(release: JsonObject): String? = runCatching {
         ?.let { (it["browser_download_url"] as? JsonPrimitive)?.contentOrNull }
 }.getOrNull()
 
+/**
+ * Whether to hand updates to Android's installer screen rather than install them directly: Xiaomi's
+ * MIUI turns down direct installs from apps ("Permission Denied"), as app stores like F-Droid found.
+ */
+fun prefersSystemInstaller(manufacturer: String): Boolean = manufacturer.equals("xiaomi", ignoreCase = true)
+
 /** Only offer a download that is this app, newer than what's installed, and the version the release said. */
 fun shouldOffer(mine: Int, latest: Int, apkPackage: String?, apkCode: Int?, myPackage: String): Boolean =
     latest > mine && apkPackage == myPackage && apkCode == latest

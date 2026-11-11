@@ -44,6 +44,12 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_now_playing" />
         </receiver>
+        <!-- Lends a downloaded update to Android's installer screen (Xiaomi phones, or when installing directly fails). -->
+        <provider
+            android:name=".ApkProvider"
+            android:authorities="app.shelf.lite.updates"
+            android:exported="false"
+            android:grantUriPermissions="true" />
         <activity
             android:name=".UpdateActivity"
             android:exported="false"

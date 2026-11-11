@@ -35,4 +35,12 @@ class UpdaterTest {
         assertFalse("not what the release said", shouldOffer(700, 701, "app.shelf", 700, "app.shelf"))
         assertFalse("not an APK at all", shouldOffer(700, 701, null, null, "app.shelf"))
     }
+
+    /** Xiaomi's MIUI turns down installs through a session ("Permission Denied"): those phones get Android's own installer screen. */
+    @Test fun xiaomiPhonesUseTheSystemInstaller() {
+        assertTrue(prefersSystemInstaller("Xiaomi"))
+        assertTrue(prefersSystemInstaller("xiaomi"))
+        assertFalse(prefersSystemInstaller("Google"))
+        assertFalse(prefersSystemInstaller("samsung"))
+    }
 }

@@ -40,6 +40,7 @@ class UpdateActivity : Activity() {
             finish(); return
         }
         Updater.clearNotification(this)
+        if (prefersSystemInstaller(Build.MANUFACTURER)) { systemInstaller(apk); return }
         try {
             val installer = packageManager.packageInstaller
             val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply { setAppPackageName(packageName) }
@@ -51,9 +52,20 @@ class UpdateActivity : Activity() {
                 session.commit(PendingIntent.getActivity(this, 1, back, flags).intentSender)
             }
         } catch (e: Exception) {
-            Toast.makeText(this, "Couldn’t install the update: ${e.message}", Toast.LENGTH_LONG).show()
-            finish()
+            systemInstaller(apk) // installing directly didn't work here: Android's installer screen instead
         }
+    }
+
+    /** Android's own "update this app?" screen, given the downloaded APK. */
+    private fun systemInstaller(apk: java.io.File) {
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.updates", apk)
+            startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Couldn’t install the update: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+        finish()
     }
 
     @Suppress("DEPRECATION")
@@ -64,6 +76,9 @@ class UpdateActivity : Activity() {
             return
         }
         if (status != PackageInstaller.STATUS_SUCCESS && status != PackageInstaller.STATUS_FAILURE_ABORTED) {
+            // Turned down here (MIUI says "Permission Denied", for one): Android's installer screen instead.
+            val apk = Updater.apk(this)
+            if (apk.exists()) { systemInstaller(apk); return }
             val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
             Toast.makeText(this, "The update didn’t install" + (msg?.let { ": $it" } ?: ""), Toast.LENGTH_LONG).show()
         }
