@@ -21,9 +21,10 @@ from fastapi import FastAPI, HTTPException, Query, Request, Response, WebSocket
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from typing import Literal
 
 from . import procs
-from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lossy, lyrics, mixes, moods, party, peaks, playlist_maker, releases, resume, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lossy, lyrics, mixes, moods, party, peaks, playlist_maker, releases, resume, ripper, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -247,6 +248,16 @@ def transition_json(raw: str | None) -> dict:
 
 class WatchBody(BaseModel):
     path: str = Field(max_length=1000)
+
+
+class ShareBody(BaseModel):
+    kind: Literal["track", "album", "playlist"]
+    id: int
+    days: Literal[1, 7, 30] | None = 7  # None: never runs out
+
+
+class SharingBody(BaseModel):
+    enabled: bool
 
 
 class ResumeBody(BaseModel):
@@ -525,6 +536,10 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         response.headers["Access-Control-Allow-Origin"] = "*"
         return {"app": "shelf", "version": __version__}
 
+    def _sharing_on() -> bool:
+        with db() as conn:
+            return shares.enabled(conn)
+
     def _me_json(user: User) -> dict:
         with db() as conn:
             r = conn.execute("SELECT share_activity, listenbrainz_user, listenbrainz_token, lastfm_user, lastfm_session, subsonic_secret FROM users WHERE id = ?",
@@ -533,7 +548,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                               "listenbrainz": (r["listenbrainz_user"] or "ListenBrainz") if r and r["listenbrainz_token"] else None,
                               "lastfm": (r["lastfm_user"] or "Last.fm") if r and r["lastfm_session"] else None,
                               "lastfmAvailable": lastfm.keys(cfg.db_path) is not None,
-                              "subsonic": bool(r and r["subsonic_secret"])}
+                              "subsonic": bool(r and r["subsonic_secret"]),
+                              "shareLinks": _sharing_on()}
 
     @app.get("/api/session")
     def get_session(request: Request):
@@ -1005,6 +1021,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             "devices": sum(len(h.devices) for h in hubs.values()),
             "version": __version__,
             "update": new_version.info(),
+            "shares": _sharing_on(),
             "lastfm": lastfm.keys(cfg.db_path) is not None,
             "watch": {"path": str(_watch_dir()) if _watch_dir() else None},
             "backups": _backups_view(),
@@ -3094,6 +3111,135 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         return {"freedBytes": transcode.clear_cache(cfg.transcode_dir)}
 
     # ---------- web app ----------
+
+    # ---------- share links ----------
+
+    def _share_tracks(conn, row) -> list:
+        kind, item = row["kind"], row["item_id"]
+        if kind == "track":
+            return conn.execute(f"{TRACK_SELECT} WHERE t.id = ?", (item,)).fetchall()
+        if kind == "album":
+            return conn.execute(f"{TRACK_SELECT} WHERE a.id = ? {TRACK_ORDER}", (item,)).fetchall()
+        p = conn.execute("SELECT * FROM playlists WHERE id = ?", (item,)).fetchone()
+        if not p:
+            return []
+        rules = _rules_of(p)
+        if rules:
+            return _smart_rows(conn, item, rules, row["user_id"])
+        return conn.execute(f"""SELECT q.* FROM playlist_tracks e JOIN ({TRACK_SELECT}) q ON q.id = e.track_id
+                                WHERE e.playlist_id = ? ORDER BY e.position""", (item,)).fetchall()
+
+    def _share_heading(conn, row) -> tuple[str, str]:
+        """What a link shows as its title, and by whom."""
+        kind, item = row["kind"], row["item_id"]
+        if kind == "track":
+            t = conn.execute("SELECT title, artist FROM tracks WHERE id = ?", (item,)).fetchone()
+            return (t["title"], t["artist"]) if t else ("A song", "")
+        if kind == "album":
+            a = conn.execute("SELECT title, artist FROM albums WHERE id = ?", (item,)).fetchone()
+            return (a["title"], a["artist"]) if a else ("An album", "")
+        p = conn.execute("SELECT name FROM playlists WHERE id = ?", (item,)).fetchone()
+        return (p["name"] if p else "A playlist", f"A playlist by {row['username']}")
+
+    def _share_json(conn, row) -> dict:
+        title, by = _share_heading(conn, row)
+        return {"token": row["token"], "path": f"/s/{row['token']}", "kind": row["kind"], "id": row["item_id"],
+                "title": title, "by": by, "createdAt": row["created_at"], "expiresAt": row["expires_at"],
+                "expired": shares.expired(row), "opened": row["opened"], "sharedBy": row["username"]}
+
+    @app.post("/api/shares")
+    def create_share(body: ShareBody):
+        user = CURRENT.get()
+        with db() as conn:
+            if not shares.enabled(conn):
+                raise HTTPException(403, "Share links are off on this server. Its admin can turn them on.")
+            if body.kind == "track":
+                found = conn.execute("SELECT 1 FROM tracks WHERE id = ?", (body.id,)).fetchone()
+            elif body.kind == "album":
+                found = conn.execute("SELECT 1 FROM albums WHERE id = ?", (body.id,)).fetchone()
+            else:
+                _require_playlist(conn, body.id, "read")
+                found = True
+            if not found:
+                raise HTTPException(404, "Not found")
+            token = shares.create(conn, user.id, body.kind, body.id, body.days)
+            return _share_json(conn, shares.find(conn, token))
+
+    @app.get("/api/shares")
+    def my_shares():
+        with db() as conn:
+            return [_share_json(conn, r) for r in shares.listed(conn, uid())]
+
+    @app.delete("/api/shares/{token}")
+    def stop_share(token: str):
+        user = CURRENT.get()
+        with db() as conn:
+            row = shares.find(conn, token)
+            if not row or (row["user_id"] != user.id and not user.admin):
+                raise HTTPException(404, "No such link")
+            shares.stop(conn, token)
+        return {"ok": True}
+
+    @app.get("/api/admin/shares")
+    def admin_shares():
+        admin_only()
+        with db() as conn:
+            return {"enabled": shares.enabled(conn), "links": [_share_json(conn, r) for r in shares.listed(conn)]}
+
+    @app.patch("/api/admin/shares")
+    def set_sharing(body: SharingBody):
+        admin_only()
+        with db() as conn:
+            shares.set_enabled(conn, body.enabled)
+        return admin_shares()
+
+    def _open_share(conn, token: str):
+        """A link that works now, or the reason it doesn't (open to anyone: no account needed)."""
+        row = shares.find(conn, token)
+        if not row or not shares.enabled(conn):
+            raise HTTPException(404, "This link doesn’t work. It may have been stopped.")
+        if shares.expired(row):
+            raise HTTPException(410, "This link has expired.")
+        return row
+
+    @app.get("/s/{token}")
+    def share_page(token: str):
+        return FileResponse(WEB_DIR / "share.html", media_type="text/html", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/s/{token}/info")
+    def share_info(token: str):
+        with db() as conn:
+            row = _open_share(conn, token)
+            title, by = _share_heading(conn, row)
+            rows = _share_tracks(conn, row)
+            shares.opened(conn, token)
+        tracks = [{"id": r["id"], "title": r["title"], "artist": r["artist"], "album": r["album_title"],
+                   "albumId": r["album_id"], "duration": round(r["duration"] or 0, 1),
+                   "cover": _cover_version(r["cover_src"])} for r in rows]
+        cover = next((t for t in tracks if t["cover"]), None)
+        return {"kind": row["kind"], "title": title, "by": by, "sharedBy": row["username"],
+                "expiresAt": row["expires_at"], "tracks": tracks,
+                "cover": f"/s/{token}/albums/{cover['albumId']}/cover?v={cover['cover']}" if cover else None}
+
+    def _share_has(conn, row, track_id: int | None = None, album_id: int | None = None) -> bool:
+        return any((track_id is not None and r["id"] == track_id) or (album_id is not None and r["album_id"] == album_id)
+                   for r in _share_tracks(conn, row))
+
+    @app.get("/s/{token}/tracks/{track_id}/stream")
+    async def share_stream(token: str, track_id: int, q: str = "original"):
+        with db() as conn:
+            row = _open_share(conn, token)
+            if not _share_has(conn, row, track_id=track_id):
+                raise HTTPException(404, "Not in this link")
+        return await stream(track_id, q)
+
+    @app.get("/s/{token}/albums/{album_id}/cover")
+    def share_cover(token: str, album_id: int, size: int = Query(640, ge=32, le=1200)):
+        with db() as conn:
+            row = _open_share(conn, token)
+            if not _share_has(conn, row, album_id=album_id):
+                raise HTTPException(404, "Not in this link")
+        return album_cover(album_id, size)
 
     app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
     return app

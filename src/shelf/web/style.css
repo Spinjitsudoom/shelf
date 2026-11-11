@@ -2292,3 +2292,13 @@ input.range.balance::-moz-range-progress { background: transparent; }
 /* The visualizer: a ring of bars drawn around the disc (a canvas over the whole of Now Playing, under its content). */
 .np-viz { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
 #nowplaying > .np-inner { position: relative; z-index: 1; }
+
+/* Share links */
+.share-dialog { width: min(520px, calc(100vw - 32px)); }
+.share-dialog input[readonly] { font-variant-numeric: tabular-nums; }
+.share-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 50vh; overflow: auto; }
+.share-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid var(--rule); }
+.share-list li:first-child { border-top: 0; }
+.share-list li div { min-width: 0; }
+.share-list b, .share-list span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.share-list span { color: var(--ink-2); font-size: 13px; }

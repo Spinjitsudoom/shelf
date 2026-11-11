@@ -316,6 +316,10 @@ function page(o, dirs, me) {
       <h2 class="settings-section">Services</h2>
       ${row("Last.fm", o.lastfm ? "People here can scrobble to Last.fm from Settings." : "Add the server’s Last.fm API account so people here can scrobble to Last.fm.",
         `<button class="btn" type="button" data-admin="lastfm">${o.lastfm ? "Change" : "Set up"}</button>`)}
+      ${row("Share links", o.shares
+        ? "On: people here can make links to a song, album or playlist that anyone can listen to without an account. Turning it off stops every link."
+        : "Let people here make links to a song, album or playlist that anyone can listen to without an account. Each link opens only what was shared, and can run out or be stopped.",
+        `<button class="switch" type="button" role="switch" data-admin="shares" aria-checked="${!!o.shares}" aria-label="Share links"></button>`)}
       ${o.update && o.update.kind !== "manual" ? row("Install updates by themselves", "At night, once nothing has played on any device for half an hour, so music is never cut off.",
         `<button class="switch" type="button" role="switch" data-admin="update-auto" aria-checked="${!!o.update.auto}" aria-label="Install updates by themselves"></button>`) : ""}
 
@@ -833,6 +837,15 @@ export async function adminView(el, session, { dialog }) {
         submit: (v) => api.setLastfmKeys(v.key.trim(), v.secret.trim()),
       }).then((r) => { if (r) { toast(r.configured ? "Last.fm is set up: people can connect it in Settings" : "Last.fm removed"); refresh(); } })
         .catch((err) => toast(err.message));
+    }
+    if (b.dataset.admin === "shares") {
+      const on = b.getAttribute("aria-checked") !== "true";
+      api.setSharing(on).then((r) => {
+        b.setAttribute("aria-checked", String(!!r.enabled));
+        session.user = { ...session.user, shareLinks: !!r.enabled };
+        toast(r.enabled ? "Share links are on: find Share link in the menus" : "Share links are off: every link is stopped");
+        refresh();
+      }).catch((err) => toast(err.message));
     }
     if (b.dataset.admin === "update-auto") {
       const on = b.getAttribute("aria-checked") !== "true";

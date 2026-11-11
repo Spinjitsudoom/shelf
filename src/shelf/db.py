@@ -110,6 +110,16 @@ CREATE TABLE IF NOT EXISTS artist_cache (
 );
 
 -- Favourites (liked songs), per person. A song that leaves the library leaves the list too.
+CREATE TABLE IF NOT EXISTS shares (
+    token      TEXT PRIMARY KEY,  -- the secret part of the link (/s/<token>)
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind       TEXT NOT NULL,     -- track, album or playlist
+    item_id    INTEGER NOT NULL,
+    created_at REAL NOT NULL,
+    expires_at REAL,              -- NULL: never runs out
+    opened     INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS resume_points (
     user_id    INTEGER NOT NULL,
     track_id   INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,

@@ -15,6 +15,7 @@ import { adminView } from "./admin.js";
 import { settings } from "./settings.js";
 import { Player } from "./player.js";
 import { nativeApp as android, currentServer, switchServer } from "./server.js";
+import { manageLinks, shareLink } from "./sharelinks.js";
 import { clearNative, mountNative } from "./native.js";
 import { mountSleep } from "./sleep.js";
 import { mountDJ } from "./dj.js";
@@ -683,6 +684,9 @@ async function runAction(action, el) {
       });
       break;
     }
+    case "share-links":
+      await manageLinks();
+      break;
     case "subsonic-off": {
       const ok = await dialog({
         title: "Turn off other music apps?",
@@ -982,6 +986,7 @@ function playlistMenu(id, at) {
       "sep",
       { label: "Edit details", icon: "i-edit", run: () => editPlaylist(id).catch((e) => toast(e.message)) },
       { label: "Add to queue", icon: "i-plus", run: () => { if (ctx.tracks.length) player.addToQueue(ctx.tracks); } },
+      ...(session.user?.shareLinks ? [{ label: "Share link", icon: "i-link", run: () => shareLink("playlist", id, ctx.context?.playlistId === id ? ctx.context.label : "this playlist") }] : []),
       "sep",
       { label: "Delete playlist", icon: "i-trash", run: () => deletePlaylist(id).catch((e) => toast(e.message)) },
     ],
@@ -1075,6 +1080,7 @@ function albumMenu(card, at) {
       { label: "Play next", icon: "i-next-up", run: withAlbum((a) => player.playNext(a.tracks)) },
       { label: "Add to queue", icon: "i-plus", run: withAlbum((a) => player.addToQueue(a.tracks)) },
       { label: "Add to playlist", icon: "i-playlist", run: () => addToPlaylistMenu(() => api.album(id).then((a) => a.tracks.map((t) => t.id)), at) },
+      ...(session.user?.shareLinks ? [{ label: "Share link", icon: "i-link", run: () => shareLink("album", id, title) }] : []),
       "sep",
       { label: "Go to album", icon: "i-album-go", run: () => { location.hash = `#/album/${id}`; } },
       ...artistItems(artists),
@@ -1097,6 +1103,7 @@ function trackMenu(i, at) {
       { label: "Add to playlist", icon: "i-playlist", run: () => addToPlaylistMenu(() => [t.id], at) },
       { label: likes.has(t.id) ? "Remove from Favourites" : "Add to Favourites", icon: "i-heart", run: () => likes.toggle(t.id) },
       { label: "Go to song radio", icon: "i-radio", run: () => { location.hash = `#/radio/track/${t.id}`; } },
+      ...(session.user?.shareLinks ? [{ label: "Share link", icon: "i-link", run: () => shareLink("track", t.id, t.title) }] : []),
       ...(t.entryId && route.name === "playlist" && ctx.context?.canEdit ? [
         "sep",
         ...(i > 0 ? [{ label: "Move up", icon: "i-back", run: () => movePlaylistEntry(i, i - 1) }] : []),

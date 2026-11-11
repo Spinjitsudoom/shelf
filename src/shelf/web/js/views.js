@@ -903,6 +903,8 @@ export async function settingsView(el, player, { user, version }) {
           ? `<button class="btn btn-small" type="button" data-action="subsonic-off">Turn off</button>
              <button class="btn" type="button" data-action="subsonic-show">Show details</button>`
           : `<button class="btn" type="button" data-action="subsonic-on">Set up</button>`)}
+      ${user?.shareLinks ? row("Share links", "Links you’ve made to songs, albums and playlists, which anyone with the link can listen to. See them, copy them or stop them.",
+        `<button class="btn" type="button" data-action="share-links">Manage links</button>`) : ""}
       ${row("Server", `Connected to <b>${esc(server)}</b>.`, `<button class="btn" type="button" data-action="change-server">Change server</button>`)}
       ${user?.admin ? row("Admin dashboard", "Add people, manage music folders, rescan the library and see how the server is doing.",
         `<a class="btn" href="#/admin"><svg><use href="#i-admin"/></svg>Open dashboard</a>`) : ""}

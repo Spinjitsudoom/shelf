@@ -420,6 +420,19 @@ that sound like the ones they start from, alongside artist, genre, tempo and key
   jumps there ("Picking up where you stopped, at 12:34"); finishing it or going back to the
   start forgets the place.
 
+## Share links
+
+A song, an album or a playlist can be shared with someone who has no account: **Share link**
+in its menu makes a link that opens a small page to listen in any browser. Nothing else on the
+server opens to them, not even the rest of the album. A link works for a day, a week, a month or
+until it's stopped; **Settings → Share links** lists yours, with how often each was opened, to
+copy or stop. Playlist links follow the playlist as it changes.
+
+Share links are off until an admin turns them on (**Admin → Services → Share links**); turning
+them off stops every link at once. The link uses the address you have Shelf open at, so for
+people outside your home network, make it while using an address they can reach (your public
+address, or a `tailscale funnel` one).
+
 ## Other music apps (Subsonic)
 
 Shelf speaks the Subsonic API (with the OpenSubsonic additions), so apps made for Subsonic
