@@ -244,7 +244,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                 lyrics = api?.let { a -> { id: Int -> a.lyrics(id) } },
                 device = playingOn, onDevices = { devicesOpen = true },
                 sleep = sleepState, onSleep = { sleepOpen = true },
-                video = api?.let { a -> { id: Int -> a.video(id) } })
+                video = api?.let { a -> { id: Int -> a.video(id) } },
+                onVisualizer = { container.settings.update { it.copy(visualizer = !it.visualizer) } })
         }
     }
     menu?.let { (t, remove) ->

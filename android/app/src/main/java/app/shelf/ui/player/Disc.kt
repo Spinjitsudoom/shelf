@@ -60,12 +60,13 @@ private fun reduceMotion() = Settings.Global.getFloat(LocalContext.current.conte
  * left to make room) and the tonearm swings onto it; on pause the arm lifts and it goes back in.
  */
 @Composable
-internal fun Deck(t: Track, url: String?, playing: Boolean, modifier: Modifier = Modifier) {
+internal fun Deck(t: Track, url: String?, playing: Boolean, modifier: Modifier = Modifier,
+                  levels: androidx.compose.runtime.State<FloatArray>? = null, ringColor: Color = Color.White) {
     val color = fallbackColor(t.album)
     if (LocalSettings.current.format != "vinyl") {
         BoxWithConstraints(modifier, contentAlignment = Alignment.CenterStart) {
             val case = maxWidth * 0.86f
-            Disc(url, playing, Modifier.size(case * 0.94f).offset(x = maxWidth - case * 0.94f, y = case * 0.03f), labelColor = color)
+            Disc(url, playing, Modifier.size(case * 0.94f).offset(x = maxWidth - case * 0.94f, y = case * 0.03f).spectrumRing(levels, ringColor), labelColor = color)
             CaseCover(url, t.album, color, Modifier.size(case))
         }
         return
@@ -84,7 +85,7 @@ internal fun Deck(t: Track, url: String?, playing: Boolean, modifier: Modifier =
         val rest = (maxWidth - deck * 1.412f) / 2 + deck * 0.17f
         Box(Modifier.offset(x = rest - deck * 0.17f * out).size(deck)) {
             Box(Modifier.offset(x = deck * 0.055f + disc * 0.46f * out, y = deck * 0.055f).size(disc)) {
-                Disc(url, playing, Modifier.fillMaxSize(), labelColor = color)
+                Disc(url, playing, Modifier.fillMaxSize().spectrumRing(levels, ringColor), labelColor = color)
                 Tonearm(arm, Modifier.fillMaxSize().graphicsLayer { alpha = out })
             }
             CaseCover(url, t.album, color, Modifier.fillMaxSize())

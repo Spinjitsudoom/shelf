@@ -24,6 +24,7 @@ data class Settings(
     val autoplay: Boolean = true,          // similar songs when the queue runs out
     val privateSession: Boolean = false,   // this phone's listening kept out of friend activity
     val spinDisc: Boolean = true,
+    val visualizer: Boolean = true,        // the ring of bars around the disc on Now Playing
     val deviceName: String = "",           // empty: the phone's own name
     val downloadQuality: String = "veryhigh",
     val crossfade: Int = 0,                // seconds, 0 = off (Mix playlists use their own transitions)

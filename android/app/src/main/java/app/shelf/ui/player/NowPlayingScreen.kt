@@ -76,13 +76,18 @@ fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConne
                      liked: Boolean = false, onLike: () -> Unit = {}, lyrics: (suspend (Int) -> app.shelf.data.Lyrics)? = null,
                      device: String? = null, onDevices: (() -> Unit)? = null,
                      sleep: app.shelf.playback.SleepState? = null, onSleep: (() -> Unit)? = null,
-                     video: (suspend (Int) -> app.shelf.data.VideoInfo)? = null) {
+                     video: (suspend (Int) -> app.shelf.data.VideoInfo)? = null, onVisualizer: (() -> Unit)? = null) {
     val t = state.current ?: return onClose()
     // The album's own colour (the song doesn't carry it), fetched once per album.
     val color by produceState(fallbackColor(t.album), t.albumId) {
         value = runCatching { source.album(t.albumId) }.getOrNull()?.let { albumColor(it.color, it.title) } ?: fallbackColor(t.album)
     }
     var queueOpen by remember { mutableStateOf(false) }
+    // The visualizer: on this phone's own playing (not as a remote), unless animations are off.
+    val vizOn = app.shelf.settings.LocalSettings.current.visualizer
+    val still = android.provider.Settings.Global.getFloat(androidx.compose.ui.platform.LocalContext.current.contentResolver,
+        android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    val levels = rememberSpectrum(vizOn && !still && state.playing && !state.remote)
     var showLyrics by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val cover = { tr: Track -> source.coverUrl(tr.albumId, tr.cover, 640) }
 
@@ -98,13 +103,16 @@ fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConne
             if (lyrics != null) IconButton(onClick = { showLyrics = !showLyrics }) {
                 Icon(painterResource(R.drawable.ic_mic), if (showLyrics) "Hide lyrics" else "Lyrics", tint = if (showLyrics) Shelf.colors.cobalt else Shelf.colors.ink)
             }
+            if (onVisualizer != null) IconButton(onClick = onVisualizer) {
+                Icon(painterResource(R.drawable.ic_stats), if (vizOn) "Visualizer on" else "Visualizer off", tint = if (vizOn) Shelf.colors.cobalt else Shelf.colors.ink2)
+            }
             IconButton(onClick = { queueOpen = true }) { Icon(painterResource(R.drawable.ic_queue), "Queue", tint = Shelf.colors.ink) }
         }
         Spacer(Modifier.height(18.dp))
         if (showLyrics && lyrics != null) LyricsPanel(t.id, state.positionMs, lyrics, player::seekTo, Modifier.fillMaxWidth().aspectRatio(1f))
         else SwipeToSkip(
             previous = state.previous?.let { p -> { Deck(p, cover(p), false, Modifier.fillMaxSize()) } },
-            current = { Deck(t, cover(t), state.playing, Modifier.fillMaxSize()) },
+            current = { Deck(t, cover(t), state.playing, Modifier.fillMaxSize(), levels = levels, ringColor = Shelf.colors.ink) },
             next = state.next?.let { n -> { Deck(n, cover(n), false, Modifier.fillMaxSize()) } },
             onPrevious = player::previous, onNext = player::next,
             modifier = Modifier.fillMaxWidth().aspectRatio(1f),

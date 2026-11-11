@@ -52,6 +52,7 @@ class ShelfAudioProcessor : BaseAudioProcessor() {
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+        SpectrumTap.shared.configure(inputAudioFormat.sampleRate)
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT)
             throw AudioProcessor.UnhandledAudioFormatException(inputAudioFormat)
         return inputAudioFormat
@@ -79,7 +80,10 @@ class ShelfAudioProcessor : BaseAudioProcessor() {
         val frame = DoubleArray(channels)
         val left = if (p.balance > 0) 1.0 - p.balance else 1.0
         val right = if (p.balance < 0) 1.0 + p.balance else 1.0
+        val listen = SpectrumTap.listening // the visualizer is on screen: keep what's heard
+        val tap = SpectrumTap.shared
         repeat(frames) {
+            var mono = 0.0
             for (c in 0 until channels) frame[c] = if (float) inputBuffer.float.toDouble() else inputBuffer.short / 32768.0
             if (channels == 2) {
                 if (p.mono) { val m = (frame[0] + frame[1]) / 2; frame[0] = m; frame[1] = m }
@@ -102,7 +106,9 @@ class ShelfAudioProcessor : BaseAudioProcessor() {
                 }
                 if (float) out.putFloat(x.coerceIn(-1.0, 1.0).toFloat())
                 else out.putShort((x * 32768).roundToInt().coerceIn(-32768, 32767).toShort())
+                mono += x
             }
+            if (listen) tap.write((mono / channels).toFloat())
         }
         out.flip()
     }
