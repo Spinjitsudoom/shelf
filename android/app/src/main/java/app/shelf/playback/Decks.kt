@@ -156,11 +156,21 @@ class Decks(
         val at = (t.outIndex + 1 until items.size).firstOrNull { items[it].mediaId == t.incoming.mediaId }
             ?: items.indexOfFirst { it.mediaId == t.incoming.mediaId }.takeIf { it >= 0 }
         if (at != null) {
-            val before = items.subList(0, (t.outIndex + 1).coerceAtMost(at))
+            // The old deck's songs in the new deck's order (by their place in the old queue).
+            val split = (t.outIndex + 1).coerceAtMost(at)
+            val order = (0 until split) + at + (split until at) + (at + 1 until items.size)
+            val before = order.subList(0, split).map { items[it] }
             // Songs put in between during the transition ("play next") play after the one coming in.
-            val after = items.subList((t.outIndex + 1).coerceAtMost(at), at) + items.subList(at + 1, items.size)
+            val after = order.subList(split + 1, order.size).map { items[it] }
             if (before.isNotEmpty()) inc.addMediaItems(0, before)
             if (after.isNotEmpty()) inc.addMediaItems(after)
+            // The shuffled order carries over too, so songs already heard don't come round again.
+            val shuffled = shuffledOrder(old)
+            if (shuffled.size == order.size) {
+                val newPlace = IntArray(order.size).also { place -> order.forEachIndexed { i, o -> place[o] = i } }
+                inc.setShuffleOrder(androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder(
+                    shuffled.map { newPlace[it] }.toIntArray(), System.nanoTime()))
+            }
         }
         inc.repeatMode = old.repeatMode
         inc.shuffleModeEnabled = old.shuffleModeEnabled
@@ -177,6 +187,15 @@ class Decks(
         if (t.plan.rate != 1.0) easing = t.plan.rate.toFloat() to now
         applyVolumes()
         onSwap(inc)
+    }
+
+    /** A deck's queue in shuffled order (as indices), whether or not shuffle is on now. */
+    private fun shuffledOrder(p: Player): List<Int> {
+        val tl = p.currentTimeline
+        if (tl.isEmpty) return emptyList()
+        return generateSequence(tl.getFirstWindowIndex(true)) { i ->
+            tl.getNextWindowIndex(i, Player.REPEAT_MODE_OFF, true).takeIf { it != C.INDEX_UNSET }
+        }.take(tl.windowCount).toList()
     }
 
     /** Seeking within the old song: no transition after all; the incoming deck stops. */

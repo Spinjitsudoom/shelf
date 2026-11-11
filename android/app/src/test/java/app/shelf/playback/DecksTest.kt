@@ -95,4 +95,25 @@ class DecksTest {
         decks.tick(0)
         assertEquals("the song repeats, nothing fades in", 0, b.mediaItemCount)
     }
+
+    /** With shuffle on, the handover keeps the shuffled order: songs already heard don't come round again. */
+    @Test fun handoverKeepsTheShuffleOrder() {
+        a.setMediaItems((1..5).map(::item))
+        a.setShuffleOrder(androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder(intArrayOf(2, 0, 4, 1, 3), 7))
+        a.shuffleModeEnabled = true
+        a.seekTo(0, 100_000) // song 1, after song 3; song 5 is next
+        a.playWhenReady = true
+        idle()
+        decks.tick(0)
+        assertEquals(listOf(5), ids(b))
+        decks.tick(8_001)
+        assertSame(b, decks.current)
+        assertTrue(b.shuffleModeEnabled)
+        val tl = b.currentTimeline
+        fun song(i: Int) = b.getMediaItemAt(i).track()!!.id
+        val after = generateSequence(b.currentMediaItemIndex) { i -> tl.getNextWindowIndex(i, Player.REPEAT_MODE_OFF, true).takeIf { it >= 0 } }.map(::song).toList()
+        val before = generateSequence(b.currentMediaItemIndex) { i -> tl.getPreviousWindowIndex(i, Player.REPEAT_MODE_OFF, true).takeIf { it >= 0 } }.map(::song).toList()
+        assertEquals(listOf(5, 2, 4), after)
+        assertEquals(listOf(5, 1, 3), before)
+    }
 }
