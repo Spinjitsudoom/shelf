@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.7.6",
+    "date": "2026-11-11",
+    "new": [
+      {"title": "Secure connections", "text": "When your server has a secure address, Shelf moves to it by itself, still signed in, so passwords and music are encrypted away from home."},
+      {"title": "Secure address", "text": "Give Shelf an https address for people away from home with one button (Tailscale Funnel), or use your own domain. Admin → Secure address.", "admin": true},
+      {"title": "What’s new", "text": "After each update, this window shows what’s new and what’s fixed, once. It’s in Settings too."}
+    ],
+    "fixed": [
+      "On Xiaomi phones, Shelf updates itself from inside the app again.",
+      "The admin dashboard shows again in the Android app, and gets the whole screen."
+    ]
+  },
+  {
     "version": "0.7.5",
     "date": "2026-11-11",
     "new": [
