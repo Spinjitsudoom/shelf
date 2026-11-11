@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, covers, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos
+from . import analysis, covers, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -240,6 +240,10 @@ def transition_json(raw: str | None) -> dict:
     return {"preset": raw}
 
 
+class WatchBody(BaseModel):
+    path: str = Field(max_length=1000)
+
+
 class LastfmKeysBody(BaseModel):
     key: str = Field(max_length=100)
     secret: str = Field(max_length=100)
@@ -423,12 +427,14 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         if start_scanner:
             scanner.start()
             scrobbler.start()
+            watcher.start()
             new_releases.start()
             new_version.start()
         yield
         new_version.stop()
         scanner.stop()
         scrobbler.stop()
+        watcher.stop()
         new_releases.stop()
         dj_voice.stop()
         natural.stop()
@@ -436,6 +442,14 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     app = FastAPI(title="Shelf", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.scanner = scanner
+
+    def _watch_dir() -> Path | None:
+        with session(cfg.db_path) as conn:
+            p = get_meta(conn, "watch_dir")
+        return Path(p) if p else None
+
+    watcher = watch.Watcher(_watch_dir, lambda: cfg.music_dirs[0] if cfg.music_dirs else None,
+                            on_filed=lambda n: scanner.trigger())
     app.state.scrobbler = scrobbler
     app.state.cfg = cfg
     hubs: dict[int, Hub] = {}  # Connect: each person's devices only see each other
@@ -525,6 +539,25 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 if not token:
                     conn.execute("DELETE FROM scrobbles WHERE user_id = ? AND service = 'listenbrainz'", (user.id,))
         return _me_json(user)
+
+    # ---------- the watch folder ----------
+
+    @app.patch("/api/admin/watch")
+    def set_watch_folder(body: WatchBody):
+        """A folder to drop music into: it's renamed from its tags and filed as Artist/Album. Empty turns it off."""
+        admin_only()
+        path = body.path.strip()
+        if path:
+            p = Path(path).expanduser()
+            if not p.is_dir():
+                raise HTTPException(400, "That folder doesn’t exist on the server")
+            for m in cfg.music_dirs:
+                if p.resolve() == m.resolve() or m.resolve() in p.resolve().parents or p.resolve() in m.resolve().parents:
+                    raise HTTPException(400, "Pick a folder outside your music folders (songs are moved from it into them)")
+            path = str(p)
+        with db() as conn:
+            set_meta(conn, "watch_dir", path)
+        return {"path": path or None}
 
     # ---------- Last.fm ----------
 
@@ -770,6 +803,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             "version": __version__,
             "update": new_version.info(),
             "lastfm": lastfm.keys(cfg.db_path) is not None,
+            "watch": {"path": str(_watch_dir()) if _watch_dir() else None},
         }
 
     @app.post("/api/admin/update/check")

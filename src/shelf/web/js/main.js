@@ -546,6 +546,19 @@ async function runAction(action, el) {
       afterFolderChange();
       break;
     }
+    case "watch-set": {
+      const path = await pickFolder({ title: "Choose a watch folder" });
+      if (!path) break;
+      await api.setWatchFolder(path);
+      toast(`Watching ${path}: music dropped in is filed within a minute`, 5000);
+      afterFolderChange();
+      break;
+    }
+    case "watch-off":
+      await api.setWatchFolder("");
+      toast("Watch folder off");
+      afterFolderChange();
+      break;
     case "folder-remove": {
       const path = el.dataset.path;
       const ok = await dialog({

@@ -108,6 +108,7 @@ export const api = {
   adminOverview: () => request("GET", "admin/overview"),
   checkUpdate: () => request("POST", "admin/update/check"),
   updateServer: () => request("POST", "admin/update"),
+  setWatchFolder: (path) => request("PATCH", "admin/watch", { path }),
   setLastfmKeys: (key, secret) => request("PATCH", "admin/lastfm", { key, secret }),
   lastfmStart: () => request("POST", "me/lastfm/start"),
   lastfmFinish: () => request("POST", "me/lastfm/finish"),

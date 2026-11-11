@@ -104,6 +104,11 @@ function libraryPart(o, dirs) {
           </span>`}
         </div>`).join("") || `<p class="folders-empty">No music folders yet. Add the folder where your music is.</p>`}
     </div>
+    ${row("Watch folder", o.watch?.path
+      ? `Music dropped into <b>${esc(o.watch.path)}</b> is renamed from its tags and filed into your first music folder as Artist/Album.`
+      : "A folder to drop music into: Shelf renames each song from its tags and files it into your music as Artist/Album, with its cover.",
+      `${o.watch?.path ? `<button class="btn btn-small" type="button" data-action="watch-off">Turn off</button>` : ""}
+       <button class="btn" type="button" data-action="watch-set">${o.watch?.path ? "Change" : "Choose folder"}</button>`)}
 
     <div id="dj-slot"></div>
     <div id="cd-slot"></div>
