@@ -31,6 +31,7 @@ import {
   features,
 } from "./views.js";
 import { offline } from "./offline.js";
+import { claimHandoff, moveToSecure } from "./secure.js";
 
 const $ = (id) => document.getElementById(id);
 const view = $("view");
@@ -2208,7 +2209,9 @@ async function startOffline() {
 
 (async () => {
   try {
+    await claimHandoff();
     const s = await api.session();
+    if (await moveToSecure(s)) return;
     session.user = s.user;
     session.version = s.version;
     session.features = s.features;

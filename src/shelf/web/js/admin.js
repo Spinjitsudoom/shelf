@@ -256,6 +256,32 @@ function signinPart(list) {
       </li>`).join("")}</ul>` : ""}`;
 }
 
+/** How people reach the server from the internet: over https (Tailscale Funnel or the admin's
+ * own address), or in the clear. s: GET /api/admin/secure (null while it loads). */
+function secureHtml(s, allow = null, busy = false) {
+  const head = `<h2 class="settings-section">Secure address</h2>`;
+  if (!s) return `${head}<p class="people-note">Checking…</p>`;
+  const ts = s.tailscale ?? {};
+  const own = `<button class="btn" type="button" data-admin="secure-own">${s.url ? "Change" : "Use my own address"}</button>`;
+  if (s.url) {
+    const funnel = ts.funnel && s.url === `https://${ts.name}`;
+    return `${head}
+      ${row("On", `People away from home reach Shelf at <b>${esc(s.url)}</b>, encrypted. Apps and browsers on the plain address move there by themselves, still signed in.`,
+        funnel ? `<button class="btn" type="button" data-admin="secure-funnel-off">Turn off</button>`
+          : `${own}<button class="btn" type="button" data-admin="secure-remove">Remove</button>`)}
+      <p class="people-note">${funnel ? "Tailscale Funnel gives this address, so nothing needs opening on your router. " : ""}Once everyone’s apps have updated, you can close the router’s port forward to Shelf: the plain address isn’t needed from the internet any more.</p>`;
+  }
+  const why = "From the internet, Shelf’s plain http address sends passwords and music unencrypted.";
+  if (ts.available) {
+    return `${head}
+      ${row("Off", `${why} Tailscale Funnel can give Shelf a secure address anyone can open, <b>https://${esc(ts.name)}</b>, without opening a port on your router or buying a domain.`,
+        `${own}<button class="btn btn-primary" type="button" data-admin="secure-funnel-on"${busy ? " disabled" : ""}>${busy ? "Turning on…" : "Turn on"}</button>`)}
+      ${allow ? `<p class="people-note secure-allow">Tailscale wants you to allow Funnel for your network first: <a href="${esc(allow)}" target="_blank" rel="noopener">allow Funnel</a>, then press Turn on again.</p>` : ""}`;
+  }
+  return `${head}
+    ${row("Off", `${why} The easy fix: install Tailscale on this computer (tailscale.com/download) and sign in, then come back here and turn on a secure address. Or use an https address of your own, from a domain in front of Shelf.`, own)}`;
+}
+
 /** A newer Shelf is out: say so, with the button that updates this server. */
 function updatePart(u) {
   if (!u?.available) return "";
@@ -311,6 +337,8 @@ function page(o, dirs, me) {
 
       ${signinPart(o.signins ?? [])}
 
+      <div id="secure-slot"></div>
+
       ${libraryPart(o, dirs)}
 
       <h2 class="settings-section">Services</h2>
@@ -346,6 +374,13 @@ export async function adminView(el, session, { dialog }) {
   const healthBox = document.createElement("section");
   healthBox.className = "health-box";
   healthBox.innerHTML = healthHtml(null);
+  // The secure address: asked for once (it asks Tailscale), and kept across redraws.
+  const secureBox = document.createElement("section");
+  secureBox.className = "secure-box";
+  let secureNow = null;
+  const drawSecure = (s, allow = null, busy = false) => { secureNow = s ?? secureNow; secureBox.innerHTML = secureHtml(secureNow, allow, busy); };
+  drawSecure(null);
+  api.adminSecure().then((s) => drawSecure(s)).catch(() => { secureBox.innerHTML = ""; });
   const draw = () => {
     const html = page(o, dirs, me);
     if (html === shown) return;
@@ -354,6 +389,7 @@ export async function adminView(el, session, { dialog }) {
     el.querySelector("#cd-slot")?.replaceWith(cdBox);
     el.querySelector("#dj-slot")?.replaceWith(djBox);
     el.querySelector("#health-slot")?.replaceWith(healthBox);
+    el.querySelector("#secure-slot")?.replaceWith(secureBox);
     el.scrollTop = top;
     shown = html;
   };
@@ -853,6 +889,31 @@ export async function adminView(el, session, { dialog }) {
         b.setAttribute("aria-checked", String(!!u.auto));
         toast(u.auto ? "Shelf installs updates by itself now, at night" : "Shelf only updates when you choose Update now");
       }).catch((err) => toast(err.message));
+    }
+    if (b.dataset.admin === "secure-funnel-on") {
+      drawSecure(null, null, true);
+      api.setFunnel(true).then((s) => {
+        drawSecure(s, s.allow ?? null);
+        if (!s.allow) toast(`Shelf is on ${s.url} now`);
+      }).catch((err) => { drawSecure(null); toast(err.message); });
+    }
+    if (b.dataset.admin === "secure-funnel-off") {
+      b.disabled = true;
+      api.setFunnel(false).then((s) => { drawSecure(s); toast("The secure address is off"); })
+        .catch((err) => { b.disabled = false; toast(err.message); });
+    }
+    if (b.dataset.admin === "secure-own") {
+      dialog({
+        title: "Your own secure address",
+        text: "An https address that leads to this server, from a domain with Caddy, nginx or Cloudflare Tunnel in front of Shelf. Shelf checks it can reach itself there.",
+        fields: [{ name: "url", label: "Address", value: secureNow?.url ?? "https://" }],
+        confirm: "Save",
+        submit: (v) => api.setSecure(v.url.trim()),
+      }).then((s) => { if (s) { drawSecure(s); toast(s.url ? `Shelf is on ${s.url} now` : "The secure address is off"); } })
+        .catch((err) => toast(err.message));
+    }
+    if (b.dataset.admin === "secure-remove") {
+      api.setSecure(null).then((s) => { drawSecure(s); toast("The secure address is off"); }).catch((err) => toast(err.message));
     }
     if (b.dataset.admin === "health-check") checkHealth();
     if (b.dataset.admin === "covers-find") {

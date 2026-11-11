@@ -18,13 +18,13 @@ from contextvars import ContextVar
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response, WebSocket
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Literal
 
 from . import procs
-from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lossy, lyrics, mixes, moods, party, peaks, playlist_maker, releases, resume, ripper, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lossy, lyrics, mixes, moods, party, peaks, playlist_maker, releases, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -260,6 +260,18 @@ class SharingBody(BaseModel):
     enabled: bool
 
 
+class SecureBody(BaseModel):
+    url: str | None = Field(None, max_length=300)
+
+
+class FunnelBody(BaseModel):
+    on: bool
+
+
+class ClaimBody(BaseModel):
+    code: str = Field(max_length=100)
+
+
 class ResumeBody(BaseModel):
     position: float = Field(ge=0, le=7 * 86400)
 
@@ -387,7 +399,7 @@ class PasswordBody(BaseModel):
 
 # Who the request is from (set by the sign-in check for every /api/ request).
 CURRENT: ContextVar[User | None] = ContextVar("shelf_user", default=None)
-OPEN_PATHS = {"/api/session", "/api/login", "/api/setup", "/api/ping"}
+OPEN_PATHS = {"/api/session", "/api/login", "/api/setup", "/api/ping", "/api/session/claim"}
 
 
 def me() -> User:
@@ -492,6 +504,9 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         return session(cfg.db_path)
 
     app.state.slow_after = 3.0  # seconds: slower requests are named in the log
+    with db() as conn:
+        app.state.secure_url = secure.get_url(conn)  # the https address everyone should use, if any
+    handoffs = secure.Handoffs()
 
     @app.middleware("http")
     async def timed(request: Request, call_next):
@@ -506,6 +521,13 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     @app.middleware("http")
     async def guard(request: Request, call_next):
         path = request.url.path
+        if request.method in ("GET", "HEAD") and not path.startswith(("/api/", "/rest/")):
+            # The sign-in page over plain http from the internet: to the secure address, so the
+            # password isn't typed in the clear. (Signed in, the web app moves itself, sign-in and all.)
+            to = secure.redirect_for(request.url.scheme, request.headers.get("host", ""), path,
+                                     request.url.query, app.state.secure_url)
+            if to and auth.user_for(token_from(request.headers, request.cookies)) is None:
+                return RedirectResponse(to, status_code=307)
         if path.startswith("/api/") and path not in OPEN_PATHS:
             user = auth.user_for(token_from(request.headers, request.cookies))
             if user is None:
@@ -556,7 +578,21 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         user = auth.user_for(token_from(request.headers, request.cookies))
         return {"setup": not auth.has_users(), "signedIn": user is not None,
                 "user": _me_json(user) if user else None, "version": __version__,
+                "secureUrl": app.state.secure_url,
                 "features": {"dj": _dj_on() if user else False}}
+
+    @app.post("/api/session/handoff")
+    def session_handoff():
+        """A one-time code that signs this person in on the secure address (see secure.py)."""
+        return {"code": handoffs.make(me().id)}
+
+    @app.post("/api/session/claim")
+    def session_claim(body: ClaimBody, request: Request, response: Response):
+        uid = handoffs.claim(body.code)
+        user = auth.get(uid) if uid is not None else None
+        if user is None:
+            raise HTTPException(401, "That sign-in has run out. Sign in again.")
+        return _signed_in(request, response, user)
 
     @app.patch("/api/me")
     def edit_me(body: MeBody):
@@ -3192,6 +3228,54 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         with db() as conn:
             shares.set_enabled(conn, body.enabled)
         return admin_shares()
+
+    def _secure_json(request: Request) -> dict:
+        return {"url": app.state.secure_url, "here": request.url.scheme == "https",
+                "tailscale": secure.tailscale_state(cfg.port)}
+
+    def _save_secure(url: str | None) -> None:
+        with db() as conn:
+            secure.set_url(conn, url)
+        app.state.secure_url = url
+
+    @app.get("/api/admin/secure")
+    def admin_secure(request: Request):
+        admin_only()
+        return _secure_json(request)
+
+    @app.put("/api/admin/secure")
+    def set_secure(body: SecureBody, request: Request):
+        admin_only()
+        url = None
+        if body.url:
+            url = secure.normalize(body.url)
+            if url is None:
+                raise HTTPException(400, "That isn’t an https address. It should look like https://music.example.org.")
+            if not secure.reaches(url):
+                raise HTTPException(400, f"Shelf couldn’t reach itself at {url}. Check the address leads to this server.")
+        _save_secure(url)
+        return _secure_json(request)
+
+    @app.post("/api/admin/secure/tailscale")
+    def set_funnel(body: FunnelBody, request: Request):
+        admin_only()
+        exe = secure.tailscale_exe()
+        if exe is None:
+            raise HTTPException(400, "Tailscale isn’t installed on the server’s computer.")
+        if body.on:
+            got = secure.start_funnel(exe, cfg.port)
+            if got.get("allow"):
+                return _secure_json(request) | {"allow": got["allow"]}
+            if not got["ok"]:
+                raise HTTPException(400, f"Tailscale said: {got['error']}")
+            _save_secure(got["url"])
+        else:
+            got = secure.stop_funnel(exe)
+            if not got["ok"]:
+                raise HTTPException(400, f"Tailscale said: {got['error']}")
+            if (app.state.secure_url or "").endswith(".ts.net"):
+                _save_secure(None)
+        return _secure_json(request)
 
     def _open_share(conn, token: str):
         """A link that works now, or the reason it doesn't (open to anyone: no account needed)."""

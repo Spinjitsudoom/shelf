@@ -1,8 +1,8 @@
 // Keeps the app shell available offline and quick to open. Never caches /api (music, covers
 // and library data always come live from the server).
-const CACHE = "shelf-shell-v60";
+const CACHE = "shelf-shell-v61";
 const SHELL = ["./", "style.css", "js/main.js", "js/api.js", "js/player.js", "js/views.js", "js/util.js", "js/menu.js", "js/settings.js", "js/audio.js", "js/mixer.js", "js/connect.js", "js/lyrics.js", "js/library.js", "js/npv.js", "js/video.js", "js/likes.js", "js/transitions.js", "js/transition-editor.js", "js/server.js", "js/admin.js", "js/native.js", "js/offline.js", "js/sleep.js",
-  "js/smart.js", "js/resume.js", "js/sharelinks.js", "js/whatsnew.js", "js/dj.js", "js/party.js", "js/visualizer.js", "sounds/sting.m4a", "fonts/fonts.css", "fonts/archivo-latin.woff2", "fonts/caveat-latin.woff2",
+  "js/smart.js", "js/resume.js", "js/sharelinks.js", "js/whatsnew.js", "js/secure.js", "js/dj.js", "js/party.js", "js/visualizer.js", "sounds/sting.m4a", "fonts/fonts.css", "fonts/archivo-latin.woff2", "fonts/caveat-latin.woff2",
   "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {
