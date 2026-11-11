@@ -116,7 +116,35 @@ function libraryPart(o, dirs) {
     <h2 class="settings-section">Storage</h2>
     ${row("Converted copies", `Smaller copies made for streaming below Lossless: ${fmtBytes(o.storage.transcodeBytes)} of ${fmtBytes(o.storage.transcodeLimitBytes)}. They’re made again when needed.`,
       `<button class="btn" type="button" data-action="clear-storage" ${o.storage.transcodeBytes ? "" : "disabled"}>Clear</button>`)}
-    ${row("Cover images", `${fmtBytes(o.storage.coverBytes)} of resized artwork.`, "")}`;
+    ${row("Cover images", `${fmtBytes(o.storage.coverBytes)} of resized artwork.`, "")}
+    ${backupsPart(o.backups)}`;
+}
+
+/** Copies of the database: accounts, likes, playlists and play history, which a rescan can't bring back. */
+function backupsPart(b) {
+  if (!b) return "";
+  const when = (ts) => new Date(ts * 1000).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  return `
+    <div class="folders backups">
+      <div class="folders-head">
+        <div><h3 class="row-title-plain">Backups</h3>
+          <p class="folders-sub">Accounts, Favourites, playlists and play history: what a rescan can’t bring back. Shelf copies them once a day and keeps a week of days and two months of weeks, in <b>${esc(b.folder)}</b>. A folder on another drive is safer.</p></div>
+        <span class="folders-tools">
+          <button class="btn" type="button" data-action="backup-folder">Change folder</button>
+          <button class="btn btn-primary" type="button" data-admin="backup-now">Back up now</button>
+        </span>
+      </div>
+      ${b.backups.map((x) => `
+        <div class="folder-row">
+          <svg class="folder-icon" aria-hidden="true"><use href="#i-clock"/></svg>
+          <span class="folder-text"><span class="folder-path">${esc(when(x.at))}</span>
+            <span class="folder-sub">${fmtBytes(x.size)}${x.name.includes("before-restore") ? ", made just before a restore" : ""}</span></span>
+          <span class="folder-actions">
+            <a class="icon-btn" href="/api/admin/backups/${encodeURIComponent(x.name)}" download aria-label="Download the backup from ${esc(when(x.at))}" title="Download"><svg><use href="#i-download"/></svg></a>
+            <button class="btn btn-small" type="button" data-admin="backup-restore" data-name="${esc(x.name)}" data-when="${esc(when(x.at))}">Restore</button>
+          </span>
+        </div>`).join("") || `<p class="folders-empty">No backups yet. The first one is made a minute after Shelf starts.</p>`}
+    </div>`;
 }
 
 /** Wrong passwords lately: 8 from one address within 15 minutes locks it out. */
@@ -722,6 +750,20 @@ export async function adminView(el, session, { dialog }) {
         b.setAttribute("aria-checked", String(!!u.auto));
         toast(u.auto ? "Shelf installs updates by itself now, at night" : "Shelf only updates when you choose Update now");
       }).catch((err) => toast(err.message));
+    }
+    if (b.dataset.admin === "backup-now") {
+      b.disabled = true;
+      api.backUpNow().then(() => { toast("Backed up"); refresh(); })
+        .catch((err) => { toast(err.message); b.disabled = false; });
+    }
+    if (b.dataset.admin === "backup-restore") {
+      dialog({
+        title: "Restore this backup?",
+        text: `Accounts, Favourites, playlists and play history go back to how they were on ${b.dataset.when}. Anything since is replaced, but Shelf backs up what’s here now first, so you can undo this by restoring that copy.`,
+        confirm: "Restore", danger: true,
+        submit: () => api.restoreBackup(b.dataset.name),
+      }).then((r) => { if (r) { toast("Restored. Reloading…"); setTimeout(() => location.reload(), 1200); } })
+        .catch((err) => toast(err.message));
     }
     if (b.dataset.admin === "person-menu") personMenu(b);
   };

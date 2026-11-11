@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, covers, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, covers, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -244,6 +244,10 @@ class WatchBody(BaseModel):
     path: str = Field(max_length=1000)
 
 
+class BackupFolderBody(BaseModel):
+    folder: str = Field(max_length=1000)
+
+
 class LastfmKeysBody(BaseModel):
     key: str = Field(max_length=100)
     secret: str = Field(max_length=100)
@@ -428,6 +432,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             scanner.start()
             scrobbler.start()
             watcher.start()
+            saved_copies.start()
             new_releases.start()
             new_version.start()
         yield
@@ -435,6 +440,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         scanner.stop()
         scrobbler.stop()
         watcher.stop()
+        saved_copies.stop()
         new_releases.stop()
         dj_voice.stop()
         natural.stop()
@@ -450,6 +456,13 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     watcher = watch.Watcher(_watch_dir, lambda: cfg.music_dirs[0] if cfg.music_dirs else None,
                             on_filed=lambda n: scanner.trigger())
+    def _backup_dir() -> Path:
+        with session(cfg.db_path) as conn:
+            p = get_meta(conn, "backup_dir")
+        return Path(p) if p else cfg.data_dir / "backups"
+
+    saved_copies = backups.Backups(cfg.db_path, _backup_dir)
+    app.state.backups = saved_copies
     app.state.scrobbler = scrobbler
     app.state.cfg = cfg
     hubs: dict[int, Hub] = {}  # Connect: each person's devices only see each other
@@ -558,6 +571,58 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         with db() as conn:
             set_meta(conn, "watch_dir", path)
         return {"path": path or None}
+
+    # ---------- backups ----------
+
+    def _backups_view() -> dict:
+        return {"folder": str(_backup_dir()), "backups": saved_copies.list()}
+
+    @app.get("/api/admin/backups")
+    def list_backups():
+        admin_only()
+        return _backups_view()
+
+    @app.post("/api/admin/backups")
+    def back_up_now():
+        admin_only()
+        try:
+            made = saved_copies.make()
+        except OSError as e:
+            raise HTTPException(500, f"Couldn’t back up: {e.strerror or e}")
+        return {"name": made.name, **_backups_view()}
+
+    @app.patch("/api/admin/backups")
+    def set_backup_folder(body: BackupFolderBody):
+        """Where backups go: another drive is safer. Empty puts them back in the data folder."""
+        admin_only()
+        path = body.folder.strip()
+        if path:
+            p = Path(path).expanduser()
+            if not p.is_dir():
+                raise HTTPException(400, "That folder doesn’t exist on the server")
+            path = str(p)
+        with db() as conn:
+            set_meta(conn, "backup_dir", path)
+        return _backups_view()
+
+    @app.get("/api/admin/backups/{name}")
+    def download_backup(name: str):
+        admin_only()
+        try:
+            p = saved_copies.path_of(name)
+        except backups.BackupError:
+            raise HTTPException(404, "No such backup")
+        return FileResponse(p, media_type="application/gzip", filename=name)
+
+    @app.post("/api/admin/backups/{name}/restore")
+    def restore_backup(name: str):
+        """Put a backup back; what's there now is backed up first, so this can be undone."""
+        admin_only()
+        try:
+            safety = saved_copies.restore(name)
+        except backups.BackupError as e:
+            raise HTTPException(400, str(e))
+        return {"before": safety.name, **_backups_view()}
 
     # ---------- Last.fm ----------
 
@@ -804,6 +869,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             "update": new_version.info(),
             "lastfm": lastfm.keys(cfg.db_path) is not None,
             "watch": {"path": str(_watch_dir()) if _watch_dir() else None},
+            "backups": _backups_view(),
         }
 
     @app.post("/api/admin/update/check")

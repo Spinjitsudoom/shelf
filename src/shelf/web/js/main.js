@@ -554,6 +554,14 @@ async function runAction(action, el) {
       afterFolderChange();
       break;
     }
+    case "backup-folder": {
+      const path = await pickFolder({ title: "Choose a folder for backups" });
+      if (!path) break;
+      await api.setBackupFolder(path);
+      toast(`Backups go to ${path} from now on`, 4000);
+      if (parseRoute().name === "admin") render();
+      break;
+    }
     case "watch-off":
       await api.setWatchFolder("");
       toast("Watch folder off");
