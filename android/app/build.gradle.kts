@@ -55,6 +55,9 @@ android {
         resValues = true // the app name: "Shelf", or "Shelf Preview" with -Ppreview
     }
 
+    // The "What's new" notes, shared with the web app (copied in by copyWhatsNew below).
+    sourceSets["main"].assets.srcDir("build/generated/whatsnew")
+
     testOptions {
         unitTests.isIncludeAndroidResources = true // fonts and strings for Robolectric
     }
@@ -64,6 +67,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
+
+// The notes the app shows after an update: the web app's file (src/shelf/web/whatsnew.json).
+val copyWhatsNew = tasks.register<Copy>("copyWhatsNew") {
+    from(rootProject.file("../src/shelf/web/whatsnew.json"))
+    into(layout.buildDirectory.dir("generated/whatsnew"))
+}
+tasks.named("preBuild") { dependsOn(copyWhatsNew) }
 
 dependencies {
     implementation(libs.androidx.core.ktx)

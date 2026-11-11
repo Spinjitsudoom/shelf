@@ -108,6 +108,11 @@ fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: 
             Text("Shelf for Android $appVersion" + if (serverVersion.isNotEmpty()) ", server $serverVersion" else "",
                 style = MaterialTheme.typography.bodyMedium, color = Shelf.colors.ink2, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
             UpdateCheck(container)
+            var notes by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(emptyList<app.shelf.whatsnew.Release>()) }
+            OutlinedButton(onClick = { notes = container.whatsNew.all().take(3) }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                Text("What’s new", color = Shelf.colors.ink)
+            }
+            if (notes.isNotEmpty()) app.shelf.whatsnew.WhatsNewDialog(notes, admin, { notes = emptyList() }, heading = if (notes.size > 1) "What’s new" else null)
             Spacer(Modifier.height(32.dp))
         }
     }

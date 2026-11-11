@@ -961,7 +961,7 @@ export async function settingsView(el, player, { user, version }) {
         <div><dt><kbd>Esc</kbd></dt><dd>Close Now Playing or a menu</dd></div>
       </dl>
 
-      <p class="about">Shelf ${esc(version ?? "")}</p>
+      <p class="about">Shelf ${esc(version ?? "")} <button class="link-btn" type="button" data-action="whats-new">What’s new</button></p>
     </div>`;
   refreshSettings(el);
 }

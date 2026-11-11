@@ -16,6 +16,7 @@ import { settings } from "./settings.js";
 import { Player } from "./player.js";
 import { nativeApp as android, currentServer, switchServer } from "./server.js";
 import { manageLinks, shareLink } from "./sharelinks.js";
+import { maybeShowWhatsNew, showWhatsNew } from "./whatsnew.js";
 import { clearNative, mountNative } from "./native.js";
 import { mountSleep } from "./sleep.js";
 import { mountDJ } from "./dj.js";
@@ -684,6 +685,9 @@ async function runAction(action, el) {
       });
       break;
     }
+    case "whats-new":
+      await showWhatsNew({ admin: !!session.user?.admin });
+      break;
     case "share-links":
       await manageLinks();
       break;
@@ -2062,6 +2066,7 @@ async function showApp() {
   await render();
   firstRender = false;
   if (!isOffline) cameOnline().catch(() => {});
+  if (!isOffline) maybeShowWhatsNew({ version: session.version, admin: !!session.user?.admin });
 }
 
 setUnauthorizedHandler(() => showLogin());

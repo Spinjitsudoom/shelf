@@ -1,0 +1,21 @@
+[
+  {
+    "version": "0.7.5",
+    "date": "2026-11-11",
+    "new": [
+      {"title": "Smart playlists", "text": "Playlists that pick their own songs by rules, like “not played in 6 months” or “added this week”, and keep themselves up to date. Playlists → Smart playlist."},
+      {"title": "Long tracks pick up where you stopped", "text": "Live sets, DJ mixes and audiobooks of 15 minutes or more remember your place, on every device."},
+      {"title": "Share links", "text": "Send a song, album or playlist to someone without an account: they listen in their browser. In the menu, when your admin has turned them on."},
+      {"title": "Other music apps", "text": "Apps made for Subsonic, like Symfonium, Amperfy and Feishin, can play from Shelf. Settings → Other music apps."},
+      {"title": "Daily backups", "text": "The server keeps a copy of accounts, Favourites, playlists and history every day, ready to restore.", "admin": true},
+      {"title": "Library health", "text": "Albums without covers (Shelf can find them), gaps in track numbers, songs twice, and lossless files made from an MP3.", "admin": true}
+    ],
+    "fixed": [
+      "FLAC songs that wouldn’t play on Android phones play again.",
+      "Android plays your files as they are by default, on mobile data and for downloads.",
+      "A song that can’t be played is skipped, with a message, instead of the music stopping.",
+      "On Android, a queue started on mobile data switches to full quality on Wi-Fi.",
+      "Shuffle keeps its order through crossfades and Mix."
+    ]
+  }
+]

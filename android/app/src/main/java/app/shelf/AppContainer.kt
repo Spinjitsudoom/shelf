@@ -38,6 +38,9 @@ class AppContainer(context: Context) {
     /** Favourites, for every heart in the app. */
     val likes = app.shelf.data.LikesStore({ api }, kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main))
 
+    /** "What's new" after an update. */
+    val whatsNew = app.shelf.whatsnew.WhatsNewStore(context.applicationContext)
+
     /** Albums, playlists and Favourites kept on the phone (created on first use, on the main thread). */
     val downloads by lazy {
         app.shelf.downloads.Downloads(context.applicationContext, okHttp, { api }, { settings.settings.value.downloadQuality })

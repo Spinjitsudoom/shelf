@@ -2302,3 +2302,20 @@ input.range.balance::-moz-range-progress { background: transparent; }
 .share-list li div { min-width: 0; }
 .share-list b, .share-list span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .share-list span { color: var(--ink-2); font-size: 13px; }
+
+/* What's new, after an update */
+.whatsnew { width: min(560px, calc(100vw - 32px)); }
+.wn-head { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+.wn-head h2 { margin: 0; }
+.wn-disc { flex: none; width: 52px; height: 52px; border-radius: 50%; box-shadow: var(--shadow);
+  background: radial-gradient(circle, var(--sleeve) 0 14%, color-mix(in srgb, var(--cobalt) 55%, white) 15% 19%, var(--cobalt) 20% 100%),
+    var(--cobalt); }
+.wn-body { max-height: min(60vh, 520px); overflow: auto; margin: 0 -4px; padding: 0 4px; }
+.wn-release h3 { margin: 18px 0 2px; font-size: 15px; }
+.wn-release h4 { margin: 14px 0 6px; font-size: 13px; color: var(--ink-2); font-weight: 600; }
+.wn-new, .wn-fixed { margin: 0; padding: 0; list-style: none; }
+.wn-new li { padding: 7px 0; }
+.wn-new b { display: block; }
+.wn-new span { color: var(--ink-2); }
+.wn-fixed li { position: relative; padding: 3px 0 3px 18px; }
+.wn-fixed li::before { content: ""; position: absolute; left: 3px; top: .72em; width: 6px; height: 6px; border-radius: 50%; background: var(--cobalt); }

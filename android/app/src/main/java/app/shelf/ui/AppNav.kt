@@ -133,7 +133,10 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     LaunchedEffect(adding) { if (adding != null) playlists = try { source.playlists() } catch (e: app.shelf.data.ShelfError) { emptyList() } }
     val actions = remember { app.shelf.ui.common.SongActions(open = { t, remove -> menu = t to remove }) }
     val context = androidx.compose.ui.platform.LocalContext.current
-    val shareOn by androidx.compose.runtime.produceState(false, api) { value = runCatching { api?.session()?.user?.shareLinks == true }.getOrDefault(false) }
+    val me by androidx.compose.runtime.produceState<app.shelf.data.User?>(null, api) { value = runCatching { api?.session()?.user }.getOrNull() }
+    val shareOn = me?.shareLinks == true
+    // After an update: what's new and what's fixed, once.
+    var whatsNew by remember { mutableStateOf(container.whatsNew.pending()) }
     val shareLinks = remember(shareOn, api) { app.shelf.ui.common.ShareLinks(shareOn, api, context, scope, say) }
     CompositionLocalProvider(app.shelf.ui.common.LocalSongActions provides actions, app.shelf.downloads.LocalDownloads provides container.downloads,
         app.shelf.ui.common.LocalShareLinks provides shareLinks) {
@@ -272,6 +275,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
         }
         app.shelf.ui.common.SongMenu(t, source.coverUrl(t.albumId, t.cover, 160), items) { menu = null }
     }
+    if (whatsNew.isNotEmpty()) app.shelf.whatsnew.WhatsNewDialog(whatsNew, admin = me?.admin == true, onDismiss = { whatsNew = emptyList() })
     if (sleepOpen) app.shelf.ui.player.SleepSheet(container.sleep, sleepState, say) { sleepOpen = false }
     if (devicesOpen) app.shelf.ui.player.DevicesSheet(connectUi, onPick = { id ->
         val u = connectUi
