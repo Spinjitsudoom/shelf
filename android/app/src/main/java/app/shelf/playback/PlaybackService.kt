@@ -227,7 +227,8 @@ class PlaybackService : MediaLibraryService() {
     /** The quality to stream a song in, from the settings: Wi-Fi's choice, or mobile data's ("auto": streamQuality). */
     private fun qualityFor(codec: String?): String {
         val s = app.container.settings.settings.value
-        return if (!metered()) s.wifiQuality else if (s.dataQuality == "auto") streamQuality(codec, true) else s.dataQuality
+        val q = if (!metered()) s.wifiQuality else if (s.dataQuality == "auto") streamQuality(codec, true) else s.dataQuality
+        return playableQuality(codec, q, Decoders::has)
     }
 
     private var autoplaying = false

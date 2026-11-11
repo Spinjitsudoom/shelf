@@ -18,7 +18,9 @@ import androidx.media3.exoplayer.scheduler.Scheduler
 import app.shelf.R
 import app.shelf.ShelfApp
 import app.shelf.data.ShelfApi
+import app.shelf.playback.Decoders
 import app.shelf.playback.MusicStorage
+import app.shelf.playback.playableQuality
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import okhttp3.OkHttpClient
@@ -99,7 +101,7 @@ class Downloads(private val context: Context, okHttp: OkHttpClient, private val 
         val q = quality()
         item.tracks.filter { states[it.id] != Download.STATE_COMPLETED }.forEach { t ->
             DownloadService.sendAddDownload(context, ShelfDownloadService::class.java,
-                DownloadRequest.Builder(t.id.toString(), a.streamUrl(t.id, q).toUri()).build(), false)
+                DownloadRequest.Builder(t.id.toString(), a.streamUrl(t.id, playableQuality(t.codec, q, Decoders::has)).toUri()).build(), false)
         }
         gone.forEach { DownloadService.sendRemoveDownload(context, ShelfDownloadService::class.java, it.toString(), false) }
         publish()

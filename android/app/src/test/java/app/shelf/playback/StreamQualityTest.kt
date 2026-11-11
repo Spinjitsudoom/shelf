@@ -17,4 +17,17 @@ class StreamQualityTest {
         assertEquals("original", streamQuality("aac", metered = true))
         assertEquals("high", streamQuality(null, metered = true)) // unknown: play it safe on data
     }
+
+    /** A phone with no FLAC decoder (Android 8.0) gets lossless files as a 320 kbps copy instead of as they are. */
+    @Test fun undecodableLosslessComesAsACopy() {
+        val noFlac = { mime: String -> mime != "audio/flac" }
+        assertEquals("veryhigh", playableQuality("flac", "original", noFlac))
+        assertEquals("veryhigh", playableQuality("FLAC", "original", noFlac))
+        assertEquals("high", playableQuality("flac", "high", noFlac)) // a copy already
+        assertEquals("original", playableQuality("mp3", "original", noFlac))
+        assertEquals("original", playableQuality("aac", "original", noFlac))
+        assertEquals("original", playableQuality(null, "original", noFlac))
+        assertEquals("original", playableQuality("flac", "original") { true })
+        assertEquals("veryhigh", playableQuality("alac", "original") { it != "audio/alac" })
+    }
 }
