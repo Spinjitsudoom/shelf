@@ -39,6 +39,10 @@ const view = $("view");
 // through to `local`, or remote-controls another device when that one is playing.
 const local = new Player($("audio-a"), $("audio-b"));
 const player = new Controller(local);
+// A page shown inside another app (the Android app's admin dashboard): just the page, no player,
+// tabs or library, and not one of your devices.
+const embedded = new URLSearchParams(location.search).has("embed");
+if (embedded) document.documentElement.classList.add("embedded");
 const session = { user: null };
 const canMorph = typeof document.startViewTransition === "function";
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -2055,7 +2059,7 @@ async function showApp() {
   syncTime();
   syncDevices();
   mountShell();
-  player.start();
+  if (!embedded) player.start();
   mountNative(player);
   if (!sleepMounted) {
     if (!session.features) session.features = (await api.session().catch(() => ({}))).features ?? {};

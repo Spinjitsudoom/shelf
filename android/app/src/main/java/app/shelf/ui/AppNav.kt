@@ -149,7 +149,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
         containerColor = Shelf.colors.tray,
         snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
         bottomBar = {
-            Column {
+            // The admin dashboard is a web page with its own layout: the whole screen is its.
+            if (current != Routes.ADMIN) Column {
                 if (player != null && playing.current != null) {
                     MiniPlayer(playing, cover, player::toggle, player::next, player::previous, { nowPlaying = true }, device = playingOn)
                 }
@@ -237,7 +238,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                 app.shelf.ui.settings.EqualizerScreen(container, back)
             }
             composable(Routes.ADMIN) {
-                app.shelf.ui.web.WebPageScreen(container.store.server ?: "", container.store.token, "#/admin", back)
+                app.shelf.ui.web.WebPageScreen(container.store.server ?: "", container.store.token, "?embed#/admin", back)
             }
         }
     }

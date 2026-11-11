@@ -2319,3 +2319,9 @@ input.range.balance::-moz-range-progress { background: transparent; }
 .wn-new span { color: var(--ink-2); }
 .wn-fixed li { position: relative; padding: 3px 0 3px 18px; }
 .wn-fixed li::before { content: ""; position: absolute; left: 3px; top: .72em; width: 6px; height: 6px; border-radius: 50%; background: var(--cobalt); }
+
+/* Inside another app (the Android app's admin dashboard): just the page. */
+.embedded .app { display: block; padding: 0; height: 100dvh; }
+.embedded .topbar, .embedded .library, .embedded .resizer, .embedded .npv, .embedded .player, .embedded .tabbar,
+.embedded .offline-bar { display: none !important; }
+.embedded .view { height: 100%; border-radius: 0; }
