@@ -145,6 +145,7 @@ export const api = {
   playlists: () => cached("playlists", 5_000),
   playlist: (id) => request("GET", `playlists/${id}`).catch((e) => savedOr(e, `playlist:${id}`)),
   createPlaylist: (body = {}) => changed(request("POST", "playlists", body)),
+  previewRules: (rules) => request("POST", "smart/preview", { rules }),
   parties: () => request("GET", "parties"),
   startParty: () => request("POST", "party"),
   endParty: () => request("DELETE", "party"),

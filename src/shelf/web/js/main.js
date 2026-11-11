@@ -20,6 +20,7 @@ import { mountSleep } from "./sleep.js";
 import { mountDJ } from "./dj.js";
 import { follow as followHost } from "./party.js";
 import { startRing } from "./visualizer.js";
+import { editRules } from "./smart.js";
 import { applyAlbumColor, caseHtml, coverUrl, esc, fmtTime, playlistCover, plural, quality, store, toast } from "./util.js";
 import {
   albumView, albumsView, artistHref, artistItems, artistLinks, artistView, artistsView, balanceLabel, ctx, homeView, mixerView,
@@ -463,6 +464,24 @@ async function runAction(action, el) {
       const p = await api.createPlaylist({ name: made.name, description: `Made by Shelf: ${made.understood.join(", ")}.`, trackIds: made.trackIds });
       toast(`Made “${made.name}” with ${plural(made.trackIds.length, "song")}`);
       location.hash = `#/playlist/${p.id}`;
+      break;
+    }
+    case "pl-smart-new": {
+      const made = await editRules({ title: "New smart playlist", askName: true, confirm: "Make it" });
+      if (!made) break;
+      const p = await api.createPlaylist({ name: made.name, rules: made.rules });
+      toast(`Made “${p.name}”: ${plural(p.trackCount, "song")} fit now`);
+      location.hash = `#/playlist/${p.id}`;
+      break;
+    }
+    case "pl-rules": {
+      const id = parseRoute().id;
+      const p = await api.playlist(id);
+      const edited = await editRules({ title: "Edit rules", rules: p.smart });
+      if (!edited) break;
+      await api.editPlaylist(id, { rules: edited.rules });
+      invalidate(`playlists/${id}`);
+      await redrawPlaylist();
       break;
     }
     case "pl-edit": await editPlaylist(parseRoute().id); break;

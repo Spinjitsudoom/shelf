@@ -319,10 +319,11 @@ export async function playlistView(el, id, { find = "" } = {}) {
   setTracks(tracks, { label: p.name, href: `#/playlist/${p.id}`, mix: p.mix, playlistId: p.id, canEdit: p.canEdit, shared: p.shared });
   const facts = [
     p.mine ? "" : `By ${esc(p.owner.username)}`,
-    tracks.length ? `${plural(tracks.length, "song")}, ${fmtLength(p.duration)}` : "No songs yet",
+    tracks.length ? `${plural(tracks.length, "song")}, ${fmtLength(p.duration)}` : p.smart ? "No songs fit these rules right now" : "No songs yet",
     p.mine && p.shared && p.followers ? plural(p.followers, "follower") : "",
   ].filter(Boolean).join(", ");
-  const kind = p.shared === 2 ? "Collaborative playlist" : p.shared === 1 ? "Public playlist" : "Playlist";
+  const kind = p.smart ? (p.shared ? "Public smart playlist" : "Smart playlist")
+    : p.shared === 2 ? "Collaborative playlist" : p.shared === 1 ? "Public playlist" : "Playlist";
   // On a collaborative playlist, who added each song.
   if (p.shared === 2) for (const t of tracks) t.byLine = t.addedBy ? `Added by ${t.addedBy}` : "";
   el.innerHTML = `
@@ -335,12 +336,14 @@ export async function playlistView(el, id, { find = "" } = {}) {
             <p class="hero-kind">${p.shared ? `<svg class="kind-icon"><use href="#${p.shared === 2 ? "i-people" : "i-globe"}"/></svg>` : ""}${kind}</p>
             <h1 class="album-title${titleFit(p.name)}">${p.mine ? `<button class="pl-name" type="button" data-action="pl-edit" title="Edit details">${esc(p.name)}</button>` : esc(p.name)}</h1>
             ${p.description ? `<p class="pl-desc">${esc(p.description)}</p>` : ""}
+            ${p.smart ? `<p class="pl-desc pl-rules">${esc(p.rulesText)}.</p>` : ""}
             <p class="album-facts">${facts}</p>
             <div class="album-actions">
               ${tracks.length ? `
                 <button class="btn btn-primary" type="button" data-action="play-list"><svg><use href="#i-play"/></svg>Play</button>
                 <button class="btn squeeze" type="button" data-action="shuffle-list"><svg><use href="#i-shuffle"/></svg><span class="btn-text">Shuffle</span></button>` : ""}
               ${p.canEdit ? `<button class="btn squeeze" type="button" data-action="pl-addpanel"><svg><use href="#i-plus"/></svg><span class="btn-text">Add</span></button>` : ""}
+              ${p.smart && p.mine ? `<button class="btn squeeze" type="button" data-action="pl-rules" title="Edit the rules that pick the songs"><svg><use href="#i-edit"/></svg><span class="btn-text">Edit rules</span></button>` : ""}
               ${p.mine ? "" : `<button class="btn follow-btn" type="button" data-action="pl-follow" aria-pressed="${p.following}">${p.following ? "Following" : "Follow"}</button>`}
               ${tracks.length ? downloadButton("playlist", p.id) : ""}
               ${tracks.length > 1 && p.mine ? `<button class="btn squeeze mix-toggle" type="button" data-action="pl-mix" aria-pressed="${p.mix}"
@@ -467,7 +470,7 @@ export async function playlistsView(el) {
           <h1 class="page-title">Playlists</h1>
           <p class="page-sub">${list.length ? plural(list.length, "playlist") : "Make a playlist to mix songs from any album."}</p>
         </div>
-        <div class="head-tools"><button class="btn" type="button" data-action="pl-make"><svg><use href="#i-sparkle"/></svg>Make a playlist</button><button class="btn btn-primary" type="button" data-action="pl-new"><svg><use href="#i-plus"/></svg>New playlist</button></div>
+        <div class="head-tools"><button class="btn" type="button" data-action="pl-make"><svg><use href="#i-sparkle"/></svg>Make a playlist</button><button class="btn" type="button" data-action="pl-smart-new"><svg><use href="#i-shuffle-smart"/></svg>Smart playlist</button><button class="btn btn-primary" type="button" data-action="pl-new"><svg><use href="#i-plus"/></svg>New playlist</button></div>
       </header>
       ${list.length || likes.count ? `<div class="shelf">
         <a class="pl-card" href="#/liked">

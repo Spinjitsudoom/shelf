@@ -216,8 +216,10 @@ class Params:
 # ---------- the API ----------
 
 class Subsonic:
-    def __init__(self, cfg, auth, *, scrobbler=None, scanner=None, set_user: Callable | None = None):
+    def __init__(self, cfg, auth, *, scrobbler=None, scanner=None, set_user: Callable | None = None,
+                 smart_rows: Callable | None = None):
         self.cfg, self.auth, self.scrobbler, self.scanner = cfg, auth, scrobbler, scanner
+        self.smart_rows = smart_rows or (lambda conn, row, user_id: None)  # a smart playlist's songs, now
         self.set_user = set_user or (lambda u: None)
         self.now_playing: dict[int, dict] = {}
         self._pw_ok: dict[int, tuple[str, int, float]] = {}  # account passwords checked lately
@@ -701,19 +703,22 @@ class Subsonic:
 
     # playlists
 
-    def _playlist(self, conn, row) -> dict:
-        stats = conn.execute(
-            "SELECT COUNT(*) AS n, COALESCE(SUM(t.duration), 0) AS secs, MIN(e.position) FROM playlist_tracks e"
-            " JOIN tracks t ON t.id = e.track_id WHERE e.playlist_id = ?", (row["id"],)).fetchone()
-        first = conn.execute("SELECT a.id, a.cover_src FROM playlist_tracks e JOIN tracks t ON t.id = e.track_id"
-                             " JOIN albums a ON a.key = t.album_key WHERE e.playlist_id = ? AND a.cover_src IS NOT NULL"
-                             " ORDER BY e.position LIMIT 1", (row["id"],)).fetchone()
+    def _playlist(self, conn, row, user, tracks: list | None = None) -> dict:
+        tracks = tracks if tracks is not None else self._playlist_tracks(conn, row, user)
+        first = next((t for t in tracks if t["cover_src"]), None)
         owner = conn.execute("SELECT username FROM users WHERE id = ?", (row["user_id"],)).fetchone()
         return {"id": str(row["id"]), "name": row["name"], "comment": row["description"] or None,
                 "owner": owner["username"] if owner else None, "public": row["shared"] >= 1,
-                "songCount": stats["n"], "duration": int(round(stats["secs"])),
+                "songCount": len(tracks), "duration": int(round(sum(t["duration"] or 0 for t in tracks))),
                 "created": iso(row["created_at"]), "changed": iso(row["updated_at"]),
-                "coverArt": f"al-{first['id']}" if first else None}
+                "coverArt": f"al-{first['album_id']}" if first else None}
+
+    def _playlist_tracks(self, conn, row, user) -> list:
+        picked = self.smart_rows(conn, row, user.id)
+        if picked is not None:
+            return picked
+        return conn.execute(f"SELECT q.* FROM playlist_tracks e JOIN ({TRACKS}) q ON q.id = e.track_id"
+                            " WHERE e.playlist_id = ? ORDER BY e.position", (row["id"],)).fetchall()
 
     def _playlist_row(self, conn, pid: str, user, need: str = "read"):
         row = conn.execute("SELECT * FROM playlists WHERE id = ?", (int(pid),)).fetchone() if pid.isdigit() else None
@@ -728,15 +733,14 @@ class Subsonic:
         with self.db() as conn:
             rows = conn.execute("SELECT * FROM playlists WHERE user_id = ? OR shared >= 1 ORDER BY updated_at DESC",
                                 (user.id,)).fetchall()
-            return {"playlists": {"playlist": [self._playlist(conn, r) for r in rows]}}
+            return {"playlists": {"playlist": [self._playlist(conn, r, user) for r in rows]}}
 
     def m_getPlaylist(self, p, user):
         with self.db() as conn:
             row = self._playlist_row(conn, p.need("id"), user)
-            tracks = conn.execute(f"SELECT q.* FROM playlist_tracks e JOIN ({TRACKS}) q ON q.id = e.track_id"
-                                  " WHERE e.playlist_id = ? ORDER BY e.position", (row["id"],)).fetchall()
+            tracks = self._playlist_tracks(conn, row, user)
             ctx = self._ctx(conn, user.id)
-            return {"playlist": {**self._playlist(conn, row), "entry": [self.song(t, ctx) for t in tracks]}}
+            return {"playlist": {**self._playlist(conn, row, user, tracks), "entry": [self.song(t, ctx) for t in tracks]}}
 
     @staticmethod
     def _add_songs(conn, pid: int, ids: list[str], uid: int) -> None:
@@ -752,6 +756,8 @@ class Subsonic:
         with self.db() as conn:
             if p.get("playlistId"):  # replace an existing one's songs
                 row = self._playlist_row(conn, p.get("playlistId"), user, "owner")
+                if row["rules"]:
+                    raise Fail(50, "That’s a smart playlist: its rules pick the songs")
                 pid = row["id"]
                 conn.execute("DELETE FROM playlist_tracks WHERE playlist_id = ?", (pid,))
                 if p.get("name"):
@@ -769,6 +775,8 @@ class Subsonic:
         renaming = any(p.get(k) is not None for k in ("name", "comment", "public"))
         with self.db() as conn:
             row = self._playlist_row(conn, pid, user, "owner" if renaming else "tracks")
+            if row["rules"] and (p.all("songIdToAdd") or p.all("songIndexToRemove")):
+                raise Fail(50, "That’s a smart playlist: its rules pick the songs")
             if p.get("name"):
                 conn.execute("UPDATE playlists SET name = ? WHERE id = ?", (p.get("name")[:200], row["id"]))
             if p.get("comment") is not None:

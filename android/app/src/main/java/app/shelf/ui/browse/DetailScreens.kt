@@ -79,7 +79,7 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
         TrackListPage(
             color = color, kind = "Playlist", title = p.name,
             cover = { MosaicCover(p.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 320) }, p.name, color) },
-            byline = p.description?.takeIf { it.isNotBlank() }?.let { { Text(it, style = MaterialTheme.typography.bodyMedium, color = Shelf.colors.ink2) } },
+            byline = playlistByline(p.description, p.rulesText)?.let { { Text(it, style = MaterialTheme.typography.bodyMedium, color = Shelf.colors.ink2) } },
             facts = facts(plural(p.tracks.size, "song"), fmtLength(p.tracks.sumOf { it.duration }), if (p.mix) "Mix on" else null),
             tracks = p.tracks, numbered = false, coverUrl = { source.cover(it) },
             onTrack = { onPlay(p.tracks, it, ctx) }, onShuffle = { onPlay(p.tracks.shuffled(), 0, ctx) }, onBack = onBack,
@@ -196,3 +196,8 @@ fun FavouritesScreen(source: LibrarySource, onPlay: OnPlay, onBack: () -> Unit, 
         )
     }
 }
+
+/** Under a playlist's name: its description, and a smart playlist's rules. */
+fun playlistByline(description: String?, rulesText: String?): String? =
+    listOfNotNull(description?.takeIf { it.isNotBlank() }, rulesText?.takeIf { it.isNotBlank() }?.let { "$it." })
+        .joinToString("\n").ifEmpty { null }

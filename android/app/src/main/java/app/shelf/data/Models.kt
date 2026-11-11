@@ -60,6 +60,7 @@ data class PlaylistDetail(
     val id: Int, val name: String, val description: String? = null, val trackCount: Int = 0,
     val duration: Double = 0.0, val covers: List<CoverRef> = emptyList(), val canEdit: Boolean = false,
     val tracks: List<Track> = emptyList(), val mix: Boolean = false, // Mix: songs hand over like a DJ set
+    val rulesText: String? = null, // a smart playlist: its rules in words (its songs come from them)
 )
 
 @Serializable

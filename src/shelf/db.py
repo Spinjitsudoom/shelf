@@ -216,6 +216,8 @@ def init_db(db_path: Path) -> None:
         _add_column(conn, "playlists", cols, "user_id", "INTEGER NOT NULL DEFAULT 1")
         # Sharing: 0 private, 1 public (others can play and follow it), 2 collaborative (and add songs).
         _add_column(conn, "playlists", cols, "shared", "INTEGER NOT NULL DEFAULT 0")
+        # A smart playlist: rules (JSON, see smart.py) pick its songs instead of playlist_tracks.
+        _add_column(conn, "playlists", cols, "rules", "TEXT")
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(playlist_tracks)")}
         _add_column(conn, "playlist_tracks", cols, "added_by", "INTEGER")
         _add_column(conn, "playlist_tracks", cols, "suggested", "INTEGER NOT NULL DEFAULT 0")  # added from its suggestions

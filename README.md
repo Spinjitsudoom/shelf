@@ -371,6 +371,18 @@ Home has a **Made for you** row, worked out for each person from what they play 
   Autoplay carries on.
 - **Save as playlist** keeps a mix (to edit it, or download it).
 
+### Smart playlists
+
+**Playlists → Smart playlist** makes a playlist that picks its own songs by rules, and keeps
+itself up to date: songs join as they start to fit and leave when they stop. Rules can use the
+genre, artist, album or title; the year, tempo (BPM) or length; how many times you've played a
+song, when you last played it, when it was added; whether it's in your Favourites or lossless;
+and its mood (Workout, Chill, Party, Feel Good, Melancholy, Heavy). Match all of the rules or any
+of them, keep a number of songs, and pick the order (a random order changes once a day). For
+example: not played in 6 months; at most 100 BPM and in your Favourites; added in the last week.
+A song that hasn't been measured yet has no tempo or mood, so it doesn't match rules about them.
+**Edit rules** on the playlist changes them; songs can't be added or removed by hand.
+
 ## Adding music
 
 - **Upload** (admin dashboard → Library → **Add music**): drop songs, whole album folders or ZIP

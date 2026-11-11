@@ -422,6 +422,32 @@ a.npv-context[href]:hover { text-decoration: underline; }
 }
 .field input:focus, .field textarea:focus { outline: 2px solid var(--cobalt); outline-offset: 0; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
+/* smart playlist rules */
+.smart-dialog { width: min(680px, calc(100vw - 32px)); }
+.smart-dialog form { max-height: calc(100dvh - 48px); overflow-y: auto; }
+.smart-match { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-weight: 650; }
+.smart-rules { display: flex; flex-direction: column; gap: 8px; }
+.smart-rule { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; border-radius: 10px; background: var(--tray); }
+.smart-rule .select { height: 38px; font-size: 14.5px; }
+.smart-value { display: contents; }
+.smart-rule .icon-btn { margin-left: auto; }
+.smart-text, .smart-num {
+  height: 38px; padding: 0 10px; border: 0; border-radius: 8px; font: 500 15px var(--font); color: var(--ink);
+  background: var(--sleeve); box-shadow: inset 0 0 0 1px var(--rule);
+}
+.smart-text { flex: 1; min-width: 140px; }
+.smart-num { width: 84px; }
+.smart-text:focus, .smart-num:focus { outline: 2px solid var(--cobalt); outline-offset: 0; }
+.smart-and { color: var(--ink-2); }
+.smart-none { font-size: 14px; }
+.smart-add { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
+.smart-add svg { width: 16px; height: 16px; }
+.smart-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; font-weight: 650; }
+.smart-limit, .smart-sort { display: inline-flex; align-items: center; gap: 8px; }
+.smart-limit input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--cobalt); }
+.smart-preview { min-height: 1.4em; font-size: 14.5px; }
+.pl-rules { font-weight: 600; }
 .btn-danger { background: #c4302b; color: #fff; box-shadow: none; }
 .btn-danger:hover { background: #a82722; }
 

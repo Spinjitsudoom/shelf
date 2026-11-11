@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, backups, covers, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, covers, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -194,6 +194,7 @@ class PlaylistBody(BaseModel):
     trackIds: list[int] = Field(default_factory=list, max_length=5000)
     mix: bool | None = None
     shared: int | None = Field(None, ge=0, le=2)  # 0 private, 1 public, 2 collaborative
+    rules: dict | None = None  # a smart playlist's rules (smart.py)
 
 
 TRANSITIONS = ("auto", "blend", "swap", "rise", "sweep", "fade", "cut")
@@ -627,7 +628,12 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     # ---------- Subsonic apps ----------
 
-    sub_api = subsonic.Subsonic(cfg, auth, scrobbler=scrobbler, scanner=scanner, set_user=CURRENT.set)
+    def _smart_for(conn, row, user_id: int):
+        rules = _rules_of(row)
+        return _smart_rows(conn, row["id"], rules, user_id) if rules else None
+
+    sub_api = subsonic.Subsonic(cfg, auth, scrobbler=scrobbler, scanner=scanner, set_user=CURRENT.set,
+                                smart_rows=lambda conn, row, user_id: _smart_for(conn, row, user_id))
     subsonic.mount(app, sub_api)
 
     @app.get("/api/me/subsonic")
@@ -2148,23 +2154,67 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         ).fetchone()
         if not p:
             return None
-        # Up to four different album covers, in playlist order, for the mosaic.
-        covers_rows = conn.execute(
-            """SELECT a.id, a.cover_src, MIN(e.position) AS pos FROM playlist_tracks e
-               JOIN tracks t ON t.id = e.track_id JOIN albums a ON a.key = t.album_key
-               WHERE e.playlist_id = ? AND a.cover_src IS NOT NULL
-               GROUP BY a.id ORDER BY pos LIMIT 4""",
-            (pid,),
-        ).fetchall()
+        rules = _rules_of(p)
+        if rules:  # a smart playlist: what its rules pick now
+            picked = _smart_rows(conn, p["id"], rules, uid())
+            n, dur = len(picked), sum(r["duration"] or 0 for r in picked)
+            seen, covers_rows = set(), []
+            for r in picked:
+                if r["cover_src"] and r["album_id"] not in seen and len(covers_rows) < 4:
+                    seen.add(r["album_id"])
+                    covers_rows.append({"id": r["album_id"], "cover_src": r["cover_src"]})
+        else:
+            n, dur = p["n"], p["dur"]
+            # Up to four different album covers, in playlist order, for the mosaic.
+            covers_rows = conn.execute(
+                """SELECT a.id, a.cover_src, MIN(e.position) AS pos FROM playlist_tracks e
+                   JOIN tracks t ON t.id = e.track_id JOIN albums a ON a.key = t.album_key
+                   WHERE e.playlist_id = ? AND a.cover_src IS NOT NULL
+                   GROUP BY a.id ORDER BY pos LIMIT 4""",
+                (pid,),
+            ).fetchall()
         return {
             "id": p["id"], "name": p["name"], "description": p["description"],
-            "trackCount": p["n"], "duration": round(p["dur"], 1),
+            "trackCount": n, "duration": round(dur, 1),
             "covers": [{"albumId": r["id"], "cover": _cover_version(r["cover_src"])} for r in covers_rows],
             "createdAt": p["created_at"], "updatedAt": p["updated_at"], "mix": bool(p["mix"]),
-            "shared": p["shared"], "mine": p["user_id"] == uid(), "canEdit": p["user_id"] == uid() or p["shared"] == 2,
+            "smart": rules, "rulesText": smart.describe(rules) if rules else None,
+            "shared": p["shared"], "mine": p["user_id"] == uid(),
+            "canEdit": not rules and (p["user_id"] == uid() or p["shared"] == 2),
             "owner": {"id": p["user_id"], "username": p["owner_name"] or "Someone"},
             "following": bool(p["following"]), "followers": p["followers"],
         }
+
+    def _rules_of(p) -> dict | None:
+        try:
+            return smart.validate(json.loads(p["rules"])) if p["rules"] else None
+        except (ValueError, TypeError):
+            return None
+
+    def _smart_rows(conn, pid: int, rules: dict, user_id: int) -> list:
+        """The songs a smart playlist's rules pick for this person, now."""
+        rows = conn.execute(TRACK_SELECT).fetchall()
+        facts = smart.Facts(likes={r[0] for r in conn.execute("SELECT track_id FROM likes WHERE user_id = ?", (user_id,))})
+        for r in conn.execute("SELECT track_id, COUNT(*), MAX(played_at) FROM plays WHERE user_id = ? GROUP BY track_id", (user_id,)):
+            facts.plays[r[0]], facts.last[r[0]] = r[1], r[2]
+        if smart.uses_moods(rules):
+            facts.moods = smart.mood_sets(rows, sound.energy(rows))
+        now = time.time()
+        ids = smart.songs(rows, facts, rules, now, seed=f"smart:{pid}:{int(now // 86400)}")
+        by_id = {r["id"]: r for r in rows}
+        return [by_id[i] for i in ids]
+
+    def _not_smart(conn, pid: int) -> None:
+        row = conn.execute("SELECT rules FROM playlists WHERE id = ?", (pid,)).fetchone()
+        if row and row["rules"]:
+            raise HTTPException(400, "This is a smart playlist: its rules pick the songs. Edit the rules to change them.")
+
+    def _set_rules(conn, pid: int, rules: dict) -> None:
+        try:
+            checked = smart.validate(rules)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        conn.execute("UPDATE playlists SET rules = ? WHERE id = ?", (json.dumps(checked), pid))
 
     def _touch(conn, pid: int) -> None:
         conn.execute("UPDATE playlists SET updated_at = ? WHERE id = ?", (time.time(), pid))
@@ -2212,8 +2262,23 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 "INSERT INTO playlists(name, description, created_at, updated_at, user_id) VALUES(?, ?, ?, ?, ?)",
                 (name, (body.description or "").strip(), now, now, uid()),
             ).lastrowid
-            _append(conn, pid, body.trackIds)
+            if body.rules is not None:
+                _set_rules(conn, pid, body.rules)
+            else:
+                _append(conn, pid, body.trackIds)
             return _playlist_summary(conn, pid)
+
+    @app.post("/api/smart/preview")
+    def smart_preview(body: dict):
+        """How many songs some smart playlist rules pick right now, and the rules in words."""
+        try:
+            rules = smart.validate(body.get("rules"))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        with db() as conn:
+            picked = _smart_rows(conn, 0, rules, uid())
+        return {"count": len(picked), "duration": round(sum(r["duration"] or 0 for r in picked)),
+                "text": smart.describe(rules)}
 
     @app.get("/api/playlists/{pid}")
     def get_playlist(pid: int):
@@ -2222,6 +2287,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             summary = _playlist_summary(conn, pid)
             if not summary:
                 raise HTTPException(404, "Playlist not found")
+            if summary["smart"]:
+                return {**summary, "tracks": [track_json(r) for r in _smart_rows(conn, pid, summary["smart"], uid())]}
             rows = conn.execute(
                 f"""SELECT e.id AS entry_id, e.added_at AS entry_added, e.transition, u.username AS added_by_name, q.*
                     FROM playlist_tracks e JOIN ({TRACK_SELECT}) q ON q.id = e.track_id
@@ -2239,6 +2306,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         and keys that sit well with its songs. `seed` shuffles near-ties (Refresh)."""
         with db() as conn:
             _require_playlist(conn, pid, "read")
+            if conn.execute("SELECT rules FROM playlists WHERE id = ?", (pid,)).fetchone()["rules"]:
+                return []  # a smart playlist's rules pick its songs
             mine = conn.execute(
                 f"""SELECT q.* FROM playlist_tracks e JOIN ({TRACK_SELECT}) q ON q.id = e.track_id
                     WHERE e.playlist_id = ?""", (pid,)).fetchall()
@@ -2599,6 +2668,11 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 conn.execute("UPDATE playlists SET name = ? WHERE id = ?", (body.name.strip(), pid))
             if body.description is not None:
                 conn.execute("UPDATE playlists SET description = ? WHERE id = ?", (body.description.strip(), pid))
+            if body.rules is not None:
+                row = conn.execute("SELECT rules FROM playlists WHERE id = ?", (pid,)).fetchone()
+                if not row["rules"]:
+                    raise HTTPException(400, "Only a smart playlist has rules")
+                _set_rules(conn, pid, body.rules)
             _touch(conn, pid)
             return _playlist_summary(conn, pid)
 
@@ -2613,6 +2687,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     def add_to_playlist(pid: int, body: PlaylistAdd):
         with db() as conn:
             _require_playlist(conn, pid, "tracks")
+            _not_smart(conn, pid)
             added = _append(conn, pid, body.trackIds, body.suggested)
             _touch(conn, pid)
             return {"added": added, **_playlist_summary(conn, pid)}
@@ -2704,6 +2779,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     def reorder_playlist(pid: int, body: PlaylistOrder):
         with db() as conn:
             _require_playlist(conn, pid, "tracks")
+            _not_smart(conn, pid)
             current = {r["id"] for r in conn.execute("SELECT id FROM playlist_tracks WHERE playlist_id = ?", (pid,))}
             if set(body.entryIds) != current or len(body.entryIds) != len(current):
                 raise HTTPException(409, "The playlist changed; reload it and try again")
