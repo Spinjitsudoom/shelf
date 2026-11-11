@@ -485,7 +485,14 @@ favourites and a search.
 **Admin → Library health → Check library** looks through the shelf and lists what needs a look:
 albums without a cover or with a small one (under 500 pixels), gaps in track numbers, the same
 song twice on different albums (with the best copy marked), songs with no artist tag, albums
-whose songs disagree on the year, and files Shelf can't read. Looking changes nothing.
+whose songs disagree on the year, lossless files made from an MP3, and files Shelf can't read.
+Looking changes nothing.
+
+**Lossless files made from an MP3:** after each scan Shelf listens to half a minute of every
+FLAC, ALAC and WAV file. An MP3 or AAC throws away the treble above a cut-off (about 16 kHz at
+128 kbps), and a file converted from one keeps that gap: its sound stops dead. A real rip carries
+on to 20 kHz or more. Files that stop dead below 19 kHz are listed, with the kind of file they
+were probably made from. The best MP3s (320 kbps) cut off near 20 kHz and can pass for lossless.
 
 **Find covers** looks up every album without a cover on MusicBrainz and takes a cover from the
 Cover Art Archive only when the title and artist match closely (one album a second, as

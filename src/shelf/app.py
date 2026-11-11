@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import procs
-from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lossy, lyrics, mixes, moods, party, peaks, playlist_maker, releases, ripper, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -91,6 +91,8 @@ class ScanManager:
             # Measure loudness for volume normalization (slow, so it runs after the scan is done).
             self.state["measuring"] = True
             loudness.analyze_pending(self.cfg.db_path, stop=self._stop)
+            # Lossless files made from an MP3 or AAC, for Library health (quick: half a minute of each).
+            lossy.check_pending(self.cfg.db_path, stop=self._stop)
             # Tempo and key (slower still), for playlist columns and recommendations.
             if self.cfg.analyze_tempo:  # Essentia, or Shelf's own engine where it's missing (Windows)
                 analysis.analyze_pending(self.cfg.db_path, stop=self._stop)

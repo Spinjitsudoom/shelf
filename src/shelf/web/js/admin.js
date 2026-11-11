@@ -123,7 +123,7 @@ function libraryPart(o, dirs) {
 
 /** Library health: the report, or the button that asks for it. */
 function healthHtml(r) {
-  const intro = "Albums without covers, gaps in track numbers, the same song twice and files Shelf can’t read. Looking changes nothing.";
+  const intro = "Albums without covers, gaps in track numbers, the same song twice, lossless files made from an MP3 and files Shelf can’t read. Looking changes nothing.";
   if (!r) {
     return `<h2 class="settings-section">Library health</h2>
       ${row("Check your library", intro, `<button class="btn" type="button" data-admin="health-check">Check library</button>`)}`;
@@ -151,6 +151,10 @@ function healthHtml(r) {
       r.noArtist.map((t) => `<li><b>${esc(t.title)}</b> <span class="health-path">${esc(t.path)}</span></li>`).join(""), ""],
     ["mixedYears", "Albums with mixed years", "Their songs disagree on the year, often a remaster mixed with the original.",
       r.mixedYears.map((m) => `<li>${album(m)} <span class="health-by">${esc(m.years.join(", "))}</span></li>`).join(""), ""],
+    ["fakeLossless", "Lossless files made from an MP3", "Their sound stops dead where an MP3’s or AAC’s does, so they were probably converted from one: lossless in name, not in sound. Worth replacing with a real rip.",
+      r.fakeLossless.map((t) => `<li><b>${esc(t.title)}</b> <span class="health-by">by ${esc(t.artist)}${t.album ? `, ${esc(t.album)}` : ""}</span>
+        <span class="health-by">${esc((t.codec || "").toUpperCase())} cut off at ${(t.cutoff / 1000).toFixed(1)} kHz, like ${esc(t.likely)}</span>
+        <span class="health-path">${esc(t.path)}</span></li>`).join(""), ""],
     ["unreadable", "Files Shelf can’t read", "Damaged, or in a format Shelf doesn’t know. They’re left out of the library.",
       r.unreadable.map((p) => `<li><span class="health-path">${esc(p)}</span></li>`).join(""), ""],
   ].filter(([k]) => c[k]);
@@ -158,6 +162,7 @@ function healthHtml(r) {
     <div class="people-head"><h2 class="settings-section">Library health</h2>
       <button class="btn" type="button" data-admin="health-check">Check again</button></div>
     ${finding ? `<p class="people-note">${esc(finding)}</p>` : ""}
+    ${r.lossless && r.lossless.checked < r.lossless.total ? `<p class="people-note">Listening for lossless files made from an MP3: ${r.lossless.checked.toLocaleString()} of ${r.lossless.total.toLocaleString()} checked so far. It runs after each scan.</p>` : ""}
     ${total ? kinds.map(([k, title, note, items, action]) => `
       <details class="health" data-kind="${k}">
         <summary><span class="health-count">${c[k].toLocaleString()}</span><span class="health-title">${title}</span>${action}</summary>

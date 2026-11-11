@@ -1,6 +1,6 @@
 """Library health, for the admin dashboard: albums with no cover or only a small one, gaps in
 track numbers, the same song twice, songs with no artist, albums whose songs disagree on the
-year, and files that couldn't be read. It only reports; nothing in the music folders changes.
+year, lossless files made from an MP3 (lossy.py), and files that couldn't be read. It only reports; nothing in the music folders changes.
 """
 
 from __future__ import annotations
@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Callable
 
+from . import lossy
 from .smart import _lossless
 from .videos import fold
 
@@ -22,7 +23,8 @@ def _album(r) -> dict:
 def report(conn, cover_size: Callable[[str], tuple[int, int] | None], unreadable: list[str]) -> dict:
     albums = conn.execute("SELECT * FROM albums ORDER BY artist COLLATE NOCASE, title COLLATE NOCASE").fetchall()
     by_key = {a["key"]: a for a in albums}
-    tracks = conn.execute("SELECT id, path, title, artist, album_key, track_no, disc_no, duration, codec, bitrate, year"
+    tracks = conn.execute("SELECT id, path, title, artist, album_key, track_no, disc_no, duration, codec, bitrate, year,"
+                          " cutoff, cutoff_checked"
                           " FROM tracks ORDER BY album_key, COALESCE(disc_no, 1), COALESCE(track_no, 9999)").fetchall()
 
     no_cover, small = [], []
@@ -81,6 +83,14 @@ def report(conn, cover_size: Callable[[str], tuple[int, int] | None], unreadable
                 })
             cluster = [t] if t is not None else []
 
+    # Lossless files whose sound stops dead where an MP3's or AAC's does: probably made from one.
+    lossless = [t for t in tracks if _lossless(t["codec"])]
+    fake = [{"id": t["id"], "title": t["title"], "artist": t["artist"], "path": t["path"], "codec": t["codec"],
+             "album": by_key[t["album_key"]]["title"] if t["album_key"] in by_key else "",
+             "cutoff": round(t["cutoff"]), "likely": lossy.likely_source(t["cutoff"])}
+            for t in lossless if t["cutoff_checked"] and lossy.looks_lossy(t["cutoff"])]
+
     found = {"noCover": no_cover, "smallCover": small, "gaps": gaps, "duplicates": duplicates,
-             "noArtist": no_artist, "mixedYears": mixed, "unreadable": list(unreadable)}
-    return {"counts": {k: len(v) for k, v in found.items()}, **{k: v[:LIMIT] for k, v in found.items()}}
+             "noArtist": no_artist, "mixedYears": mixed, "fakeLossless": fake, "unreadable": list(unreadable)}
+    return {"counts": {k: len(v) for k, v in found.items()}, **{k: v[:LIMIT] for k, v in found.items()},
+            "lossless": {"checked": sum(1 for t in lossless if t["cutoff_checked"]), "total": len(lossless)}}

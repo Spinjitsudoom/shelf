@@ -208,6 +208,8 @@ def init_db(db_path: Path) -> None:
             ("mix_points", "TEXT"),  # beats, intro and outro, for Mix (JSON)
             ("sound", "TEXT"),  # how it sounds, for "sounds like" (JSON numbers, see sound.py)
             ("sound_checked", "INTEGER NOT NULL DEFAULT 0"),
+            ("cutoff", "REAL"),  # Hz where a lossless file's sound stops dead (made from an MP3?), see lossy.py
+            ("cutoff_checked", "INTEGER NOT NULL DEFAULT 0"),
         ):
             _add_column(conn, "tracks", cols, name, decl)
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(playlists)")}

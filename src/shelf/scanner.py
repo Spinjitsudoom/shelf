@@ -115,7 +115,8 @@ def scan(cfg: Config, progress=None) -> ScanResult:
                 duration=info.duration, codec=info.codec, mime=info.mime,
                 bitrate=info.bitrate, sample_rate=info.sample_rate, bits=info.bits,
                 lufs=info.lufs, peak=info.peak, loud_checked=int(info.lufs is not None),
-                has_art=int(info.has_art), bpm=None, musical_key=None, rhythm_checked=0, added_at=now,
+                has_art=int(info.has_art), bpm=None, musical_key=None, rhythm_checked=0, cutoff=None, cutoff_checked=0,
+                added_at=now,
             )
             cols = ", ".join(values)
             marks = ", ".join(f":{k}" for k in values)
@@ -129,6 +130,8 @@ def scan(cfg: Config, progress=None) -> ScanResult:
                 "bpm": f"CASE WHEN {same} THEN tracks.bpm END",
                 "musical_key": f"CASE WHEN {same} THEN tracks.musical_key END",
                 "rhythm_checked": f"CASE WHEN {same} THEN tracks.rhythm_checked ELSE 0 END",
+                "cutoff": f"CASE WHEN {same} THEN tracks.cutoff END",
+                "cutoff_checked": f"CASE WHEN {same} THEN tracks.cutoff_checked ELSE 0 END",
             }
             updates = ", ".join(
                 f"{k} = {special.get(k, f'excluded.{k}')}" for k in values if k not in ("path", "added_at")
