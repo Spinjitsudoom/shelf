@@ -18,6 +18,7 @@ import { nativeApp as android, currentServer, switchServer } from "./server.js";
 import { clearNative, mountNative } from "./native.js";
 import { mountSleep } from "./sleep.js";
 import { mountDJ } from "./dj.js";
+import { follow as followHost } from "./party.js";
 import { applyAlbumColor, caseHtml, coverUrl, esc, fmtTime, playlistCover, plural, quality, store, toast } from "./util.js";
 import {
   albumView, albumsView, artistHref, artistItems, artistLinks, artistView, artistsView, balanceLabel, ctx, homeView, mixerView,
@@ -387,7 +388,15 @@ async function runAction(action, el) {
       break;
     }
     case "party-end": await api.endParty(); toast("Party’s over"); location.hash = "#/people"; break;
-    case "party-leave": await api.leaveParty(parseRoute().host); location.hash = "#/people"; break;
+    case "party-leave": await api.leaveParty(parseRoute().host); store.set("party", null); location.hash = "#/people"; break;
+    case "party-here": {
+      const on = el.getAttribute("aria-checked") !== "true";
+      store.set("party", { host: parseRoute().host, playHere: on });
+      el.setAttribute("aria-checked", String(on));
+      if (!on) player.pause();
+      toast(on ? "Playing along here" : "Not playing here: the party plays on the host’s device");
+      break;
+    }
     case "party-add": {
       const host = parseRoute().host;
       const r = await api.partyAdd(host, [Number(el.dataset.track)]);
@@ -2084,3 +2093,29 @@ async function startOffline() {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }
 })();
+
+// ---------- party mode: playing along as a guest ----------
+
+// While you're at someone's party with Play here on, this device plays what they play, in step,
+// wherever you are in the app. (Your own party plays on your playing device as usual.)
+setInterval(async () => {
+  const join = store.get("party", null);
+  if (!join?.playHere || document.hidden && !player.playing) return;
+  let s;
+  try { s = await api.party(join.host); } catch (e) {
+    if (e.status === 404) { store.set("party", null); toast("The party has ended"); }
+    return;
+  }
+  if (s.isHost) return;
+  const step = followHost(
+    { trackId: player.current?.id ?? null, position: player.position, playing: player.playing },
+    { trackId: s.nowPlaying?.id ?? null, position: s.position, playing: s.playing });
+  if (step.load && s.nowPlaying) {
+    player.playList([s.nowPlaying, ...s.upNext], 0, { context: { label: `${s.host.username}’s party`, href: `#/party/${join.host}` }, startAt: step.seekTo ?? 0 });
+    if (!s.playing) setTimeout(() => player.pause(), 300);
+    return;
+  }
+  if (step.seekTo != null) player.seek(step.seekTo);
+  if (step.play === true) player.play();
+  else if (step.play === false) player.pause();
+}, 3000);

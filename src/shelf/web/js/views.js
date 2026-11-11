@@ -1452,13 +1452,18 @@ export function wrappedStep(el, step) {
 export async function partyView(el, host) {
   const p = await api.party(host);
   if (!p.joined) await api.joinParty(host);
+  // A guest plays along (Play here), unless they turned it off at this party.
+  if (!p.isHost && store.get("party", null)?.host !== host) store.set("party", { host, playHere: true });
+  const playHere = !p.isHost && !!store.get("party", null)?.playHere;
   const now = p.nowPlaying;
   const prior = el.querySelector("#party-find")?.value ?? "";
   setTracks(p.upNext, { label: `${p.host.username}’s party`, href: `#/party/${host}` });
   el.innerHTML = `
     <div class="page party-page" data-host="${host}">
       <header class="page-head"><div><h1 class="page-title">${p.isHost ? "Your party" : `${esc(p.host.username)}’s party`}</h1>
-        <p class="page-sub">${esc(p.members.join(", "))}</p></div>
+        <p class="page-sub">${esc(p.members.join(", "))}</p>
+        ${p.isHost ? "" : `<label class="party-here"><button class="switch" type="button" role="switch" data-action="party-here" aria-checked="${playHere}" aria-label="Play here"></button>
+          <span><b>Play here</b><small>Hear it on this device, in step with ${esc(p.host.username)}. Turn it off when you’re in the same room.</small></span></label>`}</div>
         ${p.isHost ? `<button class="btn" type="button" data-action="party-end">End party</button>`
                    : `<button class="btn" type="button" data-action="party-leave">Leave party</button>`}
       </header>

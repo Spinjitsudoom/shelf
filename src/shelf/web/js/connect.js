@@ -405,6 +405,12 @@ export class Controller extends EventTarget {
     this._optimistic({ playing: !this.playing, position: this.position });
     this._cmd("toggle");
   }
+  play() {
+    if (!this.remoteMode) return this.local.play();
+    this._optimistic({ playing: true, position: this.position });
+    this._cmd("play");
+  }
+
   pause() {
     if (!this.remoteMode) return this.local.pause();
     this._optimistic({ playing: false, position: this.position });

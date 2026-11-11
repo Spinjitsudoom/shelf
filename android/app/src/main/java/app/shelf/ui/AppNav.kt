@@ -106,6 +106,29 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     var adding by remember { mutableStateOf<app.shelf.data.Track?>(null) }
     var playlists by remember { mutableStateOf<List<app.shelf.data.PlaylistSummary>?>(null) }
     val api = container.api
+    // Party mode, as a guest: follow the host's playing here (wherever in the app you are).
+    val partyJoin by container.party.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(partyJoin, api) {
+        val join = partyJoin ?: return@LaunchedEffect
+        val a = api ?: return@LaunchedEffect
+        while (true) {
+            try {
+                val s = a.party(join.host)
+                if (join.playHere && !s.isHost && player != null) {
+                    val ui = player.state.value
+                    val step = app.shelf.playback.follow(
+                        app.shelf.playback.Here(ui.current?.id, ui.positionMs / 1000.0, ui.playing),
+                        app.shelf.playback.Here(s.nowPlaying?.id, s.position, s.playing))
+                    if (step != app.shelf.playback.Step()) {
+                        player.followHost(step, listOfNotNull(s.nowPlaying) + s.upNext, app.shelf.playback.PlayContext("${s.host.username}’s party", "party/${join.host}"))
+                    }
+                }
+            } catch (e: app.shelf.data.ShelfError.Server) {
+                if (e.code == 404) { container.party.value = null; say("The party has ended"); return@LaunchedEffect }
+            } catch (_: app.shelf.data.ShelfError) { /* a moment offline: try again */ }
+            kotlinx.coroutines.delay(3000)
+        }
+    }
     val failed = "Couldn’t save that. Check the connection and try again."
     LaunchedEffect(adding) { if (adding != null) playlists = try { source.playlists() } catch (e: app.shelf.data.ShelfError) { emptyList() } }
     val actions = remember { app.shelf.ui.common.SongActions(open = { t, remove -> menu = t to remove }) }
@@ -184,7 +207,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                     app.shelf.ui.browse.PeopleScreen(api, { nav.navigate(Routes.blend(it)) }, openAlbum, back, signedOut, onParty = { nav.navigate("party/$it") })
                 }
                 composable("party/{host}", listOf(navArgument("host") { type = NavType.IntType })) {
-                    app.shelf.ui.browse.PartyScreen(api, it.arguments!!.getInt("host"), back, say)
+                    app.shelf.ui.browse.PartyScreen(api, it.arguments!!.getInt("host"), back, say, container.party)
                 }
                 composable("blend/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
                     app.shelf.ui.browse.BlendScreen(it.arguments!!.getInt("id"), api, onPlay, back, signedOut)

@@ -2235,3 +2235,6 @@ input.range.balance::-moz-range-progress { background: transparent; }
 .party-title { margin: 2px 0 2px; font-size: clamp(1.6rem, 4vw, 2.4rem); line-height: 1.1; }
 .party-votes { margin-left: 12px; color: var(--ink-2); }
 .party-page .search-box { display: block; max-width: 520px; } /* its own search, on desktop too */
+.party-here { display: flex; align-items: center; gap: 12px; margin-top: 12px; max-width: 520px; }
+.party-here span { display: flex; flex-direction: column; }
+.party-here small { color: var(--ink-2); }

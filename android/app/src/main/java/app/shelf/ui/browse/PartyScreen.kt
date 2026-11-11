@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,7 +57,9 @@ fun votesText(votes: Int, needed: Int) = "$votes of $needed ${if (needed == 1) "
  * opening, and keeps itself up to date every few seconds.
  */
 @Composable
-fun PartyScreen(api: ShelfApi, host: Int, onBack: () -> Unit, say: (String) -> Unit) {
+fun PartyScreen(api: ShelfApi, host: Int, onBack: () -> Unit, say: (String) -> Unit,
+                party: kotlinx.coroutines.flow.MutableStateFlow<app.shelf.playback.PartyJoin?> = kotlinx.coroutines.flow.MutableStateFlow(null)) {
+    val joined by party.collectAsState()
     var status by remember { mutableStateOf<PartyStatus?>(null) }
     var gone by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
@@ -67,6 +70,8 @@ fun PartyScreen(api: ShelfApi, host: Int, onBack: () -> Unit, say: (String) -> U
         try {
             val s = api.party(host)
             if (!s.joined) api.joinParty(host)
+            // A guest follows the host's playing (Play here, on unless they turned it off at this party).
+            if (!s.isHost && party.value?.host != host) party.value = app.shelf.playback.PartyJoin(host)
             status = s
         } catch (e: ShelfError.Server) { gone = e.message } catch (_: ShelfError) { /* offline for a moment: keep what's shown */ }
     }
@@ -87,12 +92,22 @@ fun PartyScreen(api: ShelfApi, host: Int, onBack: () -> Unit, say: (String) -> U
                 if (s != null) TextButton(onClick = {
                     scope.launch {
                         runCatching { if (s.isHost) api.endParty() else api.leaveParty(host) }
+                        if (party.value?.host == host) party.value = null
                         say(if (s.isHost) "Party’s over" else "You left the party"); onBack()
                     }
                 }) { Text(if (s.isHost) "End party" else "Leave", color = Theme.colors.ink) }
             }
             if (s != null) Text(s.members.joinToString(", "), style = MaterialTheme.typography.bodyMedium, color = Theme.colors.ink2,
                 modifier = Modifier.padding(horizontal = 16.dp))
+            if (s != null && !s.isHost) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Play here", style = MaterialTheme.typography.titleMedium, color = Theme.colors.ink)
+                    Text("Hear it on this phone, in step with ${s.host.username}. Turn it off when you’re in the same room.",
+                        style = MaterialTheme.typography.bodySmall, color = Theme.colors.ink2)
+                }
+                androidx.compose.material3.Switch(checked = joined?.host == host && joined?.playHere == true,
+                    onCheckedChange = { on -> party.value = app.shelf.playback.PartyJoin(host, playHere = on) })
+            }
             gone?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = Theme.colors.ink, modifier = Modifier.padding(16.dp)) }
         }
         if (s == null) return@LazyColumn

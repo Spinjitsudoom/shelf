@@ -128,7 +128,7 @@ data class ListeningStats(
 @Serializable
 data class PartyStatus(
     val host: ActivityUser, val isHost: Boolean = false, val joined: Boolean = false, val members: List<String> = emptyList(),
-    val nowPlaying: Track? = null, val playing: Boolean = false, val upNext: List<Track> = emptyList(),
+    val nowPlaying: Track? = null, val playing: Boolean = false, val position: Double = 0.0, val upNext: List<Track> = emptyList(),
     val votes: Int = 0, val needed: Int = 1, val youVoted: Boolean = false,
 )
 @Serializable data class SkipVote(val skipped: Boolean = false, val votes: Int = 0, val needed: Int = 1)

@@ -65,6 +65,7 @@ def test_party(client):
         assert sam.post(f"/api/party/{me}/join").status_code == 200
         st = sam.get(f"/api/party/{me}").json()
         assert st["nowPlaying"]["title"] == now["title"] and st["members"] == ["admin", "sam"] and not st["isHost"]
+        assert 5 <= st["position"] < 7 and st["playing"]  # where the host is, now: guests play along from there
 
         # Sam adds a song: it goes right after the one playing.
         assert sam.post(f"/api/party/{me}/add", json={"trackIds": [tracks[1]["id"]]}).status_code == 200

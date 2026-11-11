@@ -2544,6 +2544,17 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             return None, 0
         return (hub.queue or {}).get("tracks") or [], int(hub.state.get("index") or 0)
 
+    def _host_position(hub) -> float:
+        if not hub or not hub.state:
+            return 0.0
+        s = hub.state
+        pos = float(s.get("position") or 0)
+        if s.get("playing"):
+            pos += time.monotonic() - hub.state_at
+            if s.get("duration"):
+                pos = min(pos, max(0.0, float(s["duration"]) - 0.5))
+        return round(pos, 2)
+
     @app.post("/api/party")
     def start_party():
         """Start a party: other people here can join your playing, add songs and vote to skip."""
@@ -2597,6 +2608,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             "joined": me_id == host or me_id in p.members,
             "members": [names.get(u, "Someone") for u in [host, *sorted(p.members)] if u in p.present(now)],
             "nowPlaying": current, "playing": bool(hub and hub.state and hub.state.get("playing")),
+            # Where the host is in the song right now, so guests' devices can play along in step.
+            "position": _host_position(hub),
             "upNext": (queue or [])[index + 1: index + 11],
             "votes": len(p.votes), "needed": p.needed(now), "youVoted": me_id in p.votes,
         }

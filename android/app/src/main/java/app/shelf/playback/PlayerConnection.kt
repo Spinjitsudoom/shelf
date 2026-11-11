@@ -110,6 +110,17 @@ class PlayerConnection(context: Context, private val source: () -> LibrarySource
         }
     }
 
+    /** Party mode: one step of following the host (see [follow]); `tracks` is their song and what's next. */
+    fun followHost(step: Step, tracks: List<Track>, context: PlayContext) {
+        val c = controller ?: return
+        if (step.load && tracks.isNotEmpty()) {
+            val src = source() ?: return
+            c.setMediaItems(tracks.map { it.toControllerItem(src, context) }, 0, ((step.seekTo ?: 0.0) * 1000).toLong())
+            c.prepare()
+        } else step.seekTo?.let { c.seekTo((it * 1000).toLong()) }
+        when (step.play) { true -> c.play(); false -> c.pause(); null -> if (step.load) c.pause() }
+    }
+
     fun toggle() { controller?.let { if (it.playWhenReady) it.pause() else { if (it.playbackState == Player.STATE_IDLE) it.prepare(); it.play() } } }
     fun next() { controller?.seekToNextMediaItem() }
     /** Back to the start of the song, or the song before when near its start (like every player). */
