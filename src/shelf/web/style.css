@@ -2469,3 +2469,5 @@ input.range.balance::-moz-range-progress { background: transparent; }
   .ep-art, .ep-art .case { width: 44px; }
   .ep-actions { flex-direction: column-reverse; gap: 2px; }
 }
+.lib-find { display: grid; place-items: center; background: var(--sleeve); color: var(--ink); box-shadow: none; }
+.lib-find svg { width: 22px; height: 22px; }

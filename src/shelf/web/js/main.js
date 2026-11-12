@@ -166,7 +166,7 @@ async function drawRoute(route, key) {
         unmountPage = () => { off?.(); if (video.host && !document.body.contains(video.host)) video.stop(false); };
         break;
       }
-      case "search": await searchView(view, route.q); break;
+      case "search": await searchView(view, route.q, player); break;
       case "queue": queueView(view, player); break;
       case "settings": await settingsView(view, player, session); break;
       case "admin": unmountPage = await adminView(view, session, { dialog }); break;

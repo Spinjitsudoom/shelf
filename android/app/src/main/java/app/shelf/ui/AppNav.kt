@@ -209,7 +209,9 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                         if (!container.settings.settings.value.privateSession) scope.launch { runCatching { a.homeUsed(row) } }
                     } })
             }
-            composable(Routes.SEARCH) { app.shelf.ui.search.SearchScreen(container.api!!, onPlay, openAlbum, openArtist) }
+            composable(Routes.SEARCH) {
+                app.shelf.ui.search.SearchScreen(container.api!!, onPlay, openAlbum, openArtist, onShow = { nav.navigate(Routes.podcast(it)) }, say = say)
+            }
             composable(Routes.LIBRARY) {
                 LibraryScreen(source, { nav.navigate(Routes.FAVOURITES) }, { nav.navigate(Routes.playlist(it)) }, openAlbum, openArtist, signedOut,
                     onNewPlaylist = api?.let { a -> { name: String -> scope.launch {
@@ -224,7 +226,9 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                             null
                         } catch (e: app.shelf.data.ShelfError.Server) { e.message } catch (e: app.shelf.data.ShelfError) { failed }
                     } },
-                    onImport = api?.let { { importing = "" } }, onPodcasts = api?.let { { nav.navigate(Routes.PODCASTS) } })
+                    onImport = api?.let { { importing = "" } },
+                    shows = api?.let { a -> { a.podcasts().shows } }, onShow = { nav.navigate(Routes.podcast(it)) },
+                    onFindPodcasts = api?.let { { nav.navigate(Routes.PODCASTS) } })
             }
             if (api != null) {
                 composable(Routes.PODCASTS) {

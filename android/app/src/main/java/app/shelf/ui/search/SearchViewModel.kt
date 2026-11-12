@@ -20,6 +20,9 @@ class SearchViewModel(private val search: suspend (String) -> SearchResults) : V
     val results: StateFlow<Load<SearchResults>?> = _results
     private var job: Job? = null
 
+    /** The same search again (after something in its results changed). */
+    fun refresh() = onQuery(_query.value)
+
     fun onQuery(q: String) {
         _query.value = q
         job?.cancel()

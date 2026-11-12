@@ -90,11 +90,11 @@ private fun status(e: Episode): String {
     return listOfNotNull(day, rest).joinToString(" · ")
 }
 
-private fun playEpisode(e: Episode, onPlay: OnPlay) = onPlay(listOf(e.asTrack()), 0, PlayContext(e.album, "podcast/${e.podcastId}"))
+fun playEpisode(e: Episode, onPlay: OnPlay) = onPlay(listOf(e.asTrack()), 0, PlayContext(e.album, "podcast/${e.podcastId}"))
 
 /** One episode: the show (in mixed lists), when, how far you are; play it, or mark it played. */
 @Composable
-private fun EpisodeRow(e: Episode, source: LibrarySource, onPlay: OnPlay, onMark: (Boolean) -> Unit, withShow: Boolean = false, onShow: ((Int) -> Unit)? = null) {
+fun EpisodeRow(e: Episode, source: LibrarySource, onPlay: OnPlay, onMark: (Boolean) -> Unit, withShow: Boolean = false, onShow: ((Int) -> Unit)? = null) {
     var open by remember(e.id) { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.Top) {
         if (withShow) {

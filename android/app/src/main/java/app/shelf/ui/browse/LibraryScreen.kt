@@ -49,18 +49,20 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import app.shelf.ui.theme.Shelf as Theme
 
-private data class LibraryData(val playlists: List<PlaylistSummary>, val albums: List<Album>, val artists: List<ArtistSummary>)
+private data class LibraryData(val playlists: List<PlaylistSummary>, val albums: List<Album>, val artists: List<ArtistSummary>,
+                               val shows: List<app.shelf.data.PodcastShow> = emptyList())
 
 /** Names compared the way the server does: case and accents don't matter. */
 private fun fold(name: String) = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFKD)
     .replace(Regex("\\p{M}+"), "").lowercase()
 
-private enum class Filter(val label: String) { Playlists("Playlists"), Albums("Albums"), Artists("Artists"), Downloaded("Downloaded") }
+private enum class Filter(val label: String) { Playlists("Playlists"), Podcasts("Podcasts"), Albums("Albums"), Artists("Artists"), Downloaded("Downloaded") }
 
 @Composable
 fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (Int) -> Unit, onAlbum: (Int) -> Unit, onArtist: (String) -> Unit,
                   signedOut: SignedOutHandler, onNewPlaylist: ((String) -> Unit)? = null,
-                  onMakePlaylist: (suspend (String) -> String?)? = null, onImport: (() -> Unit)? = null, onPodcasts: (() -> Unit)? = null) {
+                  onMakePlaylist: (suspend (String) -> String?)? = null, onImport: (() -> Unit)? = null,
+                  shows: (suspend () -> List<app.shelf.data.PodcastShow>)? = null, onShow: (Int) -> Unit = {}, onFindPodcasts: (() -> Unit)? = null) {
     var naming by rememberSaveable { mutableStateOf(false) }
     var making by rememberSaveable { mutableStateOf(false) }
     if (naming && onNewPlaylist != null) app.shelf.ui.common.NameDialog("New playlist", "", "Create", onNewPlaylist, { naming = false })
@@ -68,7 +70,9 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
     val (state, retry) = rememberLoad("library") {
         coroutineScope {
             val p = async { source.playlists() }; val a = async { source.albums("recent") }; val r = async { source.artists() }
-            LibraryData(p.await(), a.await(), r.await())
+            // The podcasts you follow sit in the Library too (none offline).
+            val s = async { try { shows?.invoke() ?: emptyList() } catch (e: app.shelf.data.ShelfError) { emptyList() } }
+            LibraryData(p.await(), a.await(), r.await(), s.await())
         }
     }
     var filter by rememberSaveable { mutableStateOf<Filter?>(null) }
@@ -93,7 +97,7 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
                 }
                 Spacer(Modifier.height(10.dp))
                 LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(Filter.entries.filter { it != Filter.Downloaded || downloaded.isNotEmpty() }) { f ->
+                    items(Filter.entries.filter { (it != Filter.Downloaded || downloaded.isNotEmpty()) && (it != Filter.Podcasts || shows != null) }) { f ->
                         FilterChip(selected = filter == f, onClick = { filter = if (filter == f) null else f }, label = { Text(f.label) },
                             colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Theme.colors.cobalt, selectedLabelColor = Theme.colors.cobaltInk,
                                 labelColor = Theme.colors.ink))
@@ -130,16 +134,21 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
                     }
                 }
                 item { LibraryRow("Favourites", "Playlist", onFavourites) { FavouritesCover() } }
-                if (onPodcasts != null) item {
-                    LibraryRow("Podcasts", "The shows you follow", onPodcasts) {
-                        Box(Modifier.fillMaxSize().background(Theme.colors.sleeve), contentAlignment = Alignment.Center) {
-                            androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_podcast), null, tint = Theme.colors.ink)
-                        }
-                    }
-                }
                 items(d.playlists, key = { "p${it.id}" }) { p ->
                     LibraryRow(p.name, "Playlist, ${plural(p.trackCount, "song")}", { onPlaylist(p.id) }) {
                         MosaicCover(p.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 160) }, p.name, albumColor(null, p.name))
+                    }
+                }
+            }
+            if (filter == null || filter == Filter.Podcasts) items(d.shows, key = { "s${it.id}" }) { s ->
+                LibraryRow(s.title, "Podcast, " + if (s.unplayed > 0) "${s.unplayed} to hear" else s.author.ifBlank { "all heard" }, { onShow(s.id) }) {
+                    CaseCover(source.coverUrl(s.albumId, s.cover, 160), s.title, albumColor(null, s.title))
+                }
+            }
+            if (filter == Filter.Podcasts && onFindPodcasts != null) item {
+                LibraryRow("Find a podcast", "Search, or paste a show’s link", onFindPodcasts) {
+                    Box(Modifier.fillMaxSize().background(Theme.colors.sleeve), contentAlignment = Alignment.Center) {
+                        androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_podcast), null, tint = Theme.colors.ink)
                     }
                 }
             }

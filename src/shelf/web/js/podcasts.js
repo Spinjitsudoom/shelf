@@ -35,12 +35,14 @@ export function episodeRow(e, i, { withShow = false } = {}) {
     </li>`;
 }
 
-/** Play, mark and expand in a list of episodes. `redraw` after marking. */
+/** Play, mark and expand in a list of episodes (an array, or a function giving the current
+ * one when the list is redrawn in place). `redraw` after marking. */
 export function wireEpisodes(list, episodes, player, redraw) {
   list?.addEventListener("click", async (ev) => {
     const row = ev.target.closest("[data-ep]");
     if (!row) return;
-    const e = episodes[Number(row.dataset.ep)];
+    const e = (typeof episodes === "function" ? episodes() : episodes)[Number(row.dataset.ep)];
+    if (!e) return;
     if (ev.target.closest("[data-ep-play]")) {
       player.playList([e], 0, { context: { label: e.album, href: `#/podcast/${e.podcastId}` } });
     } else if (ev.target.closest("[data-ep-done]")) {

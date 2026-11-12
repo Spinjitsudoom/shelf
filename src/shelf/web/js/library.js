@@ -101,6 +101,8 @@ export function mountLibrary(root, player) {
       creator: (x, y) => byText(x.by, y.by) || (x.kind === "artist" ? -1 : y.kind === "artist" ? 1 : byText(x.name, y.name)),
     }[sort];
     shown.sort(cmp);
+    // Under Podcasts: a way to find more, at the end.
+    if (filter === "podcasts" && !q) shown.push({ kind: "find-podcasts" });
     // Favourites stays pinned at the top.
     if ((!filter || filter === "playlists" || (dl && offline.isSaved("liked"))) && (!q || fold("favourites").includes(q))) shown.unshift({ kind: "liked" });
     return shown;
@@ -124,6 +126,13 @@ export function mountLibrary(root, player) {
           ${playlistCover(p, { cls: "lib-cover" })}
           <span class="lib-text"><span class="lib-name">${esc(p.name)}</span><span class="lib-sub">${dlMark(`playlist:${p.id}`)}Playlist • ${p.mine === false ? esc(p.owner?.username ?? "") : plural(p.trackCount, "song")}</span></span>
           <svg class="lib-playing" aria-label="Playing"><use href="#i-volume"/></svg>
+        </a>`;
+    }
+    if (it.kind === "find-podcasts") {
+      return `
+        <a class="lib-item" role="listitem" href="#/podcasts" title="Find a podcast">
+          <span class="case case-sm lib-find" aria-hidden="true"><svg><use href="#i-plus"/></svg></span>
+          <span class="lib-text"><span class="lib-name">Find a podcast</span><span class="lib-sub">Search, or paste a show’s link</span></span>
         </a>`;
     }
     if (it.kind === "podcast") {

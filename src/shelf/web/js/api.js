@@ -135,7 +135,7 @@ export const api = {
   homeUsed: (row) => request("POST", "home/used", { row }),
   podcasts: () => request("GET", "podcasts"),
   podcast: (id) => request("GET", `podcasts/${id}`),
-  podcastSearch: (q) => request("GET", `podcasts/search?q=${encodeURIComponent(q)}`),
+  podcastSearch: (q, { live = false } = {}) => request("GET", `podcasts/search?q=${encodeURIComponent(q)}${live ? "&live=1" : ""}`),
   followPodcast: (feedUrl) => request("POST", "podcasts", { feedUrl }).then((r) => { podcastsChanged(); return r; }),
   unfollowPodcast: (id) => request("DELETE", `podcasts/${id}`).then((r) => { podcastsChanged(); return r; }),
   refreshPodcast: (id) => request("POST", `podcasts/${id}/refresh`),

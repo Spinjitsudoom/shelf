@@ -69,8 +69,14 @@ Last updated: 2026-11-12, after v0.7.7 shipped.
   `/resume` keeps the place in `episode_state` (near the end = finished), and played/skipped are
   no-ops, so podcasts stay out of stats and recommendations. Only public-internet addresses are
   fetched (redirects re-checked). No crossfade into or out of an episode; no Favourites or
-  playlists for episodes. Home gets a "Your podcasts" row (in progress, then new from the last
-  two weeks); web Library lists followed shows (Podcasts chip); Android reaches it from Library.
+  playlists for episodes. Woven into the rest of the app rather than kept on its own page: the
+  main search (web and Android) also finds your shows and their episodes, plus "Podcasts to
+  follow" from the directory with a one-tap Follow (`/api/podcasts/search?live=1`, a moment
+  after typing stops, cached an hour, only when online lookups — `artist_info` — are on); Your
+  Library lists followed shows with a Podcasts chip and "Find a podcast" (web and Android); Home's
+  "Your podcasts" row shows episodes in progress, new ones from the last two weeks, and otherwise
+  the newest unheard episode of each show. The Podcasts page (`#/podcasts`) is still there for
+  browsing and pasting links.
 - **Extras:** per-device equalizer + mixer screen with live spectrum (`mixer.js`,
   `EqualizerScreen.kt`), visualizer (`visualizer.js`, `Visualizer.kt`), sleep timer, lyrics
   (`lyrics.py`: LRCLIB and tags, synced where possible), music videos via YouTube lookup

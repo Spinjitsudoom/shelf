@@ -198,12 +198,24 @@ def _itunes(path: str, **params) -> dict:
     return json.loads(data)
 
 
+_found: dict[str, tuple[float, list]] = {}
+
+
 def search(term: str) -> list[dict]:
-    """Shows matching a name, from Apple's podcast directory."""
+    """Shows matching a name, from Apple's podcast directory (remembered for an hour, since the
+    main search asks as people type)."""
+    key = " ".join(term.lower().split())
+    hit = _found.get(key)
+    if hit and time.time() - hit[0] < 3600:
+        return hit[1]
     r = _itunes("search", media="podcast", entity="podcast", term=term.strip(), limit=20)
-    return [{"title": x.get("collectionName") or x.get("trackName") or "", "author": x.get("artistName") or "",
-             "feedUrl": x["feedUrl"], "image": x.get("artworkUrl600") or x.get("artworkUrl100")}
-            for x in r.get("results", []) if x.get("feedUrl")]
+    out = [{"title": x.get("collectionName") or x.get("trackName") or "", "author": x.get("artistName") or "",
+            "feedUrl": x["feedUrl"], "image": x.get("artworkUrl600") or x.get("artworkUrl100")}
+           for x in r.get("results", []) if x.get("feedUrl")]
+    if len(_found) > 300:
+        _found.clear()
+    _found[key] = (time.time(), out)
+    return out
 
 
 def feed_for(link: str) -> str:

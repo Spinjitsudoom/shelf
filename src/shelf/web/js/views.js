@@ -7,6 +7,7 @@ import { currentServer } from "./server.js";
 import { detectDevice } from "./connect.js";
 import { likeButton, likes } from "./likes.js";
 import { gripHtml } from "./queuedrag.js";
+import { episodeRow, wireEpisodes } from "./podcasts.js";
 import { STYLE_LABEL, describe as describeTransition, isCustom, normalize as normalizeTransition } from "./transitions.js";
 import { EQ_BANDS, EQ_PRESETS, IS_IOS, QUALITY_LABELS, qualityDetail, settings } from "./settings.js";
 import {
@@ -762,33 +763,69 @@ export async function artistView(el, name) {
 // ---------- search ----------
 
 let searchTimer;
-export async function searchView(el, query) {
+export async function searchView(el, query, player) {
   setTracks([], null);
   el.innerHTML = `
     <div class="page">
       <header class="page-head"><h1 class="page-title">Search</h1></header>
       <label class="search-box">
-        <span class="sr-only">Search your library</span>
+        <span class="sr-only">Search your library and podcasts</span>
         <svg><use href="#i-search"/></svg>
-        <input id="search-input" type="search" placeholder="Artists, albums, songs" value="${esc(query)}" autocomplete="off" enterkeyhint="search">
+        <input id="search-input" type="search" placeholder="Artists, albums, songs, podcasts" value="${esc(query)}" autocomplete="off" enterkeyhint="search">
       </label>
       <div id="search-results"></div>
+      <div id="search-podcasts"></div>
     </div>`;
   const input = el.querySelector("#search-input");
   const results = el.querySelector("#search-results");
+  const online = el.querySelector("#search-podcasts");
+  let episodes = [];
+  wireEpisodes(results, () => episodes, player, () => run());
+  // Shows to follow, from the podcast directory (or the show behind a pasted link): asked a
+  // moment after typing stops, so the shelf's own results never wait for it.
+  let found = [];
+  const lookOnline = async (q) => {
+    const r = await api.podcastSearch(q, { live: true }).catch(() => ({ results: [] }));
+    if (input.value.trim() !== q) return;
+    found = (r.results || []).filter((x) => !x.following).slice(0, 8);
+    online.innerHTML = found.length ? `<h2 class="section-title">Podcasts to follow</h2>
+      <ul class="pod-result-list">${found.map((x, i) => `
+        <li class="pod-result">
+          <span class="pod-result-art" aria-hidden="true">${x.image ? `<img src="${esc(x.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</span>
+          <span class="pod-result-text"><b>${esc(x.title)}</b><span>${esc(["Podcast", x.author].filter(Boolean).join(" · "))}</span></span>
+          <button class="btn btn-small" type="button" data-follow-pod="${i}">Follow</button>
+        </li>`).join("")}</ul>` : "";
+  };
+  online.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-follow-pod]");
+    if (!b) return;
+    b.disabled = true;
+    b.textContent = "Adding…";
+    try {
+      const show = await api.followPodcast(found[Number(b.dataset.followPod)].feedUrl);
+      toast(`Following ${show.title}. It’s in your library now`);
+      await run();
+    } catch (err) { toast(err.message); b.disabled = false; b.textContent = "Follow"; }
+  });
+  let onlineTimer = 0;
   const run = async () => {
     const q = input.value.trim();
     history.replaceState(null, "", q ? `#/search?q=${encodeURIComponent(q)}` : "#/search");
+    clearTimeout(onlineTimer);
     if (!q) {
       results.innerHTML = "";
+      online.innerHTML = "";
       setTracks([], null);
       return;
     }
+    onlineTimer = setTimeout(() => lookOnline(q), 600);
     const r = await api.search(q);
     if (input.value.trim() !== q) return; // a newer query is on its way
     setTracks(r.tracks, { label: `Search: ${q}`, href: `#/search?q=${encodeURIComponent(q)}` });
-    if (!r.artists.length && !r.albums.length && !r.tracks.length) {
-      results.innerHTML = `<div class="empty"><strong>Nothing matches “${esc(q)}”</strong>Try part of a title or an artist’s name. Not on the shelf at all? <a href="#/requests?artist=${encodeURIComponent(q)}" style="text-decoration:underline">Request it</a>.</div>`;
+    const shows = r.podcasts ?? [];
+    episodes = r.episodes ?? [];
+    if (!r.artists.length && !r.albums.length && !r.tracks.length && !shows.length && !episodes.length) {
+      results.innerHTML = `<div class="empty"><strong>Nothing on your shelf matches “${esc(q)}”</strong>Try part of a title or an artist’s name. Not on the shelf at all? <a href="#/requests?artist=${encodeURIComponent(q)}" style="text-decoration:underline">Request it</a>.</div>`;
       return;
     }
     results.innerHTML = `
@@ -796,7 +833,14 @@ export async function searchView(el, query) {
         <a class="artist-row" href="${artistHref(ar.name)}"><span><span class="artist-name">${esc(ar.name)}</span><br>
         <span class="artist-count">${plural(ar.albums, "album")}</span></span></a>`).join("")}</div>` : ""}
       ${r.albums.length ? `<h2 class="section-title">Albums</h2><div class="shelf">${r.albums.map((a) => albumCard(a)).join("")}</div>` : ""}
-      ${r.tracks.length ? `<h2 class="section-title">Songs</h2><div>${r.tracks.map((t, i) => trackRow(t, i, { withArt: true })).join("")}</div>` : ""}`;
+      ${r.tracks.length ? `<h2 class="section-title">Songs</h2><div>${r.tracks.map((t, i) => trackRow(t, i, { withArt: true })).join("")}</div>` : ""}
+      ${shows.length ? `<h2 class="section-title">Podcasts</h2><div class="shelf">${shows.map((sh) => `
+        <div class="album-card pod-card">
+          <div class="card-art"><a href="#/podcast/${sh.id}" aria-label="${esc(sh.title)}">${caseHtml({ id: sh.albumId, cover: sh.cover, title: sh.title })}</a></div>
+          <div class="card-title"><a href="#/podcast/${sh.id}">${esc(sh.title)}</a></div>
+          <div class="card-sub">Podcast${sh.author ? ` · ${esc(sh.author)}` : ""}</div>
+        </div>`).join("")}</div>` : ""}
+      ${episodes.length ? `<h2 class="section-title">Episodes</h2><ul class="ep-list">${episodes.map((e, i) => episodeRow(e, i, { withShow: true })).join("")}</ul>` : ""}`;
   };
   input.addEventListener("input", () => {
     clearTimeout(searchTimer);

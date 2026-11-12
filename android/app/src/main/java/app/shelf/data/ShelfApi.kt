@@ -49,8 +49,10 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     // Podcasts: follow shows, see their episodes, mark them played.
     suspend fun podcasts(): PodcastsHome = call("api/podcasts", PodcastsHome.serializer())
     suspend fun podcast(id: Int): PodcastShow = call("api/podcasts/$id", PodcastShow.serializer())
-    suspend fun podcastSearch(q: String): PodcastSearch =
-        call(url("api/podcasts/search").newBuilder().addQueryParameter("q", q).build(), PodcastSearch.serializer(), method = "GET")
+    /** `live`: asked while someone types in the main search (the server only looks online when that's allowed). */
+    suspend fun podcastSearch(q: String, live: Boolean = false): PodcastSearch =
+        call(url("api/podcasts/search").newBuilder().addQueryParameter("q", q).apply { if (live) addQueryParameter("live", "1") }.build(),
+            PodcastSearch.serializer(), method = "GET")
     suspend fun followPodcast(feedUrl: String): PodcastShow =
         call("api/podcasts", PodcastShow.serializer(), buildJsonObject { put("feedUrl", feedUrl) }.toString().toRequestBody(JSON))
     suspend fun unfollowPodcast(id: Int) = send("DELETE", "api/podcasts/$id")

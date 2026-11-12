@@ -121,8 +121,9 @@ data class MixDetail(
 @Serializable data class SearchArtist(val name: String, val albums: Int = 0)
 
 @Serializable
-data class SearchResults(val artists: List<SearchArtist> = emptyList(), val albums: List<Album> = emptyList(), val tracks: List<Track> = emptyList()) {
-    val isEmpty get() = artists.isEmpty() && albums.isEmpty() && tracks.isEmpty()
+data class SearchResults(val artists: List<SearchArtist> = emptyList(), val albums: List<Album> = emptyList(), val tracks: List<Track> = emptyList(),
+                         val podcasts: List<PodcastShow> = emptyList(), val episodes: List<Episode> = emptyList()) {
+    val isEmpty get() = artists.isEmpty() && albums.isEmpty() && tracks.isEmpty() && podcasts.isEmpty() && episodes.isEmpty()
 }
 
 /** One timed line of lyrics: [t] seconds into the song. */

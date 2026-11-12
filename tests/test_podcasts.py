@@ -184,3 +184,20 @@ def test_home_has_your_podcasts(client, feeds):
     client.put(f"/api/tracks/{show['episodeList'][1]['id']}/resume", json={"position": 300})
     row = next(r for r in client.get("/api/home").json()["rows"] if r["key"] == "podcasts")
     assert row["title"] == "Your podcasts" and row["episodes"][0]["title"] == "Episode 1: Hello"  # partway through first
+
+
+def test_old_shows_still_reach_home_and_search(client, feeds):
+    login(client)
+    show = client.post("/api/podcasts", json={"feedUrl": FEED}).json()
+    with session(client.app.state.cfg.db_path) as conn:  # both episodes a year old: nothing "new"
+        conn.execute("UPDATE episodes SET published_at = published_at - 365 * 86400")
+    row = next(r for r in client.get("/api/home").json()["rows"] if r["key"] == "podcasts")
+    assert [e["title"] for e in row["episodes"]] == ["Episode 2: Again"]  # the newest you haven't heard
+
+    r = client.get("/api/search", params={"q": "some show"}).json()
+    assert [p["title"] for p in r["podcasts"]] == ["Some Show"]
+    r = client.get("/api/search", params={"q": "again"}).json()
+    assert [e["title"] for e in r["episodes"]] == ["Episode 2: Again"] and r["episodes"][0]["podcastId"] == show["id"]
+
+    # Typing in the main search only looks online when online lookups are on.
+    assert client.get("/api/podcasts/search", params={"q": "history", "live": 1}).json() == {"results": [], "off": True}

@@ -59,6 +59,7 @@ import app.shelf.ui.common.plural
 import app.shelf.ui.covers.CaseCover
 import app.shelf.ui.covers.albumColor
 import app.shelf.ui.theme.Shelf
+import kotlinx.coroutines.launch
 
 /** The last few searches, kept on this phone. */
 private class Recent(context: Context) {
@@ -69,7 +70,8 @@ private class Recent(context: Context) {
 }
 
 @Composable
-fun SearchScreen(api: ShelfApi, onPlay: (List<Track>, Int, PlayContext) -> Unit, onAlbum: (Int) -> Unit, onArtist: (String) -> Unit) {
+fun SearchScreen(api: ShelfApi, onPlay: (List<Track>, Int, PlayContext) -> Unit, onAlbum: (Int) -> Unit, onArtist: (String) -> Unit,
+                 onShow: (Int) -> Unit = {}, say: (String) -> Unit = {}) {
     val vm: SearchViewModel = viewModel(factory = viewModelFactory { initializer { SearchViewModel(api::search) } })
     val query by vm.query.collectAsStateWithLifecycle()
     val results by vm.results.collectAsStateWithLifecycle()
@@ -78,6 +80,17 @@ fun SearchScreen(api: ShelfApi, onPlay: (List<Track>, Int, PlayContext) -> Unit,
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // Shows to follow, from the podcast directory: asked a moment after typing stops.
+    var toFollow by remember { mutableStateOf<List<app.shelf.data.PodcastResult>>(emptyList()) }
+    var adding by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(query) {
+        toFollow = emptyList()
+        val q = query.trim()
+        if (q.length < 3) return@LaunchedEffect
+        kotlinx.coroutines.delay(600)
+        toFollow = try { api.podcastSearch(q, live = true).results.filter { !it.following }.take(8) } catch (e: app.shelf.data.ShelfError) { emptyList() }
+    }
     fun remember(q: String) { if (q.isNotBlank()) { recent.add(q); recentList = recent.all() } }
 
     Column(Modifier.fillMaxSize()) {
@@ -86,7 +99,7 @@ fun SearchScreen(api: ShelfApi, onPlay: (List<Track>, Int, PlayContext) -> Unit,
             Spacer(Modifier.height(12.dp))
             TextField(
                 value = query, onValueChange = vm::onQuery, singleLine = true,
-                placeholder = { Text("Songs, albums and artists", color = Shelf.colors.ink2) },
+                placeholder = { Text("Songs, albums, artists and podcasts", color = Shelf.colors.ink2) },
                 leadingIcon = { Icon(painterResource(R.drawable.ic_search), null, tint = Shelf.colors.ink2) },
                 trailingIcon = if (query.isNotEmpty()) { { IconButton(onClick = { vm.onQuery("") }) { Icon(painterResource(R.drawable.ic_close), "Clear", tint = Shelf.colors.ink2) } } } else null,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -125,8 +138,10 @@ fun SearchScreen(api: ShelfApi, onPlay: (List<Track>, Int, PlayContext) -> Unit,
                 color = Shelf.colors.ink2, modifier = Modifier.padding(16.dp))
             is Load.Ready -> {
                 val res = r.value
-                if (res.isEmpty) Text("Nothing on the shelf matches “$query”.", style = MaterialTheme.typography.bodyLarge, color = Shelf.colors.ink2, modifier = Modifier.padding(16.dp))
-                else LazyColumn(Modifier.fillMaxSize()) {
+                LazyColumn(Modifier.fillMaxSize()) {
+                    if (res.isEmpty) item {
+                        Text("Nothing on the shelf matches “$query”.", style = MaterialTheme.typography.bodyLarge, color = Shelf.colors.ink2, modifier = Modifier.padding(16.dp))
+                    }
                     if (res.artists.isNotEmpty()) item { SectionTitle("Artists") }
                     items(res.artists) { a ->
                         ResultRow(a.name, "Artist, ${plural(a.albums, "album")}", { remember(query); onArtist(a.name) }) {
@@ -144,6 +159,38 @@ fun SearchScreen(api: ShelfApi, onPlay: (List<Track>, Int, PlayContext) -> Unit,
                         TrackRow(null, t.title, "${t.artist}, ${t.album}", fmtTime(t.duration),
                             { remember(query); onPlay(res.tracks, i, PlayContext("Search: $query", "search")) },
                             coverUrl = api.coverUrl(t.albumId, t.cover, 160), coverColor = albumColor(null, t.album), track = t)
+                    }
+                    if (res.podcasts.isNotEmpty()) item { SectionTitle("Podcasts") }
+                    items(res.podcasts, key = { "p${it.id}" }) { s ->
+                        ResultRow(s.title, listOf("Podcast", s.author).filter { it.isNotBlank() }.joinToString(", "), { remember(query); onShow(s.id) }) {
+                            CaseCover(api.coverUrl(s.albumId, s.cover, 160), s.title, albumColor(null, s.title))
+                        }
+                    }
+                    if (res.episodes.isNotEmpty()) item { SectionTitle("Episodes") }
+                    items(res.episodes, key = { "e${it.id}" }) { e ->
+                        app.shelf.ui.browse.EpisodeRow(e, api, { tracks, i, ctx -> remember(query); onPlay(tracks, i, ctx) }, { done ->
+                            scope.launch { try { api.markEpisode(e.episodeId, done); vm.refresh() } catch (x: app.shelf.data.ShelfError) { say(x.message ?: "Couldn’t reach the server") } }
+                        }, withShow = true, onShow = onShow)
+                    }
+                    if (toFollow.isNotEmpty()) item { SectionTitle("Podcasts to follow") }
+                    items(toFollow, key = { "f" + it.feedUrl }) { p ->
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(52.dp)) { CaseCover(p.image, p.title, albumColor(null, p.title)) }
+                            Spacer(Modifier.width(14.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(p.title, style = MaterialTheme.typography.titleMedium, color = Shelf.colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(listOf("Podcast", p.author).filter { it.isNotBlank() }.joinToString(", "), style = MaterialTheme.typography.bodySmall,
+                                    color = Shelf.colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            androidx.compose.material3.OutlinedButton(enabled = adding == null, onClick = {
+                                adding = p.feedUrl
+                                scope.launch {
+                                    try { val show = api.followPodcast(p.feedUrl); say("Following ${show.title}. It’s in your library now"); remember(query); onShow(show.id) }
+                                    catch (e: app.shelf.data.ShelfError) { say(e.message ?: "Couldn’t add that show") }
+                                    adding = null
+                                }
+                            }) { Text(if (adding == p.feedUrl) "Adding…" else "Follow", color = Shelf.colors.ink) }
+                        }
                     }
                     item { Spacer(Modifier.height(24.dp)) }
                 }

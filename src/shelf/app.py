@@ -2149,10 +2149,19 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             track_rows = conn.execute(
                 f"{TRACK_SELECT} WHERE {tw} ORDER BY t.title COLLATE NOCASE LIMIT 50", tp,
             ).fetchall()
+            # The podcasts you follow, and their episodes, are searched along with the music.
+            me_id = uid()
+            shows = [sh for sh in _my_shows(conn, me_id)
+                     if all(f in videos.fold(f"{sh['title']} {sh['author']}") for f in folded)][:8]
+            ew, ep = where(["e.title"])
+            episodes = _episode_rows(conn, me_id, f"e.podcast_id IN (SELECT podcast_id FROM podcast_subs WHERE user_id = ?) AND {ew}",
+                                     (me_id, *ep), 12)
         return {
             "artists": [{"name": a["name"], "albums": a["albums"]} for a in artist_rows],
             "albums": [album_json(r) for r in album_rows],
             "tracks": [track_json(r) for r in track_rows],
+            "podcasts": shows,
+            "episodes": episodes,
         }
 
     @app.get("/api/home")
@@ -2214,6 +2223,13 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             episodes = (_episode_rows(conn, me_id, f"{mine} AND st.position > 0 AND COALESCE(st.finished, 0) = 0", (me_id,), 8)
                         + _episode_rows(conn, me_id, f"{mine} AND COALESCE(st.finished, 0) = 0 AND COALESCE(st.position, 0) = 0 "
                                                      "AND e.published_at > ?", (me_id, now - 14 * 86400), 12))[:14]
+            if len(episodes) < 6:
+                # Quiet fortnight: the newest episode you haven't heard from each show you follow.
+                have = {e["id"] for e in episodes}
+                latest = _episode_rows(conn, me_id, f"""{mine} AND COALESCE(st.finished, 0) = 0 AND e.published_at = (
+                    SELECT MAX(x.published_at) FROM episodes x LEFT JOIN episode_state xs ON xs.episode_id = x.id AND xs.user_id = ?
+                    WHERE x.podcast_id = e.podcast_id AND COALESCE(xs.finished, 0) = 0)""", (me_id, me_id), 12)
+                episodes += [e for e in latest if e["id"] not in have][:14 - len(episodes)]
         if episodes:
             keys.append("podcasts")
         out["rows"] = [
@@ -2481,8 +2497,12 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         return {"shows": shows, "continue": going, "new": fresh}
 
     @app.get("/api/podcasts/search")
-    async def find_podcasts(q: str = Query(..., min_length=2, max_length=500)):
-        """Shows by name (Apple's podcast directory), or the show behind a pasted link."""
+    async def find_podcasts(q: str = Query(..., min_length=2, max_length=500), live: bool = False):
+        """Shows by name (Apple's podcast directory), or the show behind a pasted link. `live`:
+        asked while someone types in the main search, which only looks online when online
+        lookups are on (as for MusicBrainz), and not for a word or two."""
+        if live and (not cfg.artist_info or len(q.strip()) < 3):
+            return {"results": [], "off": not cfg.artist_info}
         try:
             if podcasts.looks_like_link(q):
                 link = q if q.lower().startswith("http") else f"https://{q}"
