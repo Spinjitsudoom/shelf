@@ -23,6 +23,7 @@ import hashlib
 import hmac
 import json
 import mimetypes
+import os
 import re
 import secrets
 import time
@@ -386,10 +387,31 @@ class Subsonic(More):
                     "SELECT album_key, MAX(played_at) FROM plays WHERE user_id = ? GROUP BY album_key", (uid,))},
                 "album_stars": self._stars(conn, uid, "album")}
 
-    def _artists(self, conn) -> dict[str, dict]:
+    # ----- music folders (musicFolderId) -----
+
+    def folders(self) -> list[Path]:
+        return [Path(d).resolve() for d in self.cfg.music_dirs]  # as the scanner stores paths
+
+    def _folder_like(self, p) -> str | None:
+        """The LIKE pattern for the songs in the music folder the app asked for, or None for all."""
+        raw = p.get("musicFolderId")
+        if raw in (None, ""):
+            return None
+        folders = self.folders()
+        if not raw.isdigit() or not 1 <= int(raw) <= len(folders):
+            raise not_found("No such music folder")
+        base = str(folders[int(raw) - 1]).rstrip("/\\") + os.sep  # "/music/", so /music2 isn't in it
+        return base.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+    @staticmethod
+    def _in_folder(alias: str = "a") -> str:
+        return f"EXISTS (SELECT 1 FROM tracks x WHERE x.album_key = {alias}.key AND x.path LIKE ? ESCAPE '\\')"
+
+    def _artists(self, conn, folder: str | None = None) -> dict[str, dict]:
         """Every artist with their albums (a shared album counts for each of its artists)."""
         by: dict[str, dict] = {}
-        for r in conn.execute("SELECT * FROM albums ORDER BY COALESCE(year, 9999), title COLLATE NOCASE"):
+        where, args = (f"WHERE {self._in_folder('albums')}", (folder,)) if folder else ("", ())
+        for r in conn.execute(f"SELECT * FROM albums {where} ORDER BY COALESCE(year, 9999), title COLLATE NOCASE", args):
             for name in credits.names(r["artist"]) or [r["artist"]]:
                 by.setdefault(videos.fold(name), {"name": name, "albums": []})["albums"].append(r)
         return by
@@ -438,7 +460,8 @@ class Subsonic(More):
         return {"openSubsonicExtensions": [{"name": n, "versions": [v]} for n, v in EXTENSIONS]}
 
     def m_getMusicFolders(self, p, user):
-        return {"musicFolders": {"musicFolder": [{"id": 1, "name": "Music"}]}}
+        return {"musicFolders": {"musicFolder": [{"id": n, "name": Path(d).name or str(d)}
+                                                 for n, d in enumerate(self.folders(), 1)] or [{"id": 1, "name": "Music"}]}}
 
     def m_getUser(self, p, user):
         name = p.get("username") or user.username
@@ -461,7 +484,8 @@ class Subsonic(More):
         return {"username": row["username"], "email": "", "scrobblingEnabled": True, "adminRole": admin,
                 "settingsRole": True, "downloadRole": True, "uploadRole": admin, "playlistRole": True,
                 "coverArtRole": admin, "commentRole": False, "podcastRole": True, "streamRole": True,
-                "jukeboxRole": False, "shareRole": self._sharing(), "videoConversionRole": False, "folder": [1]}
+                "jukeboxRole": False, "shareRole": self._sharing(), "videoConversionRole": False,
+                "folder": list(range(1, len(self.folders()) + 1)) or [1]}
 
     def _sharing(self) -> bool:
         from . import shares
@@ -485,7 +509,7 @@ class Subsonic(More):
 
     def m_getArtists(self, p, user):
         with self.db() as conn:
-            artists, stars = self._artists(conn), self._stars(conn, user.id, "artist")
+            artists, stars = self._artists(conn, self._folder_like(p)), self._stars(conn, user.id, "artist")
         return {"artists": {"ignoredArticles": IGNORED_ARTICLES, "index": self._index(artists, stars)}}
 
     def _index(self, artists: dict, stars: dict) -> list[dict]:
@@ -496,7 +520,7 @@ class Subsonic(More):
 
     def m_getIndexes(self, p, user):
         with self.db() as conn:
-            artists, stars = self._artists(conn), self._stars(conn, user.id, "artist")
+            artists, stars = self._artists(conn, self._folder_like(p)), self._stars(conn, user.id, "artist")
             changed = conn.execute("SELECT MAX(added_at) FROM albums").fetchone()[0] or 0
         return {"indexes": {"lastModified": int(changed * 1000), "ignoredArticles": IGNORED_ARTICLES,
                             "index": self._index(artists, stars)}}
@@ -578,6 +602,10 @@ class Subsonic(More):
             args.append(p.need("genre"))
         else:
             raise Fail(0, f"Unknown list type: {kind}")
+        folder = self._folder_like(p)
+        if folder:
+            where = (where + " AND " if where else "WHERE ") + self._in_folder("a")
+            args.append(folder)
         with self.db() as conn:
             rows = conn.execute(f"SELECT a.* FROM albums a {join} {where} ORDER BY {order} LIMIT ? OFFSET ?",
                                 (*args, size, offset)).fetchall()
@@ -607,11 +635,16 @@ class Subsonic(More):
         if p.get("toYear"):
             clauses.append("t.year <= ?")
             args.append(p.int("toYear", 9999))
+        if self._folder_like(p):
+            clauses.append("t.path LIKE ? ESCAPE '\\'")
+            args.append(self._folder_like(p))
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         return {"randomSongs": {"song": self._songs(user, where, tuple(args), "RANDOM()", p.int("size", 10, 1, 500))}}
 
     def m_getSongsByGenre(self, p, user):
-        return {"songsByGenre": {"song": self._songs(user, "WHERE t.genre = ? COLLATE NOCASE", (p.need("genre"),),
+        folder = self._folder_like(p)
+        where = "WHERE t.genre = ? COLLATE NOCASE" + (" AND t.path LIKE ? ESCAPE '\\'" if folder else "")
+        return {"songsByGenre": {"song": self._songs(user, where, (p.need("genre"), *([folder] if folder else [])),
                                                      "t.artist COLLATE NOCASE, t.album, t.track_no",
                                                      p.int("count", 10, 1, 500), p.int("offset", 0))}}
 
@@ -705,17 +738,24 @@ class Subsonic(More):
                 args += [pat] * len(cols)
             return ("WHERE " + " AND ".join(clauses)) if clauses else "", tuple(args)
 
+        folder = self._folder_like(p)
+
+        def within(w: str, args: tuple, cond: str) -> tuple[str, tuple]:
+            if not folder:
+                return w, args
+            return (f"{w} AND {cond}" if w else f"WHERE {cond}"), (*args, folder)
+
         with self.db() as conn:
             stars = self._stars(conn, user.id, "artist")
-            artists = sorted((a for a in self._artists(conn).values() if all(f in videos.fold(a["name"]) for f in folded)),
+            artists = sorted((a for a in self._artists(conn, folder).values() if all(f in videos.fold(a["name"]) for f in folded)),
                              key=lambda a: videos.fold(a["name"]))
             ao, ac = p.int("artistOffset", 0), p.int("artistCount", 20, 0, 5000)
             artists = [self.artist(a, stars) for a in artists[ao:ao + ac]]
-            w, args = like(["a.title", "a.artist"])
+            w, args = within(*like(["a.title", "a.artist"]), self._in_folder("a"))
             albums = conn.execute(f"SELECT a.* FROM albums a {w} ORDER BY a.artist COLLATE NOCASE, a.year, a.id LIMIT ? OFFSET ?",
                                   (*args, p.int("albumCount", 20, 0, 5000), p.int("albumOffset", 0))).fetchall()
             actx = self._album_ctx(conn, user.id)
-            w, args = like(["t.title", "t.artist", "a.title"])
+            w, args = within(*like(["t.title", "t.artist", "a.title"]), "t.path LIKE ? ESCAPE '\\'")
             order = "t.title COLLATE NOCASE, t.id" if terms else "t.id"  # all of it: in a steady order, for syncing
             songs = conn.execute(f"{TRACKS} {w} ORDER BY {order} LIMIT ? OFFSET ?",
                                  (*args, p.int("songCount", 20, 0, 50000), p.int("songOffset", 0))).fetchall()
@@ -1154,7 +1194,11 @@ def mount(app, api: Subsonic) -> None:
         try:
             user = None
             if method not in OPEN_METHODS:
-                user = await asyncio.to_thread(api.sign_in, p, request.client.host if request.client else "?")
+                # Signed in by a trusted reverse proxy (proxyauth.py), when the app sends nothing itself.
+                if api.proxy_user and p.get("u") is None and p.get("apiKey") is None:
+                    user = await asyncio.to_thread(api.proxy_user, request)
+                if user is None:
+                    user = await asyncio.to_thread(api.sign_in, p, request.client.host if request.client else "?")
                 api.set_user(user)
             if method in ("stream", "download"):
                 return await api.stream(p, download=method == "download", range_header=request.headers.get("range"))

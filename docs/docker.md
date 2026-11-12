@@ -73,6 +73,7 @@ Environment variables override Shelf's settings:
 | `SHELF_ONLINE_LYRICS=0` | Lyrics only from the files themselves, not LRCLIB. |
 | `SHELF_MUSIC_VIDEOS=0` | No music videos. |
 | `FORWARDED_ALLOW_IPS` | Behind a reverse proxy: see below. |
+| `SHELF_PROXY_USER_HEADER`, `SHELF_PROXY_TRUSTED` | Sign in through the proxy: see below. |
 
 ## Raspberry Pi
 
@@ -139,6 +140,23 @@ server {
       - traefik.http.routers.shelf.tls.certresolver=letsencrypt
       - traefik.http.services.shelf.loadbalancer.server.port=4533
 ```
+
+### Signing in through the proxy
+
+If your proxy already signs people in (Authelia, Authentik, oauth2-proxy, Caddy's
+`forward_auth`), Shelf can take its word for who's there instead of asking again. Set the
+header the proxy puts the person's name in, and the proxy's addresses, the only ones Shelf
+believes it from:
+
+```yaml
+    environment:
+      SHELF_PROXY_USER_HEADER: Remote-User
+      SHELF_PROXY_TRUSTED: 172.16.0.0/12      # Docker's own networks; or the proxy's address
+```
+
+Someone Shelf hasn't met gets an account of their own. Subsonic apps behind the proxy that send
+no password of their own are signed in the same way. Apps that do send one (and API keys) work
+as usual.
 
 If you'd rather not open anything to the internet, Tailscale is simpler: see "Listening away
 from home" in the README.

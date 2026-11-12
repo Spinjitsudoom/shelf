@@ -90,6 +90,7 @@ class More:
     def _more_init(self) -> None:
         self._listening = {}  # what each person is hearing, from playback reports
         self._artist_sound = {"key": None, "vecs": {}}
+        self.proxy_user = None  # set by the app: who a trusted reverse proxy says is asking
 
     # ----- signing in with an API key -----
 

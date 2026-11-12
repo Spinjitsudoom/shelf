@@ -33,4 +33,11 @@ def main() -> None:
     cfg = load_config(Path(args.config) if args.config else None)
     app = create_app(cfg)
     print(f"\n  Shelf is running at http://localhost:{cfg.port}\n")
-    uvicorn.run(app, host=cfg.host, port=cfg.port, log_level="warning", proxy_headers=True)
+    import os
+
+    from .proxyauth import wrap
+
+    # X-Forwarded-For is applied for the proxies in FORWARDED_ALLOW_IPS, as uvicorn does, after
+    # the connecting address is noted (proxy sign-in checks that one).
+    served = wrap(app, os.environ.get("FORWARDED_ALLOW_IPS", "127.0.0.1"))
+    uvicorn.run(served, host=cfg.host, port=cfg.port, log_level="warning", proxy_headers=False)

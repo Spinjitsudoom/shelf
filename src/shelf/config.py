@@ -35,6 +35,10 @@ class Config:
     analyze_tempo: bool = True
     # Ask GitHub every six hours whether a newer Shelf is out (the admin dashboard says so).
     check_updates: bool = True
+    # Sign in through a reverse proxy (Authelia, Authentik...): the header it puts the person's
+    # name in, and the addresses of the proxy, the only ones believed (see proxyauth.py).
+    proxy_user_header: str = ""
+    proxy_trusted: list[str] = field(default_factory=list)
     secret_key: str = ""
 
     @property
@@ -86,6 +90,9 @@ def load_config(path: Path | None = None) -> Config:
     online = env.get("SHELF_ONLINE_LYRICS")
     cfg.analyze_tempo = bool(raw.get("analyze_tempo", True))
     cfg.check_updates = bool(raw.get("check_updates", True))
+    cfg.proxy_user_header = env.get("SHELF_PROXY_USER_HEADER", raw.get("proxy_user_header", ""))
+    trusted = env.get("SHELF_PROXY_TRUSTED")
+    cfg.proxy_trusted = [t for t in (trusted.split(",") if trusted else raw.get("proxy_trusted", [])) if str(t).strip()]
     info = env.get("SHELF_ARTIST_INFO")
     cfg.artist_info = info.lower() not in ("0", "false", "no", "off") if info else bool(raw.get("artist_info", True))
     videos = env.get("SHELF_MUSIC_VIDEOS")

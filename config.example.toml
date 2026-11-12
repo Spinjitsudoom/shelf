@@ -45,3 +45,9 @@ analyze_tempo = true
 
 # The CD drive for ripping (admin dashboard → CD drive) is /dev/sr0; another one can be set
 # with the SHELF_CD_DEVICE environment variable. Ripping needs cd-paranoia (libcdio).
+
+# Sign in through a reverse proxy that already signs people in (Authelia, Authentik, oauth2-proxy,
+# Caddy's forward_auth...): the header it puts the person's name in, and the proxy's addresses.
+# The header is only believed from those addresses. Someone new gets an account of their own.
+# proxy_user_header = "Remote-User"
+# proxy_trusted = ["172.16.0.0/12"]

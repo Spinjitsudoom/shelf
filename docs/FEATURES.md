@@ -226,7 +226,11 @@ Redmi 9.
 - **Unreleased on main:** complete Subsonic/OpenSubsonic support (see Admin and operations), API keys in Settings,
   big-library speed and memory work, a Docker image (`Dockerfile`, `compose.yaml`, `docker/config.toml`,
   `.github/workflows/docker.yml` publishes amd64+arm64 to ghcr.io/spinjitsudoom/shelf on release tags; guide in
-  docs/docker.md; ARM builds skip Essentia and use the dsp engine; ~1.2 GB, mostly Debian's ffmpeg), and the admin's "Measuring songs" setting (any time / only at night / never,
+  docs/docker.md; ARM builds skip Essentia and use the dsp engine; ~1.2 GB, mostly Debian's ffmpeg),
+  sign-in through a reverse proxy (`proxyauth.py`: `proxy_user_header` + `proxy_trusted`, believed only from the
+  connecting address, noted before X-Forwarded-For is applied by `proxyauth.wrap` in `shelf.main`; new names get
+  accounts; also Subsonic requests with no credentials), Subsonic music folders (`musicFolderId` on artists,
+  indexes, album lists, random, by genre, search), and nosniff + referrer-policy headers on every response, and the admin's "Measuring songs" setting (any time / only at night / never,
   `background.py`; every measuring job waits on `background.gate`).
 - **Scale (measured 2026-11-12 on a made-up 100,000-song library, fully "measured"):** full scan 23 s, unchanged
   rescan 2.5 s; every page under 0.6 s except the first Mixes of the day (5 s, made ahead of time in the

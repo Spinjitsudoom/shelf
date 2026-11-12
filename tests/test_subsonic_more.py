@@ -238,3 +238,31 @@ def test_things_shelf_does_not_do_say_so(client):
     assert sub("jukeboxControl", action="status")["error"]["code"] == 50
     assert sub("getVideoInfo", id="1")["error"]["code"] == 70
     assert sub("noSuchThing")["error"]["code"] == 0
+
+
+def test_music_folders(tmp_path, library):
+    from conftest import make_track
+    from shelf.app import create_app
+    from shelf.config import Config
+
+    other = tmp_path / "music2"  # its name starts like the first folder's: still a folder of its own
+    make_track(other / "Choir" / "Hymns" / "01 Hymn.mp3", title="Hymn", artist="Choir", album="Hymns", track=1)
+    cfg = Config(music_dirs=[library, other], data_dir=tmp_path / "d2", password="hunter2", online_lyrics=False,
+                 music_videos=False, artist_info=False, analyze_tempo=False)
+    app = create_app(cfg, start_scanner=False)
+    app.state.scanner.run_once()
+    with TestClient(app) as c:
+        sub = setup(c)
+        folders = sub.ok("getMusicFolders")["musicFolders"]["musicFolder"]
+        assert [f["name"] for f in folders] == ["music", "music2"]
+        names = lambda body: sorted(a["name"] for i in body["index"] for a in i["artist"])  # noqa: E731
+        assert names(sub.ok("getArtists")["artists"]) == ["Band", "Choir"]
+        assert names(sub.ok("getArtists", musicFolderId=2)["artists"]) == ["Choir"]
+        assert names(sub.ok("getIndexes", musicFolderId=1)["indexes"]) == ["Band"]
+        albums = sub.ok("getAlbumList2", type="alphabeticalByName", musicFolderId=2)["albumList2"]["album"]
+        assert [a["name"] for a in albums] == ["Hymns"]
+        assert {s["title"] for s in sub.ok("getRandomSongs", size=10, musicFolderId=2)["randomSongs"]["song"]} == {"Hymn"}
+        found = sub.ok("search3", query="", songCount=50, musicFolderId=1)["searchResult3"]
+        assert len(found["song"]) == 4 and all(a["name"] != "Hymns" for a in found["album"])
+        assert sub("getAlbumList2", type="newest", musicFolderId=9)["error"]["code"] == 70
+        assert sub.ok("getUser")["user"]["folder"] == [1, 2]

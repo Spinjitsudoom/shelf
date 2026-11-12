@@ -28,6 +28,7 @@ from . import procs
 from . import analysis, background, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, home as home_rows, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, podcasts, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from . import subsonic_more
+from .proxyauth import ProxyAuth
 from .connect import Hub, same_origin
 from . import __version__
 from .auth import COOKIE, MAX_AGE, Auth, User, check_username, token_from
@@ -495,6 +496,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     if saved is not None:
         cfg.music_dirs = saved
     auth = Auth(cfg.db_path, cfg.secret_key, cfg.password)
+    proxy_auth = ProxyAuth(auth, cfg.proxy_user_header, cfg.proxy_trusted)
     scanner = ScanManager(cfg)
     scrobbler = scrobble.Scrobbler(cfg.db_path)
     new_releases = releases.Releases(cfg.db_path, enabled=cfg.artist_info)
@@ -614,10 +616,11 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             to = secure.redirect_for(request.url.scheme, request.headers.get("host", ""), path,
                                      request.url.query, app.state.secure_url)
             if to and "ShelfAndroid/" not in request.headers.get("user-agent", "") \
-                    and auth.user_for(token_from(request.headers, request.cookies)) is None:  # Shelf Lite moves itself
+                    and auth.user_for(token_from(request.headers, request.cookies)) is None \
+                    and proxy_auth.user_for(request) is None:  # Shelf Lite moves itself
                 return RedirectResponse(to, status_code=307)
         if path.startswith("/api/") and path not in OPEN_PATHS:
-            user = auth.user_for(token_from(request.headers, request.cookies))
+            user = auth.user_for(token_from(request.headers, request.cookies)) or proxy_auth.user_for(request)
             if user is None:
                 return JSONResponse({"detail": "Not signed in"}, status_code=401)
             CURRENT.set(user)
@@ -625,6 +628,10 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         if not path.startswith("/api/"):
             # App shell: always revalidate so updates show up right away.
             response.headers.setdefault("Cache-Control", "no-cache")
+        # Files are what they say they are (an uploaded "song" is never run as a page), and other
+        # sites see only this server's address when Shelf links out (YouTube's player needs that much).
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         return response
 
     # ---------- session ----------
@@ -663,7 +670,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     @app.get("/api/session")
     def get_session(request: Request):
-        user = auth.user_for(token_from(request.headers, request.cookies))
+        user = auth.user_for(token_from(request.headers, request.cookies)) or proxy_auth.user_for(request)
         return {"setup": not auth.has_users(), "signedIn": user is not None,
                 "user": _me_json(user) if user else None, "version": __version__,
                 "secureUrl": app.state.secure_url,
@@ -921,6 +928,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     sub_api = subsonic.Subsonic(cfg, auth, scrobbler=scrobbler, scanner=scanner, set_user=CURRENT.set,
                                 smart_rows=lambda conn, row, user_id: _smart_for(conn, row, user_id), on_played=_tell_played,
                                 remove_user=lambda user_id: _remove_account(user_id))
+    sub_api.proxy_user = proxy_auth.user_for if proxy_auth.on else None
     subsonic.mount(app, sub_api)
 
     @app.get("/api/me/subsonic")
