@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.0.0",
+    "date": "2026-11-12",
+    "new": [
+      {"title": "Shelf 1.0", "text": "Shelf’s first major release: your music, podcasts and playlists on your own server, on the web, your computer and your Android phone."},
+      {"title": "Your Episodes", "text": "Save any podcast episode with the bookmark next to it, and it waits for you in Your Episodes, pinned in your Library. Filter by Unplayed, Downloaded or In progress."},
+      {"title": "Download episodes", "text": "Every episode has a download button: keep it on your phone or computer and listen with no connection."},
+      {"title": "Request music from Home", "text": "In the Android app, Request music now sits right on Home, so asking for an artist or album you’re missing is one tap away."}
+    ],
+    "fixed": [
+      "In the Android app, tapping the tab you’re already in (say Library, after opening an album from it) takes you back to its first page instead of leaving you where you were.",
+      "In the Android app, pages that are still loading or couldn’t load keep their Back button, and the artist page’s Back is easier to see."
+    ]
+  },
+  {
     "version": "0.7.8",
     "date": "2026-11-12",
     "new": [

@@ -505,7 +505,7 @@ wheels = [
 
 [[package]]
 name = "shelf"
-version = "0.7.8"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "essentia", marker = "sys_platform != 'win32'" },

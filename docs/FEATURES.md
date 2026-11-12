@@ -10,7 +10,7 @@ Last updated: 2026-11-12, after v0.7.8 shipped.
 
 - **What:** a self-hosted music server for the owner's CD rips, with the features of a big
   streaming app, for a household of accounts. Public repo: github.com/Spinjitsudoom/shelf,
-  AGPL-3.0-or-later. Latest release: **v0.7.8** (2026-11-12).
+  AGPL-3.0-or-later. Latest release: **v1.0.0** (2026-11-12).
 - **Server:** Python 3 + FastAPI + SQLite, in `src/shelf/`. Runs on Windows (installer,
   PyInstaller + Inno Setup) and Linux (`install.sh`: uv + systemd user service). ffmpeg does all
   audio work; Essentia analyses where available (not on Windows — `dsp.py` is the numpy fallback).
@@ -208,4 +208,4 @@ Redmi 9.
   were checked on the Redmi on 2026-11-12.)
 - **Waiting on the owner:** Last.fm API key and secret; whether AcoustID auto-tagging is wanted
   and how far it may go; whether admins should be told when a request comes in.
-- **Unreleased on main:** Android: "Request music" on Home (out of Settings); tapping the tab you are in goes back to its first page; Back stays visible while a page loads or fails, and the artist page's Back sits on a solid circle. Not tried on a phone yet. 0.7.8 (2026-11-12) shipped Requests, following artists, Home shaped by taste and podcasts.
+- **Unreleased on main:** nothing yet. 1.0.0 (2026-11-12) shipped Your Episodes, episode downloads, Request music on Home, tabs going back to their first page and a Back button that never goes missing.
