@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.7.8",
+    "date": "2026-11-12",
+    "new": [
+      {"title": "Podcasts", "text": "Follow any show and listen in Shelf: search for it, or paste its link from Podbean, Apple Podcasts or anywhere with a feed. Your shows sit in your Library, new episodes show up on Home, and Shelf remembers where you stopped on every device."},
+      {"title": "Follow artists", "text": "Tap Follow on an artist’s page. Once you follow someone, your Library shows just them and their albums instead of everything on the server (you can still show everything)."},
+      {"title": "A Home that knows what you like", "text": "New rows like “More like” your favourite artists and “From artists you follow”, and the rows you use most move up over time."},
+      {"title": "Requests", "text": "Missing something? Ask for an artist or an album, with suggestions from MusicBrainz as you type. Everyone sees the list, and a request ticks itself off when the music arrives."}
+    ],
+    "fixed": []
+  },
+  {
     "version": "0.7.7",
     "date": "2026-11-12",
     "new": [

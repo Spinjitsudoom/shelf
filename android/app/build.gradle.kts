@@ -6,9 +6,9 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// Releases pass -PversionName=0.7.7 -PversionCode=707 (versionCode = major*10000 + minor*100 + patch).
-val shelfVersionName = (findProperty("versionName") as String?) ?: "0.7.7"
-val shelfVersionCode = ((findProperty("versionCode") as String?) ?: "707").toInt()
+// Releases pass -PversionName=0.7.8 -PversionCode=708 (versionCode = major*10000 + minor*100 + patch).
+val shelfVersionName = (findProperty("versionName") as String?) ?: "0.7.8"
+val shelfVersionCode = ((findProperty("versionCode") as String?) ?: "708").toInt()
 
 // -Ppreview builds "Shelf Preview" (app.shelf.preview), which installs beside the released app for trying changes.
 val preview = providers.gradleProperty("preview").isPresent
