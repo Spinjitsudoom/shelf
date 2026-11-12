@@ -30,7 +30,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/shelf
+          images: ghcr.io/spinjitsudoom/shelf  # lowercase: Docker names can't have capitals
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -50,6 +50,6 @@ jobs:
       - name: Try the amd64 image
         if: github.ref_type == 'tag'
         run: |
-          docker run -d --name shelf -p 4533:4533 ghcr.io/${{ github.repository_owner }}/shelf:latest
+          docker run -d --name shelf -p 4533:4533 "${{ fromJSON(steps.meta.outputs.json).tags[0] }}"
           for i in $(seq 1 30); do curl -fs http://127.0.0.1:4533/api/ping && exit 0; sleep 2; done
           docker logs shelf; exit 1
