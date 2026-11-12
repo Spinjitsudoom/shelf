@@ -620,7 +620,7 @@ class More:
     # ----- songs that sound alike -----
 
     def _vectors(self, conn):
-        return sound.vectors(conn.execute("SELECT id, sound FROM tracks WHERE sound IS NOT NULL").fetchall())
+        return sound.library_vectors(self.cfg.db_path)
 
     def _match(self, conn, ids_sims: list[tuple[int, float]], user) -> list[dict]:
         from .subsonic import TRACKS

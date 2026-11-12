@@ -223,4 +223,12 @@ Redmi 9.
   were checked on the Redmi on 2026-11-12.)
 - **Waiting on the owner:** Last.fm API key and secret; whether AcoustID auto-tagging is wanted
   and how far it may go; whether admins should be told when a request comes in.
-- **Unreleased on main:** complete Subsonic/OpenSubsonic support (see Admin and operations), API keys in Settings. 1.0.0 (2026-11-12) shipped Your Episodes, episode downloads, Request music on Home, tabs going back to their first page and a Back button that never goes missing.
+- **Unreleased on main:** complete Subsonic/OpenSubsonic support (see Admin and operations), API keys in Settings,
+  big-library speed and memory work, and the admin's "Measuring songs" setting (any time / only at night / never,
+  `background.py`; every measuring job waits on `background.gate`).
+- **Scale (measured 2026-11-12 on a made-up 100,000-song library, fully "measured"):** full scan 23 s, unchanged
+  rescan 2.5 s; every page under 0.6 s except the first Mixes of the day (5 s, made ahead of time in the
+  background by `_warm_mixes`) and first Home of the day (1.4 s). Peak memory ~500 MB (was ~890): whole-library
+  queries use `db.TRACK_COLUMNS` (every column but `fp`, the 2 KB duplicate fingerprint; tests/test_scale.py
+  keeps it in step with the table). The "sounds like" matrix is kept once (`sound.library_vectors`).
+  Generator and benchmark scripts were throwaway (scratchpad), not in the repo. 1.0.0 (2026-11-12) shipped Your Episodes, episode downloads, Request music on Home, tabs going back to their first page and a Back button that never goes missing.

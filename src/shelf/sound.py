@@ -140,7 +140,7 @@ def measure(path: Path, duration: float) -> list[float] | None:
         return None
 
 
-def analyze_pending(db_path: Path, stop=None, workers: int = 2) -> int:
+def analyze_pending(db_path: Path, stop=None, workers: int = 2, gate=None) -> int:
     current = version()
     with session(db_path) as conn:
         # Fingerprints from the other engine go at once, so the two are never compared.
@@ -152,7 +152,7 @@ def analyze_pending(db_path: Path, stop=None, workers: int = 2) -> int:
     log.info("Measuring how %d tracks sound", len(rows))
     done = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(measure, Path(r["path"]), r["duration"] or 0): r["id"] for r in rows}
+        futures = {pool.submit(procs.gated(gate, measure), Path(r["path"]), r["duration"] or 0): r["id"] for r in rows}
         for fut in futures:
             if stop is not None and stop.is_set():
                 pool.shutdown(wait=False, cancel_futures=True)
@@ -193,7 +193,20 @@ def vectors(rows) -> dict[int, "object"]:
     with _lock:
         _cache["key"] = key
         _cache["vectors"] = out
+        _cache["matrix"] = m if out else None
+        _cache["pos"] = {i: n for n, i in enumerate(ids)} if out else {}
     return out
+
+
+def library_vectors(db_path) -> dict[int, "object"]:
+    """vectors() for the whole library, read from the database only when it's changed."""
+    with session(db_path) as conn:
+        key = tuple(conn.execute("SELECT COUNT(*), COALESCE(SUM(id), 0) FROM tracks WHERE sound IS NOT NULL").fetchone())
+        with _lock:
+            if _cache["key"] == key:
+                return _cache["vectors"]
+        rows = conn.execute("SELECT id, sound FROM tracks WHERE sound IS NOT NULL").fetchall()
+    return vectors(rows)
 
 
 def centre(vecs: dict, ids) -> "object | None":
@@ -219,7 +232,14 @@ def nearest(vecs: dict, mine, candidates) -> dict[int, float]:
     if not have or not cand:
         return {}
     k = min(3, max(1, len(have) // 5))
-    sims = np.array([vecs[i] for i in cand]) @ np.array(have).T
+    with _lock:
+        cached = _cache["vectors"] is vecs and _cache.get("matrix") is not None
+        m, pos = (_cache["matrix"], _cache["pos"]) if cached else (None, None)
+    if cached:  # the whole library's, already in one matrix: take the rows
+        rows = m[np.fromiter((pos[i] for i in cand), dtype=np.int64, count=len(cand))]
+    else:
+        rows = np.array([vecs[i] for i in cand])
+    sims = rows @ np.array(have).T
     top = -np.partition(-sims, k - 1, axis=1)[:, :k] if sims.shape[1] > k else sims
     return dict(zip(cand, top.mean(axis=1).tolist()))
 

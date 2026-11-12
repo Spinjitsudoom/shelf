@@ -134,6 +134,7 @@ export const api = {
   logout: () => { invalidate(); return request("POST", "logout"); },
   library: () => request("GET", "library"),
   rescan: () => { invalidate(); return request("POST", "scan"); },
+  setBackgroundWork: (mode) => request("PATCH", "admin/background", { mode }),
   home: () => request("GET", "home"),
   homeUsed: (row) => request("POST", "home/used", { row }),
   podcasts: () => request("GET", "podcasts"),

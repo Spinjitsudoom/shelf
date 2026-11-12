@@ -48,7 +48,7 @@ def fingerprint(path: Path) -> bytes | None:
     out = subprocess.run(
         ["ffmpeg", "-nostdin", "-v", "error", "-t", str(SECONDS), "-i", str(path), "-map", "0:a:0", "-ac", "1",
          "-f", "chromaprint", "-fp_format", "raw", "-"],
-        capture_output=True, timeout=300, **procs.no_window(),
+        capture_output=True, timeout=300, **procs.low_priority(),
     ).stdout
     return out if len(out) >= 4 * 8 else None
 
@@ -139,7 +139,7 @@ def stored_groups(conn) -> list[list[int]]:
         return []
 
 
-def check_pending(db_path: Path, stop=None, workers: int = 2) -> int:
+def check_pending(db_path: Path, stop=None, workers: int = 2, gate=None) -> int:
     """Fingerprints songs not done yet (or changed since), then works out the groups again.
     Returns how many were done."""
     with session(db_path) as conn:
@@ -156,7 +156,7 @@ def check_pending(db_path: Path, stop=None, workers: int = 2) -> int:
 
     done = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(one, r): r["id"] for r in rows}
+        futures = {pool.submit(procs.gated(gate, one), r): r["id"] for r in rows}
         for fut in futures:
             if stop is not None and stop.is_set():
                 pool.shutdown(wait=False, cancel_futures=True)

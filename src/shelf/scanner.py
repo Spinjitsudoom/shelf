@@ -14,7 +14,7 @@ from pathlib import Path
 
 from . import coverfix, covers, credits
 from .config import Config
-from .db import get_meta, session, set_meta
+from .db import TRACK_COLUMNS, get_meta, session, set_meta
 from .tags import AUDIO_EXTS, read_tags
 
 log = logging.getLogger("shelf.scanner")
@@ -231,7 +231,7 @@ def album_extra(tracks: list[sqlite3.Row]) -> str | None:
 
 def rebuild_albums(conn: sqlite3.Connection, roots: list[Path], found_dir: Path | None = None) -> None:
     rows = conn.execute(
-        "SELECT * FROM tracks ORDER BY album_key, COALESCE(disc_no, 1), COALESCE(track_no, 9999), path"
+        f"SELECT {TRACK_COLUMNS} FROM tracks ORDER BY album_key, COALESCE(disc_no, 1), COALESCE(track_no, 9999), path"
     ).fetchall()
     groups: dict[str, list[sqlite3.Row]] = {}
     for r in rows:

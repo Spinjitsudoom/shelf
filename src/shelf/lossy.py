@@ -38,7 +38,7 @@ def _audio(path: Path, duration: float) -> tuple[np.ndarray, int] | None:
     """Mono audio from the middle of the song, at the file's own sample rate."""
     start = max(0.0, duration * 0.4 - SECONDS / 2) if duration > SECONDS * 1.5 else 0.0
     probe = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=sample_rate",
-                            "-of", "csv=p=0", str(path)], capture_output=True, timeout=60, **procs.no_window())
+                            "-of", "csv=p=0", str(path)], capture_output=True, timeout=60, **procs.low_priority())
     try:
         sr = int(probe.stdout.decode().strip().splitlines()[0])
     except (ValueError, IndexError):
@@ -46,7 +46,7 @@ def _audio(path: Path, duration: float) -> tuple[np.ndarray, int] | None:
     raw = subprocess.run(
         ["ffmpeg", "-nostdin", "-v", "error", "-ss", f"{start:.1f}", "-t", str(SECONDS), "-i", str(path),
          "-map", "0:a:0", "-ac", "1", "-f", "f32le", "-"],
-        capture_output=True, timeout=300, **procs.no_window(),
+        capture_output=True, timeout=300, **procs.low_priority(),
     ).stdout
     y = np.frombuffer(raw, dtype=np.float32)
     return (y, sr) if len(y) >= sr * 5 else None
@@ -102,7 +102,7 @@ def likely_source(cut: float) -> str:
     return "an MP3 or AAC of 160 kbps or more"
 
 
-def check_pending(db_path: Path, stop=None, workers: int = 2) -> int:
+def check_pending(db_path: Path, stop=None, workers: int = 2, gate=None) -> int:
     """Checks lossless files not checked yet (or changed since). Returns how many were checked."""
     with session(db_path) as conn:
         rows = [r for r in conn.execute("SELECT id, path, duration, codec FROM tracks WHERE cutoff_checked = 0 ORDER BY id")
@@ -119,7 +119,7 @@ def check_pending(db_path: Path, stop=None, workers: int = 2) -> int:
 
     done = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(one, r): r["id"] for r in rows}
+        futures = {pool.submit(procs.gated(gate, one), r): r["id"] for r in rows}
         for fut in futures:
             if stop is not None and stop.is_set():
                 pool.shutdown(wait=False, cancel_futures=True)

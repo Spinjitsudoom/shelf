@@ -333,6 +333,17 @@ def connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+# Every column of tracks but fp (the duplicate finder's fingerprint, ~2 KB a song, read only by
+# fingerprint.py): what queries over many songs select, so a big library's pages don't carry it.
+# tests/test_scale.py checks this matches the table.
+TRACK_COLUMNS = (
+    "id, path, mtime, size, title, artist, album_artist, album, album_key, track_no, disc_no, year, genre, "
+    "duration, codec, mime, bitrate, sample_rate, bits, lufs, peak, loud_checked, has_art, added_at, bpm, "
+    "musical_key, rhythm_checked, mix_points, sound, sound_checked, cutoff, cutoff_checked, fp_checked, extra"
+)
+T_COLUMNS = ", ".join("t." + c.strip() for c in TRACK_COLUMNS.split(","))
+
+
 def init_db(db_path: Path) -> None:
     with connect(db_path) as conn:
         conn.executescript(SCHEMA)

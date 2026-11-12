@@ -39,7 +39,7 @@ from . import __version__, covers, credits, lyrics, podcasts, resume, transcode,
 from . import artists as artist_info
 from .subsonic_more import BASE_URL, EXTENSIONS, More
 from .auth import verify_password
-from .db import get_meta, session, set_meta
+from .db import T_COLUMNS, get_meta, session, set_meta
 
 API_VERSION = "1.16.1"
 XMLNS = "http://subsonic.org/restapi"
@@ -48,8 +48,8 @@ CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET
         "Access-Control-Allow-Headers": "*"}
 NOW_PLAYING_FOR = 15 * 60
 
-TRACKS = """
-    SELECT t.*, a.id AS album_id, a.title AS album_title, a.artist AS album_artist_name, a.cover_src
+TRACKS = f"""
+    SELECT {T_COLUMNS}, a.id AS album_id, a.title AS album_title, a.artist AS album_artist_name, a.cover_src
     FROM tracks t JOIN albums a ON a.key = t.album_key
 """
 ORDER = "ORDER BY COALESCE(t.disc_no, 1), COALESCE(t.track_no, 9999), t.path"

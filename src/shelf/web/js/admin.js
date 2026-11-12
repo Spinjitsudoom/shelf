@@ -83,6 +83,13 @@ function libraryPart(o, dirs) {
     <h2 class="settings-section">Library</h2>
     ${row("Scanning", `${scanText}${measuring ? `<br>${measuring}` : ""}`,
       `<button class="btn" type="button" data-action="rescan" ${scan.running ? "disabled" : ""}>Rescan library</button>`)}
+    ${row("Measuring songs", o.backgroundWork === "never"
+        ? "Off: new songs aren’t measured, so they have no volume levelling, tempo or “sounds like” until it’s back on."
+        : "Loudness, tempo and key, and how each song sounds, for volume levelling, mixes and recommendations. A big library keeps a small computer busy for a while; “only at night” keeps it to 1 to 7 a.m.",
+      `<select class="select" data-admin-setting="background" aria-label="When to measure songs">
+        ${[["always", "Any time"], ["night", "Only at night"], ["never", "Never"]].map(([v, t]) =>
+          `<option value="${v}"${(o.backgroundWork ?? "always") === v ? " selected" : ""}>${t}</option>`).join("")}
+      </select>`)}
     <div class="folders">
       <div class="folders-head">
         <div><h3 class="row-title-plain">Music folders</h3>
@@ -969,8 +976,19 @@ export async function adminView(el, session, { dialog }) {
     }
   }
 
+  const onChange = async (e) => {
+    const sel = e.target.closest('[data-admin-setting="background"]');
+    if (!sel) return;
+    try {
+      await api.setBackgroundWork(sel.value);
+      o = { ...o, backgroundWork: sel.value };
+      draw();
+      toast({ always: "Songs are measured any time", night: "Songs are measured from 1 to 7 a.m.", never: "Measuring songs is off" }[sel.value]);
+    } catch (err) { toast(err.message); }
+  };
   el.addEventListener("click", onClick);
-  return () => { clearTimeout(healthPoll); clearInterval(timer); clearTimeout(cdTimer); clearTimeout(llmPoll); el.removeEventListener("click", onClick); };
+  el.addEventListener("change", onChange);
+  return () => { clearTimeout(healthPoll); clearInterval(timer); clearTimeout(cdTimer); clearTimeout(llmPoll); el.removeEventListener("click", onClick); el.removeEventListener("change", onChange); };
 }
 
 

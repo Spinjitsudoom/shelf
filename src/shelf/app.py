@@ -25,14 +25,14 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from . import procs
-from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, home as home_rows, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, podcasts, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, background, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, home as home_rows, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, podcasts, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from . import subsonic_more
 from .connect import Hub, same_origin
 from . import __version__
 from .auth import COOKIE, MAX_AGE, Auth, User, check_username, token_from
 from .config import Config
-from .db import get_meta, init_db, session, set_meta
+from .db import T_COLUMNS, get_meta, init_db, session, set_meta
 from .scanner import scan, warm_covers
 from . import scanner as scanner_mod
 
@@ -98,18 +98,23 @@ class ScanManager:
                     self.on_scanned(result, started)
                 except Exception:
                     log.exception("After-scan news failed")
-            # Measure loudness for volume normalization (slow, so it runs after the scan is done).
+            # Measuring, after the scan is done: slow, so only in the hours the admin allows it
+            # (background.py). Each job waits for them; "never" skips it all.
+            if background.mode(self.cfg.db_path) == "never":
+                return
+            gate = background.gate(self.cfg.db_path, self._stop)
             self.state["measuring"] = True
-            loudness.analyze_pending(self.cfg.db_path, stop=self._stop)
+            # Loudness, for volume normalization.
+            loudness.analyze_pending(self.cfg.db_path, stop=self._stop, gate=gate)
             # Lossless files made from an MP3 or AAC, for Library health (quick: half a minute of each).
-            lossy.check_pending(self.cfg.db_path, stop=self._stop)
+            lossy.check_pending(self.cfg.db_path, stop=self._stop, gate=gate)
             # The same recording under other names, by its sound, for Library health.
-            fingerprint.check_pending(self.cfg.db_path, stop=self._stop)
+            fingerprint.check_pending(self.cfg.db_path, stop=self._stop, gate=gate)
             # Tempo and key (slower still), for playlist columns and recommendations.
             if self.cfg.analyze_tempo:  # Essentia, or Shelf's own engine where it's missing (Windows)
-                analysis.analyze_pending(self.cfg.db_path, stop=self._stop)
+                analysis.analyze_pending(self.cfg.db_path, stop=self._stop, gate=gate)
                 # How each song sounds, for "sounds like" in recommendations, radio and mixes.
-                sound.analyze_pending(self.cfg.db_path, stop=self._stop)
+                sound.analyze_pending(self.cfg.db_path, stop=self._stop, gate=gate)
         except Exception as e:  # keep the scanner thread alive
             log.exception("Scan failed")
             self.state["error"] = str(e)
@@ -187,8 +192,8 @@ def album_loudness(tracks) -> tuple[float | None, float | None]:
     return round(lufs, 2), (max(peaks) if peaks else None)
 
 
-TRACK_SELECT = """
-    SELECT t.*, a.id AS album_id, a.title AS album_title, a.artist AS album_artist_name, a.cover_src
+TRACK_SELECT = f"""
+    SELECT {T_COLUMNS}, a.id AS album_id, a.title AS album_title, a.artist AS album_artist_name, a.cover_src
     FROM tracks t JOIN albums a ON a.key = t.album_key
 """
 TRACK_ORDER = "ORDER BY COALESCE(t.disc_no, 1), COALESCE(t.track_no, 9999), t.path"
@@ -330,6 +335,10 @@ class ResumeBody(BaseModel):
 
 class BackupFolderBody(BaseModel):
     folder: str = Field(max_length=1000)
+
+
+class BackgroundBody(BaseModel):
+    mode: str = Field(max_length=10)
 
 
 class ApiKeyBody(BaseModel):
@@ -525,7 +534,9 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             new_releases.start()
             new_version.start()
             podcast_checker.start()
+            threading.Thread(target=_warm_mixes, name="shelf-mixes", daemon=True).start()
         yield
+        warm_stop.set()
         new_version.stop()
         scanner.stop()
         scrobbler.stop()
@@ -1191,6 +1202,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             "library": dict(counts),
             "scan": scanner.state, "lastScan": float(last_scan) if last_scan else None,
             "loudnessMeasured": measured, "rhythmMeasured": rhythm, "soundMeasured": sounded,
+            "backgroundWork": background.mode(cfg.db_path),
             "week": {"plays": week["n"], "seconds": round(week["secs"]), "people": week["people"]},
             "playsPerDay": per_day,
             "storage": {"transcodeBytes": transcode.cache_size(cfg.transcode_dir), "coverBytes": cover_bytes,
@@ -2067,6 +2079,18 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         finally:
             staged.unlink(missing_ok=True)
 
+    @app.patch("/api/admin/background")
+    def set_background_work(body: BackgroundBody):
+        """When songs may be measured in the background: always, night (1 to 7 a.m.) or never."""
+        admin_only()
+        try:
+            background.set_mode(cfg.db_path, body.mode)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        if body.mode != "never":
+            scanner.trigger()  # pick up where it left off
+        return {"backgroundWork": body.mode}
+
     @app.post("/api/scan")
     def rescan():
         admin_only()
@@ -2680,7 +2704,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             keys = [a["key"] for a in albums]
             credits_with = [c for (c,) in conn.execute("SELECT DISTINCT artist FROM tracks") if credits.credited(c, name)]
             rows = conn.execute(
-                f"""SELECT t.*, a.id AS album_id, a.title AS album_title, a.artist AS album_artist_name, a.cover_src,
+                f"""SELECT {T_COLUMNS}, a.id AS album_id, a.title AS album_title, a.artist AS album_artist_name, a.cover_src,
                            (SELECT COUNT(*) FROM plays p WHERE p.track_id = t.id) AS plays,
                            (SELECT MAX(played_at) FROM plays p WHERE p.track_id = t.id) AS last_played
                     FROM tracks t JOIN albums a ON a.key = t.album_key
@@ -3046,10 +3070,11 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             for g in genres.song_genres(t, known):
                 genre_n[g] = genre_n.get(g, 0) + 1
             album_ids.add(t["album_id"])
-        bpms = [t["bpm"] for t in mine if t["bpm"]]
+        bpms = sorted({t["bpm"] for t in mine if t["bpm"]})
+        tempo_fit: dict[float, float] = {}
         mine_ids = [t["id"] for t in mine]
         # Sounds like: how close each song is to the songs of `mine` it's nearest to.
-        near = sound.nearest(sound.vectors([*mine, *pool]), mine_ids, [t["id"] for t in pool])
+        near = sound.nearest(sound.library_vectors(cfg.db_path), mine_ids, [t["id"] for t in pool])
         # Belongs together: shares playlists or listening sessions with them.
         with_them = together.scores(*together.load(cfg.db_path), set(mine_ids))
         keys = {analysis.camelot(t["musical_key"]) for t in mine} - {None}
@@ -3067,8 +3092,11 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 if shared:
                     s += 2 * max(shared) / len(mine)
             if t["bpm"] and bpms:
-                d = min(min(abs(t["bpm"] - b), abs(2 * t["bpm"] - b), abs(t["bpm"] - 2 * b)) for b in bpms)
-                s += 1.5 * max(0.0, 1 - d / 15)
+                fit = tempo_fit.get(t["bpm"])
+                if fit is None:  # songs share tempos, so each is worked out once
+                    d = min(min(abs(t["bpm"] - b), abs(2 * t["bpm"] - b), abs(t["bpm"] - 2 * b)) for b in bpms)
+                    fit = tempo_fit[t["bpm"]] = 1.5 * max(0.0, 1 - d / 15)
+                s += fit
             if friendly and analysis.camelot(t["musical_key"]) in friendly:
                 s += 1
             if t["album_id"] in album_ids:
@@ -3231,6 +3259,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         return out
 
     _mix_cache: dict[tuple, dict] = {}
+    mix_lock = threading.Lock()
 
     def _made_for_you(me_id: int) -> dict[str, dict]:
         """Every mix for this person, by key, with its songs. Made once a day (they're daily
@@ -3241,15 +3270,39 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             mine = conn.execute("SELECT (SELECT COUNT(*) FROM likes WHERE user_id = ?), (SELECT COUNT(*) FROM feedback WHERE user_id = ? AND kind != 'skip')",
                                 (me_id, me_id)).fetchone()
         key = (me_id, mixes.day_seed(me_id, now), mixes.week_seed(me_id, now), tuple(lib), tuple(mine))
-        got = _mix_cache.get(key)
+        with mix_lock:
+            got = _mix_cache.get(key)
         if got is None:
             got = _make_mixes(me_id, now)
-            for k in [k for k in _mix_cache if k[0] == me_id]:
-                del _mix_cache[k]
-            if len(_mix_cache) > 100:
-                _mix_cache.clear()
-            _mix_cache[key] = got
+            with mix_lock:  # the background maker and a person opening Mixes can both be here
+                for k in [k for k in _mix_cache if k[0] == me_id]:
+                    del _mix_cache[k]
+                if len(_mix_cache) > 100:
+                    _mix_cache.clear()
+                _mix_cache[key] = got
         return got
+
+    warm_stop = threading.Event()
+
+    def _warm_mixes() -> None:
+        """Makes each day's mixes ahead of time for everyone who's used Shelf this month, so
+        nobody waits for them on a big library: soon after starting, then every half hour
+        (which is nothing unless the day has turned over or something changed)."""
+        if warm_stop.wait(90):
+            return
+        while not warm_stop.is_set():
+            with db() as conn:
+                ids = [r[0] for r in conn.execute("SELECT id FROM users WHERE last_seen > ?", (time.time() - 30 * 86400,))]
+            for i in ids:
+                person = auth.get(i)
+                if warm_stop.is_set() or person is None:
+                    continue
+                CURRENT.set(person)  # their skips and turned-down songs count, as when they open it
+                try:
+                    _made_for_you(i)
+                except Exception:
+                    log.exception("Making mixes ahead of time failed")
+            warm_stop.wait(1800)
 
     def _make_mixes(me_id: int, now: float) -> dict[str, dict]:
         with db() as conn:
