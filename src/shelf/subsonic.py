@@ -1013,8 +1013,8 @@ class Subsonic(More):
     def m_getPlayQueue(self, p, user):
         with self.db() as conn:
             saved = json.loads(get_meta(conn, f"subsonic_queue:{user.id}") or "null")
-            if not saved:
-                return {"playQueue": {}}
+            if not saved or not saved.get("ids"):  # nothing saved: the spec still wants who and when
+                return {"playQueue": {"username": user.username, "changed": iso(time.time()), "changedBy": ""}}
             ids = [i for i in saved["ids"] if i.isdigit()]
             rows = {r["id"]: r for r in conn.execute(f"{TRACKS} WHERE t.id IN ({','.join('?' * len(ids))})", [int(i) for i in ids])} if ids else {}
             ctx = self._ctx(conn, user.id)
@@ -1037,10 +1037,10 @@ class Subsonic(More):
             rows = conn.execute(f"{TRACKS} WHERE t.title = ? COLLATE NOCASE", (title,)).fetchall()
         row = next((r for r in rows if not artist or credits.credited(r["artist"], artist)), None)
         if not row:
-            return {"lyrics": {}}
+            return {"lyrics": {"value": ""}}
         got = lyrics.lyrics_for(self.cfg.db_path, row, self.cfg.online_lyrics)
         text = got.get("text") or "\n".join(line["text"] for line in got.get("lines") or [])
-        return {"lyrics": {"artist": row["artist"], "title": row["title"], "value": text or None}}
+        return {"lyrics": {"artist": row["artist"], "title": row["title"], "value": text or ""}}
 
     def m_getLyricsBySongId(self, p, user):
         with self.db() as conn:
