@@ -1,5 +1,21 @@
 [
   {
+    "version": "1.0.1",
+    "date": "2026-11-13",
+    "new": [
+      {"title": "Every Subsonic app feature", "text": "Apps like Symfonium, Feishin and DSub now get everything they can ask for: your podcasts, share links, internet radio, songs that sound alike, and music converted to MP3, Opus, AAC or FLAC from any point in a song."},
+      {"title": "API keys", "text": "Newer music apps can sign in with a key instead of your username and password. Make one per app in Settings, and remove it to sign that app out."},
+      {"title": "Faster with big libraries", "text": "Home, Mixes and artist pages open much faster on large libraries, and the server uses far less memory. Your daily mixes are made ahead of time, so they’re ready when you open them."},
+      {"title": "Docker and Raspberry Pi", "text": "The server now comes as a Docker image for PCs, servers and Raspberry Pi, with a guide for setting it up behind your own web address.", "admin": true},
+      {"title": "When to measure songs", "text": "Choose whether Shelf measures new songs any time, only at night or never, in the admin dashboard. Handy on a small computer.", "admin": true},
+      {"title": "Sign in through your proxy", "text": "If a reverse proxy like Authelia or Authentik already signs people in, Shelf can trust it instead of asking again.", "admin": true}
+    ],
+    "fixed": [
+      "Apps signed in with an app password or API key can no longer change passwords or accounts: that now needs your real password.",
+      "A page that hit a server problem now says what went wrong instead of showing [object Object]."
+    ]
+  },
+  {
     "version": "1.0.0",
     "date": "2026-11-12",
     "new": [
