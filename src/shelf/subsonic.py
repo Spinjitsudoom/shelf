@@ -113,6 +113,24 @@ def index_letter(name: str) -> str:
     return first if first.isalpha() else "#"
 
 
+def genre_names(tag: str | None) -> list[str]:
+    """ "Metal; Hard Rock" -> ["Metal", "Hard Rock"]."""
+    out: list[str] = []
+    for g in re.split(r"[;/,|]", tag or ""):
+        g = g.strip()
+        if g and g.lower() not in {o.lower() for o in out}:
+            out.append(g)
+    return out
+
+
+def tag_extras(row) -> dict:
+    """The less common tags kept for a song or album (MusicBrainz ids, composers, labels...), see tags.extras."""
+    try:
+        return json.loads(row["extra"] or "{}") if "extra" in row.keys() else {}
+    except (TypeError, ValueError):
+        return {}
+
+
 # ---------- answers ----------
 
 class Fail(Exception):
@@ -286,14 +304,23 @@ class Subsonic:
         return {r[0]: r[1] for r in conn.execute("SELECT ref, at FROM stars WHERE user_id = ? AND kind = ?", (uid, kind))}
 
     def _ctx(self, conn, uid: int) -> dict:
-        return {"plays": self._plays(conn), "liked": self._liked(conn, uid)}
+        return {"plays": self._plays(conn), "liked": self._liked(conn, uid),
+                "played": {r[0]: r[1] for r in conn.execute(
+                    "SELECT track_id, MAX(played_at) FROM plays WHERE user_id = ? GROUP BY track_id", (uid,))},
+                "marks": {r[0]: r[1] for r in conn.execute(
+                    "SELECT track_id, position FROM resume_points WHERE user_id = ?", (uid,))}}
 
     def song(self, r, ctx: dict) -> dict:
         path = Path(r["path"])
         ext = path.suffix.lstrip(".").lower()
-        first = (credits.names(r["artist"]) or [r["artist"]])[0]
+        names = credits.names(r["artist"]) or [r["artist"]]
         album_artist = r["album_artist_name"] or r["artist"]
-        gain = {"trackGain": round(-18 - r["lufs"], 2), "trackPeak": r["peak"]} if r["lufs"] is not None else None
+        album_names = credits.names(album_artist) or [album_artist]
+        extra = tag_extras(r)
+        gain = {"trackGain": round(-18 - r["lufs"], 2), "trackPeak": round(10 ** (r["peak"] / 20), 6) if r["peak"] is not None else None} \
+            if r["lufs"] is not None else {}
+        liked = ctx["liked"].get(r["id"])
+        mark = ctx.get("marks", {}).get(r["id"])
         return {
             "id": str(r["id"]), "parent": f"al-{r['album_id']}", "isDir": False, "title": r["title"],
             "album": r["album_title"], "artist": r["artist"], "track": r["track_no"], "discNumber": r["disc_no"],
@@ -302,16 +329,29 @@ class Subsonic:
             "size": r["size"], "contentType": r["mime"] or mimetypes.guess_type(path.name)[0] or "audio/mpeg",
             "suffix": ext, "duration": int(round(r["duration"] or 0)),
             "bitRate": (r["bitrate"] or 0) // 1000 or None, "samplingRate": r["sample_rate"], "bitDepth": r["bits"],
+            "channelCount": extra.get("channels"),
             "path": f"{album_artist}/{r['album_title']}/{path.name}",
-            "albumId": f"al-{r['album_id']}", "artistId": artist_id(first), "type": "music", "mediaType": "song",
+            "albumId": f"al-{r['album_id']}", "artistId": artist_id(names[0]), "type": "music", "mediaType": "song",
             "created": iso(r["added_at"]), "playCount": ctx["plays"].get(r["id"], 0),
-            "starred": iso(ctx["liked"].get(r["id"])),
-            "bpm": int(round(r["bpm"])) if "bpm" in r.keys() and r["bpm"] else None,
+            "played": iso(ctx.get("played", {}).get(r["id"])),
+            "starred": iso(liked), "userRating": 5 if liked else None,
+            "bookmarkPosition": int(mark * 1000) if mark else None,
+            "bpm": int(round(r["bpm"])) if "bpm" in r.keys() and r["bpm"] else 0,
+            "comment": extra.get("comment", ""), "sortName": extra.get("sort", ""),
+            "musicBrainzId": extra.get("mbid", ""), "isrc": extra.get("isrc", []),
+            "genres": [{"name": g} for g in genre_names(r["genre"])],
+            "artists": [{"id": artist_id(n), "name": n} for n in names], "displayArtist": r["artist"],
+            "albumArtists": [{"id": artist_id(n), "name": n} for n in album_names], "displayAlbumArtist": album_artist,
+            "contributors": [{"role": "composer", "artist": {"id": artist_id(n), "name": n}} for n in extra.get("composers", [])],
+            "displayComposer": ", ".join(extra.get("composers", [])),
+            "moods": extra.get("moods", []), "explicitStatus": extra.get("explicit", ""),
             "replayGain": gain,
         }
 
     def album(self, r, ctx: dict) -> dict:
-        first = (credits.names(r["artist"]) or [r["artist"]])[0]
+        names = credits.names(r["artist"]) or [r["artist"]]
+        first = names[0]
+        extra = tag_extras(r)
         return {
             "id": f"al-{r['id']}", "parent": artist_id(first), "isDir": True,
             "name": r["title"], "title": r["title"], "album": r["title"], "artist": r["artist"],
@@ -319,11 +359,23 @@ class Subsonic:
             "songCount": r["track_count"], "duration": int(round(r["duration"] or 0)),
             "created": iso(r["added_at"]), "year": r["year"], "genre": r["genre"] or None,
             "playCount": ctx.get("album_plays", {}).get(r["key"], 0),
+            "played": iso(ctx.get("album_played", {}).get(r["key"])),
             "starred": iso(ctx.get("album_stars", {}).get(r["key"])),
+            "artists": [{"id": artist_id(n), "name": n} for n in names], "displayArtist": r["artist"],
+            "genres": [{"name": g} for g in genre_names(r["genre"])],
+            "musicBrainzId": extra.get("album_mbid", ""), "sortName": extra.get("album_sort", ""),
+            "isCompilation": bool(extra.get("compilation")) or videos.fold(r["artist"]) == "various artists",
+            "releaseTypes": extra.get("release_types", []),
+            "recordLabels": [{"name": n} for n in extra.get("labels", [])],
+            "releaseDate": {"year": r["year"]} if r["year"] else {},
+            "originalReleaseDate": {"year": extra["original_year"]} if extra.get("original_year") else {},
+            "moods": [], "discTitles": [], "explicitStatus": extra.get("explicit", ""), "version": "",
         }
 
     def _album_ctx(self, conn, uid: int) -> dict:
         return {"album_plays": {r[0]: r[1] for r in conn.execute("SELECT album_key, COUNT(*) FROM plays GROUP BY album_key")},
+                "album_played": {r[0]: r[1] for r in conn.execute(
+                    "SELECT album_key, MAX(played_at) FROM plays WHERE user_id = ? GROUP BY album_key", (uid,))},
                 "album_stars": self._stars(conn, uid, "album")}
 
     def _artists(self, conn) -> dict[str, dict]:

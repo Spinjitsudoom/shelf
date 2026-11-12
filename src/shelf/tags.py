@@ -10,7 +10,7 @@ import base64
 import json
 import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import mutagen
@@ -45,6 +45,7 @@ class TrackInfo:
     has_art: bool
     lufs: float | None = None  # from ReplayGain / R128 tags, when present
     peak: float | None = None
+    extra: dict = field(default_factory=dict)  # the less common tags, see extras()
 
 
 def _first(value) -> str | None:
@@ -75,6 +76,127 @@ def _year(value) -> int | None:
         return None
     m = _YEAR.search(str(value))
     return int(m.group()) if m else None
+
+
+# ---------- the less common tags ----------
+# MusicBrainz ids, composers, ISRCs, labels and the like: not used by Shelf's own screens, but
+# Subsonic apps show them (and ListenBrainz matches better with the MusicBrainz ids).
+# Each is (name in Vorbis comments / ffprobe, ID3 frame or TXXX description, MP4 atom or
+# iTunes freeform name).
+_EXTRA = {
+    "mbid": (("musicbrainz_trackid", "musicbrainz track id"), ("UFID:http://musicbrainz.org", "TXXX:MusicBrainz Track Id"),
+             ("----:com.apple.iTunes:MusicBrainz Track Id",)),
+    "album_mbid": (("musicbrainz_albumid", "musicbrainz album id"), ("TXXX:MusicBrainz Album Id",),
+                   ("----:com.apple.iTunes:MusicBrainz Album Id",)),
+    "artist_mbid": (("musicbrainz_artistid", "musicbrainz artist id"), ("TXXX:MusicBrainz Artist Id",),
+                    ("----:com.apple.iTunes:MusicBrainz Artist Id",)),
+    "composers": (("composer",), ("TCOM",), ("\xa9wrt",)),
+    "isrc": (("isrc", "tsrc"), ("TSRC", "TXXX:ISRC"), ("----:com.apple.iTunes:ISRC",)),
+    "comment": (("comment", "description"), ("COMM",), ("\xa9cmt",)),
+    "sort": (("titlesort", "title-sort", "title_sort"), ("TSOT",), ("sonm",)),
+    "album_sort": (("albumsort", "album-sort", "album_sort"), ("TSOA",), ("soal",)),
+    "compilation": (("compilation",), ("TCMP", "TXXX:TCMP"), ("cpil",)),
+    "release_types": (("releasetype", "musicbrainz_albumtype", "musicbrainz album type"),
+                      ("TXXX:MusicBrainz Album Type", "TXXX:RELEASETYPE"), ("----:com.apple.iTunes:MusicBrainz Album Type",)),
+    "labels": (("label", "organization", "publisher"), ("TPUB", "TXXX:LABEL"), ("----:com.apple.iTunes:LABEL", "\xa9pub")),
+    "original_year": (("originaldate", "originalyear", "original_year"), ("TDOR", "TORY", "TXXX:originalyear"),
+                      ("----:com.apple.iTunes:ORIGINALDATE", "----:com.apple.iTunes:originalyear")),
+    "explicit": (("itunesadvisory",), ("TXXX:ITUNESADVISORY",), ("rtng",)),
+    "moods": (("mood",), ("TMOO",), ("----:com.apple.iTunes:MOOD",)),
+}
+_LISTS = {"composers", "isrc", "release_types", "labels", "moods"}
+
+
+def _strings(value) -> list[str]:
+    """Every text in a tag value, whatever shape the format gives it."""
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [s for v in value for s in _strings(v)]
+    if hasattr(value, "text") and not isinstance(value, str):  # ID3 frame
+        return _strings(value.text)
+    if hasattr(value, "data") and isinstance(getattr(value, "data"), bytes) and not isinstance(value, bytes):  # UFID
+        value = value.data
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", "ignore")
+    if isinstance(value, bool):
+        return ["1" if value else "0"]
+    text = str(value).strip().strip("\x00").strip()
+    return [text] if text else []
+
+
+def _flat_tags(f, family: str | None) -> dict[str, list[str]]:
+    """A file's tags as {lowercase name: [texts]}, with ID3 TXXX and MP4 freeform names spelled
+    like _EXTRA's."""
+    tags = f.tags
+    out: dict[str, list[str]] = {}
+    if tags is None or family is None:
+        return out
+    try:
+        if family == "id3":
+            for frame in tags.values():
+                fid = frame.FrameID
+                if fid == "TXXX":
+                    key = f"txxx:{frame.desc}".lower()
+                elif fid == "UFID":
+                    key = f"ufid:{frame.owner}".lower()
+                elif fid == "COMM":
+                    if frame.desc and frame.desc.lower() not in ("", "comment", "description"):
+                        continue  # iTunNORM and friends
+                    key = "comm"
+                else:
+                    key = fid.lower()
+                out.setdefault(key, []).extend(_strings(frame))
+        else:
+            for k, v in tags.items():
+                out.setdefault(str(k).lower(), []).extend(_strings(v))
+    except Exception:
+        return {}
+    return out
+
+
+def extras_from(flat: dict[str, list[str]], family: str, channels: int | None = None) -> dict:
+    col = {"vorbis": 0, "ape": 0, "asf": 0, "ffprobe": 0, "id3": 1, "mp4": 2}.get(family, 0)
+    out: dict = {}
+    for name, spellings in _EXTRA.items():
+        values: list[str] = []
+        for key in spellings[col]:
+            values += flat.get(key.lower(), [])
+            if values:
+                break
+        if name in _LISTS:
+            split = [p.strip() for v in values for p in re.split(r"\s*(?:;|\x00|/(?=\s)|\s/)\s*", v) if p.strip()]
+            seen: list[str] = []
+            for v in split:
+                if v.lower() not in {s.lower() for s in seen}:
+                    seen.append(v)
+            if seen:
+                out[name] = seen[:20]
+        elif values:
+            out[name] = values[0][:500]
+    if "release_types" in out:
+        out["release_types"] = [t.lower() for t in out["release_types"]]
+    if "original_year" in out:
+        y = _year(out["original_year"])
+        out.pop("original_year")
+        if y:
+            out["original_year"] = y
+    if "compilation" in out:
+        out["compilation"] = out["compilation"].strip().lower() in ("1", "true", "yes")
+        if not out["compilation"]:
+            out.pop("compilation")
+    if "explicit" in out:  # iTunes advisory: 1 or 4 explicit, 2 clean
+        v = out.pop("explicit").strip()
+        if v in ("1", "4"):
+            out["explicit"] = "explicit"
+        elif v == "2":
+            out["explicit"] = "clean"
+    for k in ("mbid", "album_mbid", "artist_mbid"):
+        if k in out and not re.fullmatch(r"[0-9a-fA-F-]{36}", out[k].strip()):
+            out.pop(k)
+    if channels:
+        out["channels"] = int(channels)
+    return out
 
 
 # Per-format tag names for: title, artist, albumartist, album, track, disc, date, genre
@@ -235,6 +357,7 @@ def _read_mutagen(path: Path) -> TrackInfo | None:
         has_art=_mutagen_has_art(f, family),
         lufs=lufs,
         peak=peak,
+        extra=extras_from(_flat_tags(f, family), family or "", getattr(f.info, "channels", None)),
     )
 
 
@@ -285,6 +408,7 @@ def _read_ffprobe(path: Path) -> TrackInfo | None:
         sample_rate=int(audio["sample_rate"]) if audio.get("sample_rate") else None,
         bits=_int(audio.get("bits_per_raw_sample") or audio.get("bits_per_sample")) or None,
         has_art=has_art,
+        extra=extras_from({k: [str(v)] for k, v in tags.items()}, "ffprobe", _int(audio.get("channels"))),
         **dict(zip(("lufs", "peak"), _rg_to_loudness(
             tags.get("replaygain_track_gain"), tags.get("replaygain_track_peak"), tags.get("r128_track_gain")))),
     )

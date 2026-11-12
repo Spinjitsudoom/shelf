@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import json
 import re
 import sqlite3
 import time
@@ -20,7 +21,7 @@ log = logging.getLogger("shelf.scanner")
 
 _DISC_DIR = re.compile(r"^(cd|disc|disk)[\s._-]*\d+$", re.I)
 # Bump when the scanner starts reading something new, so every file gets re-read once.
-SCAN_VERSION = "3"
+SCAN_VERSION = "4"  # 4: the less common tags (tags.extras_from) are read too
 
 _UNKNOWN = {"unknown", "[unknown]", "unknown artist", "various", "various artists", "va"}
 
@@ -116,7 +117,7 @@ def scan(cfg: Config, progress=None) -> ScanResult:
                 bitrate=info.bitrate, sample_rate=info.sample_rate, bits=info.bits,
                 lufs=info.lufs, peak=info.peak, loud_checked=int(info.lufs is not None),
                 has_art=int(info.has_art), bpm=None, musical_key=None, rhythm_checked=0, cutoff=None, cutoff_checked=0,
-                fp=None, fp_checked=0,
+                fp=None, fp_checked=0, extra=json.dumps(info.extra) if info.extra else None,
                 added_at=now,
             )
             cols = ", ".join(values)
@@ -208,6 +209,26 @@ def _pick_cover(rows: list[sqlite3.Row], found_dir: Path | None = None, key: str
     return f"embedded:{with_art['path']}" if with_art else None
 
 
+_ALBUM_EXTRAS = ("album_mbid", "album_sort", "compilation", "release_types", "labels", "original_year")
+
+
+def album_extra(tracks: list[sqlite3.Row]) -> str | None:
+    """An album's share of its songs' less common tags: the MusicBrainz release, labels, release
+    type... from the first song that has each; explicit if any song is."""
+    out: dict = {}
+    for t in tracks:
+        try:
+            got = json.loads(t["extra"] or "{}")
+        except (TypeError, ValueError, IndexError, KeyError):
+            continue
+        for k in _ALBUM_EXTRAS:
+            if k in got and k not in out:
+                out[k] = got[k]
+        if got.get("explicit") == "explicit" or (got.get("explicit") == "clean" and "explicit" not in out):
+            out["explicit"] = got["explicit"]
+    return json.dumps(out) if out else None
+
+
 def rebuild_albums(conn: sqlite3.Connection, roots: list[Path], found_dir: Path | None = None) -> None:
     rows = conn.execute(
         "SELECT * FROM tracks ORDER BY album_key, COALESCE(disc_no, 1), COALESCE(track_no, 9999), path"
@@ -232,17 +253,18 @@ def rebuild_albums(conn: sqlite3.Connection, roots: list[Path], found_dir: Path 
         years = Counter(t["year"] for t in tracks if t["year"])
         genres = Counter(t["genre"] for t in tracks if t["genre"])
         cover_src = _pick_cover(tracks, found_dir, key)
+        extra = album_extra(tracks)
         old_cover, old_color = existing.get(key, (None, None))
         color = old_color if old_cover == cover_src else None
         conn.execute(
             """
-            INSERT INTO albums (key, title, artist, year, genre, track_count, duration, cover_src, color, added_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO albums (key, title, artist, year, genre, track_count, duration, cover_src, color, added_at, extra)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(key) DO UPDATE SET
                 title = excluded.title, artist = excluded.artist, year = excluded.year,
                 genre = excluded.genre, track_count = excluded.track_count,
                 duration = excluded.duration, cover_src = excluded.cover_src,
-                color = excluded.color, added_at = excluded.added_at
+                color = excluded.color, added_at = excluded.added_at, extra = excluded.extra
             """,
             (
                 key,
@@ -255,6 +277,7 @@ def rebuild_albums(conn: sqlite3.Connection, roots: list[Path], found_dir: Path 
                 cover_src,
                 color,
                 min(t["added_at"] for t in tracks),
+                extra,
             ),
         )
     stale = [(k,) for k in existing if k not in groups]
