@@ -118,7 +118,7 @@ export async function homeView(el, player) {
     const t = player.position;
     const line = player.playing ? `Playing “${esc(cur.title)}”`
       : t > 1 ? `Paused at ${fmtTime(t)} in “${esc(cur.title)}”` : `Up now: “${esc(cur.title)}”`;
-    hero = heroHtml({ id: cur.albumId, cover: cur.cover, title: cur.album }, artistLinks(cur.albumArtist || cur.artist, cur.albumArtists || cur.artists), line,
+    hero = heroHtml({ id: cur.albumId, cover: cur.cover, title: cur.album }, cur.kind === "episode" ? `<a href="#/podcast/${cur.podcastId}">${esc(cur.album)}</a>` : artistLinks(cur.albumArtist || cur.artist, cur.albumArtists || cur.artists), line,
       `<button class="btn btn-album" type="button" data-action="toggle"><svg><use href="#${player.playing ? "i-pause" : "i-play"}"/></svg>${player.playing ? "Pause" : "Resume"}</button>`);
   } else if (last) {
     hero = heroHtml(last, artistLinks(last.artist, last.artists), `Last played ${ago(last.lastPlayed)}`,
@@ -147,6 +147,15 @@ export async function homeView(el, player) {
         <div class="row-head"><h2 class="section-title">New from your artists</h2><a class="see-all" href="#/releases">See all</a></div>
         <div class="row-shelf">${fresh.map(releaseCard).join("")}</div>
       </section>` : "";
+    if (r.key === "podcasts") return `<section class="row-section" data-row="podcasts">
+        <div class="row-head"><h2 class="section-title">${esc(r.title)}</h2><a class="see-all" href="#/podcasts">See all</a></div>
+        <div class="row-shelf">${r.episodes.map((e, i) => `
+          <div class="album-card ep-card">
+            <div class="card-art"><button type="button" class="ep-card-play" data-home-ep="${i}" aria-label="Play ${esc(e.title)}">${caseHtml(e)}<span class="card-play" aria-hidden="true"><svg><use href="#i-play"/></svg></span></button></div>
+            <div class="card-title"><button type="button" class="link-btn" data-home-ep="${i}">${esc(e.title)}</button></div>
+            <div class="card-sub"><a href="#/podcast/${e.podcastId}">${esc(e.album)}</a>${e.position > 0 && e.duration ? ` · ${esc(fmtLength(Math.max(60, e.duration - e.position)))} left` : ""}</div>
+          </div>`).join("")}</div>
+      </section>`;
     const albums = r.key === "recent" && !cur ? r.albums.slice(1) : r.albums;
     const href = r.key === "added" ? "#/albums?sort=added" : undefined;
     return rowShelf(r.title, albums, { href, row: r.key });
@@ -164,6 +173,11 @@ export async function homeView(el, player) {
   el.querySelector(".page").addEventListener("click", (e) => {
     const row = e.target.closest("[data-row]");
     if (row && e.target.closest("a, button") && !settings.get("privateSession")) api.homeUsed(row.dataset.row).catch(() => {});
+    const ep = e.target.closest("[data-home-ep]");
+    if (ep) {
+      const t = home.rows.find((r) => r.key === "podcasts").episodes[Number(ep.dataset.homeEp)];
+      player.playList([t], 0, { context: { label: t.album, href: `#/podcast/${t.podcastId}` } });
+    }
   });
   const heroEl = el.querySelector(".hero:not(.hero-welcome)");
   if (heroEl && cur) api.album(cur.albumId).then((a) => applyAlbumColor(heroEl, a.color)).catch(() => {});

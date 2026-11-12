@@ -5,7 +5,8 @@ import { api } from "./api.js";
 
 export const LONG = 15 * 60; // seconds
 
-export const isLong = (t) => (t?.duration ?? 0) >= LONG;
+/** Long tracks keep a place; so does every podcast episode, however short. */
+export const isLong = (t) => t?.kind === "episode" || (t?.duration ?? 0) >= LONG;
 
 /** Where you stopped in this track (0: from the start). */
 export async function placeIn(t) {

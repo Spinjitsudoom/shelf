@@ -60,7 +60,7 @@ private enum class Filter(val label: String) { Playlists("Playlists"), Albums("A
 @Composable
 fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (Int) -> Unit, onAlbum: (Int) -> Unit, onArtist: (String) -> Unit,
                   signedOut: SignedOutHandler, onNewPlaylist: ((String) -> Unit)? = null,
-                  onMakePlaylist: (suspend (String) -> String?)? = null, onImport: (() -> Unit)? = null) {
+                  onMakePlaylist: (suspend (String) -> String?)? = null, onImport: (() -> Unit)? = null, onPodcasts: (() -> Unit)? = null) {
     var naming by rememberSaveable { mutableStateOf(false) }
     var making by rememberSaveable { mutableStateOf(false) }
     if (naming && onNewPlaylist != null) app.shelf.ui.common.NameDialog("New playlist", "", "Create", onNewPlaylist, { naming = false })
@@ -130,6 +130,13 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
                     }
                 }
                 item { LibraryRow("Favourites", "Playlist", onFavourites) { FavouritesCover() } }
+                if (onPodcasts != null) item {
+                    LibraryRow("Podcasts", "The shows you follow", onPodcasts) {
+                        Box(Modifier.fillMaxSize().background(Theme.colors.sleeve), contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_podcast), null, tint = Theme.colors.ink)
+                        }
+                    }
+                }
                 items(d.playlists, key = { "p${it.id}" }) { p ->
                     LibraryRow(p.name, "Playlist, ${plural(p.trackCount, "song")}", { onPlaylist(p.id) }) {
                         MosaicCover(p.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 160) }, p.name, albumColor(null, p.name))

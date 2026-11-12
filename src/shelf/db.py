@@ -191,6 +191,53 @@ CREATE TABLE IF NOT EXISTS webhooks (
     last_status TEXT
 );
 
+-- Podcasts (podcasts.py): each show's feed is stored once, followed by any number of people.
+CREATE TABLE IF NOT EXISTS podcasts (
+    id          INTEGER PRIMARY KEY,
+    feed_url    TEXT NOT NULL UNIQUE,
+    title       TEXT NOT NULL,
+    author      TEXT,
+    description TEXT,
+    image_url   TEXT,
+    link        TEXT,
+    added_at    REAL NOT NULL,
+    checked_at  REAL,
+    error       TEXT              -- why the last check failed, if it did
+);
+
+CREATE TABLE IF NOT EXISTS episodes (
+    id           INTEGER PRIMARY KEY,
+    podcast_id   INTEGER NOT NULL REFERENCES podcasts(id) ON DELETE CASCADE,
+    guid         TEXT NOT NULL,
+    title        TEXT NOT NULL,
+    description  TEXT,
+    audio_url    TEXT NOT NULL,
+    mime         TEXT,
+    size         INTEGER,
+    duration     REAL,
+    published_at REAL,
+    image_url    TEXT,
+    UNIQUE (podcast_id, guid)
+);
+CREATE INDEX IF NOT EXISTS episodes_show ON episodes(podcast_id, published_at);
+
+CREATE TABLE IF NOT EXISTS podcast_subs (
+    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    podcast_id    INTEGER NOT NULL REFERENCES podcasts(id) ON DELETE CASCADE,
+    subscribed_at REAL NOT NULL,
+    PRIMARY KEY (user_id, podcast_id)
+);
+
+-- Where each person is in an episode, and whether they've finished it.
+CREATE TABLE IF NOT EXISTS episode_state (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    episode_id INTEGER NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+    position   REAL NOT NULL DEFAULT 0,
+    finished   INTEGER NOT NULL DEFAULT 0,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (user_id, episode_id)
+);
+
 -- Which Home rows someone opens things from (home.py): rows they use climb, others sink.
 CREATE TABLE IF NOT EXISTS home_taps (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

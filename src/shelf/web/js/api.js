@@ -88,6 +88,8 @@ export function invalidate(prefix = "") {
 }
 
 /** Playlist edits refresh every list of playlists on screen. */
+const podcastsChanged = () => window.dispatchEvent(new CustomEvent("podcasts-changed"));
+
 async function changed(promise) {
   const r = await promise;
   invalidate("playlists");
@@ -131,6 +133,13 @@ export const api = {
   rescan: () => { invalidate(); return request("POST", "scan"); },
   home: () => request("GET", "home"),
   homeUsed: (row) => request("POST", "home/used", { row }),
+  podcasts: () => request("GET", "podcasts"),
+  podcast: (id) => request("GET", `podcasts/${id}`),
+  podcastSearch: (q) => request("GET", `podcasts/search?q=${encodeURIComponent(q)}`),
+  followPodcast: (feedUrl) => request("POST", "podcasts", { feedUrl }).then((r) => { podcastsChanged(); return r; }),
+  unfollowPodcast: (id) => request("DELETE", `podcasts/${id}`).then((r) => { podcastsChanged(); return r; }),
+  refreshPodcast: (id) => request("POST", `podcasts/${id}/refresh`),
+  markEpisode: (eid, finished) => request("PUT", `podcasts/episodes/${eid}`, { finished }),
   albums: (sort = "artist") => cached(`albums?sort=${encodeURIComponent(sort)}`),
   artistAlbums: (name) => cached(`albums?artist=${encodeURIComponent(name)}`),
   // Each track carries its album's loudness, for album-mode volume normalization.

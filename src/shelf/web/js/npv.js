@@ -97,7 +97,7 @@ export function mountPanel(player, { fallbackQueue, onVideo = () => {}, onRelate
       <div class="npv-meta">
         <div class="npv-names">
           <a class="npv-title" href="#/album/${t.albumId}">${esc(t.title)}</a>
-          <span class="npv-artist">${artistLinks(t.artist, t.artists)}</span>
+          <span class="npv-artist">${t.kind === "episode" ? `<a href="#/podcast/${t.podcastId}">${esc(t.album)}</a>` : artistLinks(t.artist, t.artists)}</span>
         </div>
         <span class="npv-meta-end"><span id="npv-badge">${badge(t)}</span>${likeButton(t)}</span>
       </div>

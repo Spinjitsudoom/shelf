@@ -33,6 +33,7 @@ import {
   features,
 } from "./views.js";
 import { requestsView } from "./requests.js";
+import { podcastsView, podcastView } from "./podcasts.js";
 import { offline } from "./offline.js";
 import { claimHandoff, moveToSecure } from "./secure.js";
 
@@ -75,6 +76,8 @@ let albumOnScreen = null; // id of the album page being shown, for the cover mor
 let clickedCase = null; // the cover that was just clicked, so the morph starts from it
 let firstRender = true;
 
+const SHOW_BASE = 1_000_000_000; // podcasts.py: show artwork ids
+
 function parseRoute() {
   const hash = location.hash.replace(/^#/, "") || "/";
   const [path, query = ""] = hash.split("?");
@@ -83,7 +86,11 @@ function parseRoute() {
   switch (parts[0]) {
     case undefined: return { name: "home", nav: "home" };
     case "albums": return { name: "albums", sort: params.get("sort"), nav: "albums" };
-    case "album": return { name: "album", id: Number(parts[1]), nav: "albums" };
+    case "album": // a show's artwork is an "album" to the player: its page is the podcast
+      return Number(parts[1]) >= SHOW_BASE ? { name: "podcast", id: Number(parts[1]) - SHOW_BASE, nav: "podcasts" }
+        : { name: "album", id: Number(parts[1]), nav: "albums" };
+    case "podcasts": return { name: "podcasts", q: params.get("q") || "", nav: "podcasts" };
+    case "podcast": return { name: "podcast", id: Number(parts[1]), nav: "podcasts" };
     case "artists": return { name: "artists", nav: "artists" };
     case "artist": return { name: "artist", artist: decodeURIComponent(parts.slice(1).join("/")), nav: "artists" };
     case "search": return { name: "search", q: params.get("q") || "", nav: "search" };
@@ -138,6 +145,8 @@ async function drawRoute(route, key) {
         break;
       }
       case "requests": await requestsView(view, { admin: !!session.user?.admin, artist: route.artist }); break;
+      case "podcasts": await podcastsView(view, player, { q: route.q }); break;
+      case "podcast": await podcastView(view, route.id, player); break;
       case "people": {
         await peopleView(view);
         // Keep it live while it's open.
@@ -1365,11 +1374,11 @@ function syncTrack() {
     $("np-disc-face").style.setProperty("--art", art); // the record: on its centre label
     $("np-backdrop").style.backgroundImage = t.cover ? `url("${coverUrl(t.albumId, t.cover, 160)}")` : "none";
   }
-  for (const id of ["player-like", "np-like"]) { $(id).dataset.like = t.id; $(id).hidden = false; }
+  for (const id of ["player-like", "np-like"]) { $(id).dataset.like = t.id; $(id).hidden = t.kind === "episode"; } // Favourites hold songs
   refreshHearts($("player"));
   refreshHearts($("nowplaying"));
   $("np-title").textContent = t.title;
-  $("np-artist").innerHTML = artistLinks(t.artist, t.artists);
+  $("np-artist").innerHTML = t.kind === "episode" ? `<a href="#/podcast/${t.podcastId}">${esc(t.album)}</a>` : artistLinks(t.artist, t.artists);
   const from = player.context ?? { label: t.album, href: `#/album/${t.albumId}` };
   $("np-from").textContent = from.label;
   $("np-from").href = from.href;
@@ -2202,6 +2211,7 @@ function meMenu(at) {
       { label: "Friend activity", icon: "i-people", run: go("#/people") },
       { label: "Downloads", icon: "i-download", run: go("#/downloads") },
       { label: "Not on your shelf", icon: "i-disc", run: go("#/releases") },
+      { label: "Podcasts", icon: "i-podcast", run: go("#/podcasts") },
       { label: "Requests", icon: "i-request", run: go("#/requests") },
       ...(u.admin ? [{ label: "Admin dashboard", icon: "i-admin", run: go("#/admin") }] : []),
       "sep",

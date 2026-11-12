@@ -9,6 +9,7 @@ import os
 import random
 import re
 import subprocess
+import urllib.error
 import urllib.parse
 import logging
 import threading
@@ -24,7 +25,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from . import procs
-from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, home as home_rows, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, home as home_rows, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, podcasts, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -294,6 +295,14 @@ class RequestBody(BaseModel):
     type: str | None = Field(None, max_length=40)
 
 
+class PodcastBody(BaseModel):
+    feedUrl: str = Field(..., min_length=8, max_length=2000)
+
+
+class EpisodeBody(BaseModel):
+    finished: bool
+
+
 class HomeUsedBody(BaseModel):
     row: str = Field(..., min_length=1, max_length=240)
 
@@ -475,6 +484,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     scanner = ScanManager(cfg)
     scrobbler = scrobble.Scrobbler(cfg.db_path)
     new_releases = releases.Releases(cfg.db_path, enabled=cfg.artist_info)
+    podcast_checker = podcasts.Refresher(cfg.db_path)
     listening = {"at": 0.0}
 
     def last_listening() -> float:
@@ -509,6 +519,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             saved_copies.start()
             new_releases.start()
             new_version.start()
+            podcast_checker.start()
         yield
         new_version.stop()
         scanner.stop()
@@ -516,6 +527,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         watcher.stop()
         saved_copies.stop()
         new_releases.stop()
+        podcast_checker.stop()
         dj_voice.stop()
         natural.stop()
         llm.stop()
@@ -2056,6 +2068,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     @app.get("/api/albums/{album_id}/cover")
     def album_cover(album_id: int, size: int = Query(320, ge=32, le=2000)):
+        if podcasts.is_show(album_id):
+            return _show_cover(album_id - podcasts.SHOW_BASE, size)
         with db() as conn:
             row = conn.execute("SELECT cover_src FROM albums WHERE id = ?", (album_id,)).fetchone()
         if not row or not row["cover_src"]:
@@ -2194,9 +2208,18 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             **{f"like:{name}": (f"More like {name}", albums) for name, albums in rows["like"]},
         }
         keys = ["mixes", "releases"] + [k for k, (_, albums) in album_rows.items() if albums]
+        # Podcasts you follow: the episodes you're partway through, then new ones.
+        with db() as conn:
+            mine = "e.podcast_id IN (SELECT podcast_id FROM podcast_subs WHERE user_id = ?)"
+            episodes = (_episode_rows(conn, me_id, f"{mine} AND st.position > 0 AND COALESCE(st.finished, 0) = 0", (me_id,), 8)
+                        + _episode_rows(conn, me_id, f"{mine} AND COALESCE(st.finished, 0) = 0 AND COALESCE(st.position, 0) = 0 "
+                                                     "AND e.published_at > ?", (me_id, now - 14 * 86400), 12))[:14]
+        if episodes:
+            keys.append("podcasts")
         out["rows"] = [
             {"key": k, "kind": home_rows.kind(k)} | (
                 {"title": album_rows[k][0], "albums": album_rows[k][1]} if k in album_rows else {})
+            | ({"title": "Your podcasts", "episodes": episodes} if k == "podcasts" else {})
             | ({"artist": k.split(":", 1)[1]} if k.startswith("like:") else {})
             for k in home_rows.order(keys, rows["used"], rows["newListener"])
         ]
@@ -2266,11 +2289,20 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     def get_resume(track_id: int):
         """Where you stopped in a long track (0: from the start)."""
         with db() as conn:
+            if podcasts.is_episode(track_id):
+                st = podcasts.state(conn, uid(), track_id - podcasts.EP_BASE)
+                return {"position": st["position"] if st else 0}
             return {"position": resume.get(conn, uid(), track_id)}
 
     @app.put("/api/tracks/{track_id}/resume")
     def put_resume(track_id: int, body: ResumeBody):
         with db() as conn:
+            if podcasts.is_episode(track_id):
+                found = podcasts.episode(conn, track_id)
+                if not found:
+                    raise HTTPException(404, "Episode not found")
+                podcasts.keep_place(conn, uid(), found[0]["id"], body.position, found[0]["duration"] or 0)
+                return {"ok": True}
             row = conn.execute("SELECT duration FROM tracks WHERE id = ?", (track_id,)).fetchone()
             if not row:
                 raise HTTPException(404, "Track not found")
@@ -2280,6 +2312,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     @app.post("/api/tracks/{track_id}/skipped")
     def skipped(track_id: int):
         """Moved on before 30 seconds of it (the apps send this; not in a private session)."""
+        if podcasts.is_episode(track_id):
+            return {"ok": True}  # podcasts don't teach the music recommenders
         with db() as conn:
             conn.execute("INSERT INTO feedback(user_id, track_id, kind, at) VALUES(?, ?, 'skip', ?)", (uid(), track_id, time.time()))
         return {"ok": True}
@@ -2287,6 +2321,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     @app.post("/api/tracks/{track_id}/played")
     def played(track_id: int, at: float | None = Query(None)):
         """A listen. `at`: when, for listens made offline and sent later (up to 60 days back)."""
+        if podcasts.is_episode(track_id):
+            return {"ok": True}  # episodes keep a place instead; they aren't music plays
         now = time.time()
         when = now if at is None or not (now - 60 * 86400 <= at <= now + 60) else min(at, now)
         with db() as conn:
@@ -2324,7 +2360,9 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         return path, row["mtime"], row["mime"]
 
     @app.get("/api/tracks/{track_id}/stream")
-    async def stream(track_id: int, q: str = "original"):
+    async def stream(request: Request, track_id: int, q: str = "original"):
+        if podcasts.is_episode(track_id):
+            return await _episode_stream(request, track_id)
         path, mtime, mime = _track_file(track_id)
         if q == "original" and mime in NATIVE_MIMES:
             return FileResponse(path, media_type=mime, headers={"Cache-Control": "private, max-age=86400"})
@@ -2353,6 +2391,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     @app.get("/api/tracks/{track_id}/lyrics")
     def track_lyrics(track_id: int, response: Response):
+        if podcasts.is_episode(track_id):
+            return {"kind": "none", "source": None, "searchedOnline": False}
         with db() as conn:
             row = conn.execute(
                 "SELECT path, title, artist, album, duration FROM tracks WHERE id = ?", (track_id,)
@@ -2363,10 +2403,170 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         response.headers["Cache-Control"] = "private, max-age=600"
         return result
 
+    # ---------- podcasts ----------
+
+    async def _episode_stream(request: Request, track_id: int):
+        """An episode, streamed from the show's host (seeking passed through), so the apps only
+        ever talk to Shelf."""
+        with db() as conn:
+            found = podcasts.episode(conn, track_id)
+        if not found:
+            raise HTTPException(404, "Episode not found")
+        ep = found[0]
+        ask = {"Range": request.headers["range"]} if request.headers.get("range") else {}
+        try:
+            upstream = await asyncio.to_thread(podcasts.open_url, ep["audio_url"], ask, 30)
+        except urllib.error.HTTPError as e:
+            raise HTTPException(502 if e.code != 416 else 416, f"The podcast’s host said no ({e.code})")
+        except (OSError, ValueError, podcasts.FeedError):
+            raise HTTPException(502, "The podcast’s host didn’t answer")
+        keep = {k: upstream.headers[k] for k in ("Content-Length", "Content-Range", "Accept-Ranges") if upstream.headers.get(k)}
+        kind = upstream.headers.get_content_type()
+        mime = kind if kind.startswith("audio/") else (ep["mime"] or "audio/mpeg")
+
+        def body():
+            try:
+                while chunk := upstream.read(64 * 1024):
+                    yield chunk
+            finally:
+                upstream.close()
+
+        return StreamingResponse(body(), status_code=upstream.status, media_type=mime,
+                                 headers={**keep, "Cache-Control": "no-store"})
+
+    def _show_cover(pid: int, size: int):
+        with db() as conn:
+            show = conn.execute("SELECT * FROM podcasts WHERE id = ?", (pid,)).fetchone()
+        art = podcasts.art_path(cfg.data_dir, show) if show else None
+        path = covers.get_cover(cfg.cover_dir, f"file:{art}", size) if art else None
+        if not path:
+            raise HTTPException(404, "No cover")
+        return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "private, max-age=31536000, immutable"})
+
+    def _my_shows(conn, me_id: int) -> list[dict]:
+        rows = conn.execute(
+            """SELECT p.*, COUNT(e.id) AS n, MAX(e.published_at) AS latest,
+                      SUM(CASE WHEN COALESCE(st.finished, 0) = 0 THEN 1 ELSE 0 END) AS unplayed
+               FROM podcasts p JOIN podcast_subs s ON s.podcast_id = p.id AND s.user_id = ?
+               LEFT JOIN episodes e ON e.podcast_id = p.id
+               LEFT JOIN episode_state st ON st.episode_id = e.id AND st.user_id = ?
+               GROUP BY p.id ORDER BY latest DESC""", (me_id, me_id)).fetchall()
+        return [podcasts.show_json(r, r["n"], r["unplayed"] or 0, r["latest"]) for r in rows]
+
+    def _episode_rows(conn, me_id: int, where: str, params: tuple, limit: int) -> list[dict]:
+        rows = conn.execute(
+            f"""SELECT e.*, st.position AS st_position, st.finished AS st_finished FROM episodes e
+                LEFT JOIN episode_state st ON st.episode_id = e.id AND st.user_id = ?
+                WHERE {where} ORDER BY e.published_at DESC LIMIT ?""", (me_id, *params, limit)).fetchall()
+        shows = {}
+        out = []
+        for r in rows:
+            show = shows.get(r["podcast_id"]) or conn.execute("SELECT * FROM podcasts WHERE id = ?", (r["podcast_id"],)).fetchone()
+            shows[r["podcast_id"]] = show
+            st = {"position": r["st_position"] or 0, "finished": r["st_finished"] or 0}
+            out.append(podcasts.episode_json(r, show, st))
+        return out
+
+    @app.get("/api/podcasts")
+    def my_podcasts():
+        """The shows you follow, and the episodes to go on with: ones you're partway through, then
+        new ones you haven't heard (from the last two weeks)."""
+        me_id = uid()
+        with db() as conn:
+            shows = _my_shows(conn, me_id)
+            mine = "e.podcast_id IN (SELECT podcast_id FROM podcast_subs WHERE user_id = ?)"
+            going = _episode_rows(conn, me_id, f"{mine} AND st.position > 0 AND COALESCE(st.finished, 0) = 0", (me_id,), 20)
+            fresh = _episode_rows(conn, me_id, f"{mine} AND COALESCE(st.finished, 0) = 0 AND COALESCE(st.position, 0) = 0 "
+                                               "AND e.published_at > ?", (me_id, time.time() - 14 * 86400), 30)
+        return {"shows": shows, "continue": going, "new": fresh}
+
+    @app.get("/api/podcasts/search")
+    async def find_podcasts(q: str = Query(..., min_length=2, max_length=500)):
+        """Shows by name (Apple's podcast directory), or the show behind a pasted link."""
+        try:
+            if podcasts.looks_like_link(q):
+                link = q if q.lower().startswith("http") else f"https://{q}"
+                feed = await asyncio.to_thread(podcasts.feed_for, link)
+                show = await asyncio.to_thread(podcasts.fetch_show, feed)
+                results = [{"title": show["title"], "author": show["author"], "feedUrl": feed, "image": show["image"],
+                            "episodes": len(show["episodes"])}]
+            else:
+                results = await asyncio.to_thread(podcasts.search, q)
+        except podcasts.FeedError as e:
+            return {"results": [], "error": str(e)}
+        except urllib.error.HTTPError as e:
+            return {"results": [], "error": "That show’s feed is gone." if e.code in (404, 410)
+                    else f"The podcast’s host said no ({e.code})."}
+        except (OSError, ValueError):
+            return {"results": [], "error": "Couldn’t reach that. Check the link, or try again in a moment."}
+        with db() as conn:
+            have = {r[0]: r[1] for r in conn.execute(
+                "SELECT p.feed_url, p.id FROM podcasts p JOIN podcast_subs s ON s.podcast_id = p.id AND s.user_id = ?", (uid(),))}
+        return {"results": [r | {"following": r["feedUrl"] in have, "id": have.get(r["feedUrl"])} for r in results]}
+
+    @app.post("/api/podcasts")
+    async def add_podcast(body: PodcastBody):
+        """Follow a show by its feed."""
+        feed = body.feedUrl.strip()
+        try:
+            show = await asyncio.to_thread(podcasts.fetch_show, feed)
+        except podcasts.FeedError as e:
+            raise HTTPException(400, str(e))
+        except urllib.error.HTTPError as e:
+            raise HTTPException(400, "That show’s feed is gone." if e.code in (404, 410) else f"The podcast’s host said no ({e.code}).")
+        except (OSError, ValueError):
+            raise HTTPException(502, "Couldn’t reach that podcast. Try again in a moment.")
+        with db() as conn:
+            pid = podcasts.store(conn, feed, show)
+            podcasts.follow(conn, uid(), pid)
+        return _podcast_page(pid)
+
+    def _podcast_page(pid: int, limit: int = 300) -> dict:
+        me_id = uid()
+        with db() as conn:
+            show = conn.execute("SELECT * FROM podcasts WHERE id = ?", (pid,)).fetchone()
+            if not show:
+                raise HTTPException(404, "Podcast not found")
+            mine = pid in podcasts.following(conn, me_id)
+            n = conn.execute("SELECT COUNT(*) FROM episodes WHERE podcast_id = ?", (pid,)).fetchone()[0]
+            episodes = _episode_rows(conn, me_id, "e.podcast_id = ?", (pid,), limit)
+        unplayed = sum(1 for e in episodes if not e["finished"])
+        latest = episodes[0]["published"] if episodes else None
+        return podcasts.show_json(show, n, unplayed, latest, following_it=mine) | {"episodeList": episodes}
+
+    @app.get("/api/podcasts/{pid}")
+    def podcast_page(pid: int):
+        return _podcast_page(pid)
+
+    @app.delete("/api/podcasts/{pid}")
+    def unfollow_podcast(pid: int):
+        with db() as conn:
+            podcasts.unfollow(conn, uid(), pid)
+        return {"ok": True}
+
+    @app.post("/api/podcasts/{pid}/refresh")
+    async def refresh_podcast(pid: int):
+        with db() as conn:
+            if pid not in podcasts.following(conn, uid()):
+                raise HTTPException(404, "Podcast not found")
+        new = await asyncio.to_thread(podcasts.refresh, cfg.db_path, pid)
+        return _podcast_page(pid) | {"new": new}
+
+    @app.put("/api/podcasts/episodes/{eid}")
+    def mark_episode(eid: int, body: EpisodeBody):
+        """Mark an episode finished, or not (back to unheard)."""
+        with db() as conn:
+            if not conn.execute("SELECT 1 FROM episodes WHERE id = ?", (eid,)).fetchone():
+                raise HTTPException(404, "Episode not found")
+            podcasts.mark(conn, uid(), eid, body.finished)
+        return {"ok": True, "finished": body.finished}
+
     # ---------- music videos ----------
 
     @app.get("/api/tracks/{track_id}/video")
     def track_video(track_id: int, response: Response):
+        if podcasts.is_episode(track_id):
+            return {"found": False}
         with db() as conn:
             row = conn.execute("SELECT title, artist, duration FROM tracks WHERE id = ?", (track_id,)).fetchone()
         if not row:
@@ -3151,6 +3351,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     @app.put("/api/likes/{track_id}")
     def like(track_id: int):
+        if podcasts.is_episode(track_id):
+            raise HTTPException(400, "Favourites are for songs. The podcast keeps your place in its episodes.")
         with db() as conn:
             if not conn.execute("SELECT 1 FROM tracks WHERE id = ?", (track_id,)).fetchone():
                 raise HTTPException(404, "Track not found")
@@ -3334,6 +3536,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     @app.get("/api/tracks/{track_id}/similar")
     def similar(track_id: int, limit: int = Query(40, ge=1, le=200)):
         """Autoplay: more songs by the same artist or in the same genre, from other albums first."""
+        if podcasts.is_episode(track_id):
+            return []  # after an episode, nothing plays by itself
         with db() as conn:
             seed = conn.execute(f"{TRACK_SELECT} WHERE t.id = ?", (track_id,)).fetchone()
             if not seed:
@@ -3612,12 +3816,12 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                    for r in _share_tracks(conn, row))
 
     @app.get("/s/{token}/tracks/{track_id}/stream")
-    async def share_stream(token: str, track_id: int, q: str = "original"):
+    async def share_stream(request: Request, token: str, track_id: int, q: str = "original"):
         with db() as conn:
             row = _open_share(conn, token)
             if not _share_has(conn, row, track_id=track_id):
                 raise HTTPException(404, "Not in this link")
-        return await stream(track_id, q)
+        return await stream(request, track_id, q)
 
     @app.get("/s/{token}/albums/{album_id}/cover")
     def share_cover(token: str, album_id: int, size: int = Query(640, ge=32, le=1200)):

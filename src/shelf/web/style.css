@@ -2418,3 +2418,54 @@ input.range.balance::-moz-range-progress { background: transparent; }
 .embedded .topbar, .embedded .library, .embedded .resizer, .embedded .npv, .embedded .player, .embedded .tabbar,
 .embedded .offline-bar { display: none !important; }
 .embedded .view { height: 100%; border-radius: 0; }
+
+/* ---------- podcasts ---------- */
+.pod-search { display: flex; gap: 10px; max-width: 640px; margin: 4px 0 18px; }
+.pod-search input { flex: 1; min-width: 0; height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--rule); background: var(--sleeve); color: var(--ink); font: inherit; }
+.pod-search input:focus { outline: 2px solid var(--cobalt); outline-offset: 1px; }
+.pod-results { max-width: 760px; margin-bottom: 22px; }
+.pod-note { color: var(--ink-2); margin: 8px 0; }
+.pod-result-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.pod-result { display: flex; align-items: center; gap: 14px; padding: 8px; border-radius: 10px; }
+.pod-result:hover { background: var(--hover); }
+.pod-result-art { flex: none; width: 56px; height: 56px; border-radius: 6px; overflow: hidden; background: var(--rule); }
+.pod-result-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pod-result-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.pod-result-text b, .pod-result-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pod-result-text span { color: var(--ink-2); font-size: 14px; }
+
+.ep-list { list-style: none; margin: 0; padding: 0; max-width: 900px; }
+.ep-row { display: flex; gap: 14px; align-items: flex-start; padding: 14px 4px; border-top: 1px solid var(--rule); }
+.ep-row:first-child { border-top: 0; }
+.ep-art { flex: none; width: 56px; }
+.ep-art .case { width: 56px; }
+.ep-main { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.ep-meta { font-size: 13px; color: var(--ink-2); }
+.ep-meta a { color: inherit; text-decoration: underline; text-decoration-color: transparent; }
+.ep-meta a:hover { text-decoration-color: currentColor; }
+.ep-title { padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 650; font-size: 16px; line-height: 1.3; text-align: left; cursor: pointer; }
+.ep-row.finished .ep-title { color: var(--ink-2); }
+.ep-desc { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.45; white-space: pre-line;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ep-row.open .ep-desc { display: block; -webkit-line-clamp: unset; }
+.ep-progress { display: block; height: 3px; max-width: 220px; border-radius: 2px; background: var(--rule); overflow: hidden; margin-top: 2px; }
+.ep-progress span { display: block; height: 100%; background: var(--cobalt); }
+.ep-actions { flex: none; display: flex; align-items: center; gap: 6px; }
+.ep-done[aria-pressed="true"] { color: var(--cobalt); }
+.ep-play { width: 40px; height: 40px; border-radius: 999px; border: 0; display: grid; place-items: center; cursor: pointer;
+  background: var(--ink); color: var(--tray); }
+.ep-play svg { width: 18px; height: 18px; margin-left: 2px; }
+.ep-play:hover { transform: scale(1.05); }
+.pod-kicker { margin: 0 0 4px; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.pod-body { padding: 8px var(--gap, 24px) 32px; }
+.pod-about { max-width: 760px; color: var(--ink-2); line-height: 1.5; white-space: pre-line;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.podcast-page .chips { margin: 14px 0 6px; }
+.ep-card-play { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 3px; position: relative; }
+.ep-card .card-title .link-btn { color: var(--ink); text-decoration: none; font-weight: 650; text-align: left; }
+.ep-card .card-sub a { color: inherit; }
+@media (max-width: 560px) {
+  .ep-row { gap: 10px; }
+  .ep-art, .ep-art .case { width: 44px; }
+  .ep-actions { flex-direction: column-reverse; gap: 2px; }
+}

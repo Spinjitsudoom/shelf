@@ -45,6 +45,8 @@ import app.shelf.ui.player.NowPlayingScreen
 import app.shelf.data.LibrarySource
 import app.shelf.ui.browse.AlbumScreen
 import app.shelf.ui.browse.ArtistScreen
+import app.shelf.ui.browse.PodcastScreen
+import app.shelf.ui.browse.PodcastsScreen
 import app.shelf.ui.browse.FavouritesScreen
 import app.shelf.ui.browse.HomeScreen
 import app.shelf.ui.browse.LibraryScreen
@@ -68,6 +70,8 @@ object Routes {
     const val EQUALIZER = "settings/eq"
     const val PEOPLE = "people"
     const val STATS = "stats"
+    const val PODCASTS = "podcasts"
+    fun podcast(id: Int) = "podcast/$id"
     fun wrapped(year: Int) = "wrapped/$year"
     fun blend(id: Int) = "blend/$id"
     fun album(id: Int) = "album/$id"
@@ -191,13 +195,16 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
         },
     ) { inner ->
         NavHost(nav, startDestination = Routes.HOME, modifier = Modifier.padding(inner)) {
-            val openAlbum = { id: Int -> nav.navigate(Routes.album(id)) }
+            // A podcast's artwork is an "album" to the player: opening it opens the show.
+            val openAlbum = { id: Int -> nav.navigate(if (id >= 1_000_000_000) Routes.podcast(id - 1_000_000_000) else Routes.album(id)) }
             val openArtist = { name: String -> nav.navigate(Routes.artist(name)) }
             val back: () -> Unit = { nav.popBackStack() }
             composable(Routes.HOME) {
                 HomeScreen(source, container.store.username, openAlbum, { nav.navigate(Routes.mix(it)) }, openAlbum, signedOut,
                     onSettings = { nav.navigate(Routes.SETTINGS) }, onPeople = api?.let { { nav.navigate(Routes.PEOPLE) } },
                     onStats = api?.let { { nav.navigate(Routes.STATS) } },
+                    onPlayEpisode = { e -> onPlay(listOf(e.asTrack()), 0, app.shelf.playback.PlayContext(e.album, Routes.podcast(e.podcastId))) },
+                    onPodcast = { nav.navigate(Routes.podcast(it)) },
                     onRowUsed = api?.let { a -> { row: String ->
                         if (!container.settings.settings.value.privateSession) scope.launch { runCatching { a.homeUsed(row) } }
                     } })
@@ -217,7 +224,15 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                             null
                         } catch (e: app.shelf.data.ShelfError.Server) { e.message } catch (e: app.shelf.data.ShelfError) { failed }
                     } },
-                    onImport = api?.let { { importing = "" } })
+                    onImport = api?.let { { importing = "" } }, onPodcasts = api?.let { { nav.navigate(Routes.PODCASTS) } })
+            }
+            if (api != null) {
+                composable(Routes.PODCASTS) {
+                    PodcastsScreen(api, source, { nav.navigate(Routes.podcast(it)) }, onPlay, signedOut, say)
+                }
+                composable("podcast/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
+                    PodcastScreen(it.arguments!!.getInt("id"), api, source, onPlay, back, signedOut, say)
+                }
             }
             composable(Routes.FAVOURITES) { FavouritesScreen(source, onPlay, back, signedOut) }
             composable("album/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
@@ -298,9 +313,9 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
         val items = buildList {
             add(app.shelf.ui.common.MenuItem("Play next", R.drawable.ic_next_up) { player?.playNext(listOf(t)); say("“${t.title}” plays next") })
             add(app.shelf.ui.common.MenuItem("Add to queue", R.drawable.ic_queue) { player?.addToQueue(listOf(t)); say("Added “${t.title}” to the queue") })
-            add(app.shelf.ui.common.MenuItem(if (liked) "Remove from Favourites" else "Add to Favourites", R.drawable.ic_heart) {
+            if (!t.isEpisode) add(app.shelf.ui.common.MenuItem(if (liked) "Remove from Favourites" else "Add to Favourites", R.drawable.ic_heart) {
                 container.likes.toggle(t.id, say); say(if (liked) "Removed from Favourites" else "Added to Favourites") })
-            if (api != null) {
+            if (api != null && !t.isEpisode) {
                 add(app.shelf.ui.common.MenuItem("Add to playlist…", R.drawable.ic_playlist) { playlists = null; adding = t })
                 add(app.shelf.ui.common.MenuItem("Song radio", R.drawable.ic_radio) { nowPlaying = false; nav.navigate(Routes.trackRadio(t.id)) })
                 if (shareOn) add(app.shelf.ui.common.MenuItem("Share link", R.drawable.ic_link) { shareLinks.share("track", t.id, t.title, t.artist) })

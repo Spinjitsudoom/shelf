@@ -16,7 +16,7 @@ const SORTS = {
   alpha: "Alphabetical",
   creator: "Creator",
 };
-const FILTERS = { playlists: "Playlists", albums: "Albums", artists: "Artists", downloaded: "Downloaded" };
+const FILTERS = { playlists: "Playlists", podcasts: "Podcasts", albums: "Albums", artists: "Artists", downloaded: "Downloaded" };
 
 const fold = (s) => (s || "").normalize("NFKD").replace(/\p{M}/gu, "").toLocaleLowerCase();
 const byText = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true });
@@ -32,7 +32,7 @@ export function mountLibrary(root, player) {
   let everything = !!store.get("libEverything", false);
   let follows = new Set();
   let query = "";
-  let albums = [], artists = [], playlists = [];
+  let albums = [], artists = [], playlists = [], shows = [];
 
   let loading = Promise.resolve();
   function load() {
@@ -42,7 +42,8 @@ export function mountLibrary(root, player) {
 
   async function loadNow() {
     try {
-      [albums, artists, playlists] = await Promise.all([api.albums("recent"), api.artists(), api.playlists()]);
+      [albums, artists, playlists, shows] = await Promise.all([api.albums("recent"), api.artists(), api.playlists(),
+        api.podcasts().then((p) => p.shows).catch(() => [])]);
     } catch (e) {
       if (e.status !== 0) return;
       // Offline: what's downloaded.
@@ -51,6 +52,7 @@ export function mountLibrary(root, player) {
       albums = saved.filter((c) => c.kind === "album").map((c) => ({ ...c.data, addedAt: c.savedAt / 1000 }));
       playlists = saved.filter((c) => c.kind === "playlist").map((c) => ({ ...c.data, updatedAt: c.savedAt / 1000 }));
       artists = [];
+      shows = [];
     }
     // An artist is as recent as their most recently played or added album.
     const recency = new Map();
@@ -76,6 +78,9 @@ export function mountLibrary(root, player) {
       for (const p of playlists) {
         if (!dl || offline.isSaved(`playlist:${p.id}`)) out.push({ kind: "playlist", p, name: p.name, by: "", added: p.createdAt, recent: p.updatedAt });
       }
+    }
+    if (!filter || filter === "podcasts") {
+      for (const s of shows) out.push({ kind: "podcast", s, name: s.title, by: s.author, added: s.latest || 0, recent: s.latest || 0 });
     }
     if (!filter || filter === "albums" || dl) {
       for (const a of albums) {
@@ -118,6 +123,15 @@ export function mountLibrary(root, player) {
         <a class="lib-item" role="listitem" href="#/playlist/${p.id}" data-playlist="${p.id}" title="${esc(p.name)}">
           ${playlistCover(p, { cls: "lib-cover" })}
           <span class="lib-text"><span class="lib-name">${esc(p.name)}</span><span class="lib-sub">${dlMark(`playlist:${p.id}`)}Playlist • ${p.mine === false ? esc(p.owner?.username ?? "") : plural(p.trackCount, "song")}</span></span>
+          <svg class="lib-playing" aria-label="Playing"><use href="#i-volume"/></svg>
+        </a>`;
+    }
+    if (it.kind === "podcast") {
+      const s = it.s;
+      return `
+        <a class="lib-item" role="listitem" href="#/podcast/${s.id}" title="${esc(s.title)}">
+          ${caseHtml({ id: s.albumId, cover: s.cover, title: s.title }, { size: 160, cls: "case-sm", sizes: "48px" })}
+          <span class="lib-text"><span class="lib-name">${esc(s.title)}</span><span class="lib-sub">Podcast • ${s.unplayed ? `${s.unplayed} to hear` : esc(s.author || "all heard")}</span></span>
           <svg class="lib-playing" aria-label="Playing"><use href="#i-volume"/></svg>
         </a>`;
     }
@@ -236,6 +250,7 @@ export function mountLibrary(root, player) {
   player.addEventListener("played", () => { invalidate("albums?sort=recent"); load(); });
   window.addEventListener("playlists-changed", () => load());
   window.addEventListener("follows-changed", () => load());
+  window.addEventListener("podcasts-changed", () => load());
 
   // "+": a new, empty playlist, opened right away .
   root.querySelector("#lib-new").addEventListener("click", async () => {

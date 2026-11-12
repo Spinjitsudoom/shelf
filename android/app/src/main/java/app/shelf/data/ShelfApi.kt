@@ -46,6 +46,18 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     override suspend fun album(id: Int): AlbumDetail = call("api/albums/$id", AlbumDetail.serializer())
     suspend fun lyrics(id: Int): Lyrics = call("api/tracks/$id/lyrics", Lyrics.serializer())
     suspend fun similar(id: Int): List<Track> = call("api/tracks/$id/similar?limit=40", ListSerializer(Track.serializer()))
+    // Podcasts: follow shows, see their episodes, mark them played.
+    suspend fun podcasts(): PodcastsHome = call("api/podcasts", PodcastsHome.serializer())
+    suspend fun podcast(id: Int): PodcastShow = call("api/podcasts/$id", PodcastShow.serializer())
+    suspend fun podcastSearch(q: String): PodcastSearch =
+        call(url("api/podcasts/search").newBuilder().addQueryParameter("q", q).build(), PodcastSearch.serializer(), method = "GET")
+    suspend fun followPodcast(feedUrl: String): PodcastShow =
+        call("api/podcasts", PodcastShow.serializer(), buildJsonObject { put("feedUrl", feedUrl) }.toString().toRequestBody(JSON))
+    suspend fun unfollowPodcast(id: Int) = send("DELETE", "api/podcasts/$id")
+    suspend fun refreshPodcast(id: Int): PodcastShow = call("api/podcasts/$id/refresh", PodcastShow.serializer(), "{}".toRequestBody(JSON))
+    suspend fun markEpisode(episodeId: Int, finished: Boolean) =
+        send("PUT", "api/podcasts/episodes/$episodeId", buildJsonObject { put("finished", finished) }.toString())
+
     /** Something on Home was opened from this row; rows that get used move up. */
     suspend fun homeUsed(row: String) = send("POST", "api/home/used", buildJsonObject { put("row", row) }.toString())
     suspend fun setShareActivity(on: Boolean) = send("PATCH", "api/me", buildJsonObject { put("shareActivity", on) }.toString())

@@ -5,7 +5,8 @@ import app.shelf.data.Track
 /** Tracks this long (live sets, DJ mixes, audiobooks) pick up where you stopped, as on the web. */
 const val LONG_SECONDS = 15 * 60
 
-fun isLong(t: Track) = t.duration >= LONG_SECONDS
+/** Long tracks keep a place; so does every podcast episode, however short. */
+fun isLong(t: Track) = t.isEpisode || t.duration >= LONG_SECONDS
 
 /**
  * Keeps your place in a long track on the server: every 15 seconds while it plays, when it's

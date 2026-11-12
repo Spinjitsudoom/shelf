@@ -121,9 +121,11 @@ fun NowPlayingScreen(state: PlayerUi, source: LibrarySource, player: PlayerConne
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(t.title, style = MaterialTheme.typography.headlineSmall, color = Shelf.colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                ArtistLinks(t.artist, t.artists, onArtist, style = MaterialTheme.typography.bodyLarge)
+                if (t.isEpisode) Text(t.album, style = MaterialTheme.typography.bodyLarge, color = Shelf.colors.ink2,
+                    modifier = Modifier.clickable { onContext("podcast/${t.podcastId}") })
+                else ArtistLinks(t.artist, t.artists, onArtist, style = MaterialTheme.typography.bodyLarge)
             }
-            IconButton(onClick = onLike) {
+            if (!t.isEpisode) IconButton(onClick = onLike) { // Favourites hold songs
                 Icon(painterResource(if (liked) R.drawable.ic_heart_filled else R.drawable.ic_heart),
                     if (liked) "Remove from Favourites" else "Add to Favourites", tint = if (liked) Shelf.colors.cobalt else Shelf.colors.ink2)
             }

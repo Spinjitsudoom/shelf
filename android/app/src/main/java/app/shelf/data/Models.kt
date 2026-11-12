@@ -42,7 +42,11 @@ data class Track(
     val mix: app.shelf.playback.MixPoints? = null,     // for Mix: where it starts, ends, and its beats
     val transition: kotlinx.serialization.json.JsonElement? = null, // in a Mix playlist: how it hands over to the next song
     val plays: Int = 0, // in stats: how often it was played
-)
+    val kind: String? = null, // "episode": a podcast episode (podcastId, episodeId), not a song from the library
+    val podcastId: Int? = null, val episodeId: Int? = null,
+) {
+    val isEpisode get() = kind == "episode"
+}
 
 @Serializable data class ArtistSummary(val name: String, val albums: Int = 0, val tracks: Int = 0, val coverAlbumId: Int? = null, val cover: String? = null,
                                         val following: Boolean = false)
@@ -86,7 +90,33 @@ data class MixDetail(
 
 /** One row of Home, in the order the server put them (taste and use). "mixes" and "releases" carry no albums. */
 @Serializable data class HomeRow(val key: String, val kind: String = "", val title: String? = null, val albums: List<Album> = emptyList(),
-                                 val artist: String? = null)
+                                 val artist: String? = null, val episodes: List<Episode> = emptyList())
+
+/** A podcast episode, with its notes and how far you are; it plays as a Track (asTrack). */
+@Serializable data class Episode(
+    val id: Int, val episodeId: Int, val podcastId: Int, val title: String, val album: String = "", val albumId: Int,
+    val cover: String? = null, val duration: Double = 0.0, val codec: String? = null, val published: Double? = null,
+    val description: String = "", val position: Double = 0.0, val finished: Boolean = false,
+) {
+    fun asTrack() = Track(id = id, title = title, artist = album, artists = listOf(album), album = album, albumId = albumId,
+        albumArtist = album, cover = cover, duration = duration, codec = codec, kind = "episode", podcastId = podcastId, episodeId = episodeId)
+}
+
+@Serializable data class PodcastShow(
+    val id: Int, val title: String, val author: String = "", val description: String = "", val link: String? = null,
+    val feedUrl: String = "", val albumId: Int, val cover: String? = null, val episodes: Int = 0, val unplayed: Int = 0,
+    val latest: Double? = null, val following: Boolean = true, val error: String? = null,
+    val episodeList: List<Episode> = emptyList(), val new: Int = 0,
+)
+
+@Serializable data class PodcastsHome(val shows: List<PodcastShow> = emptyList(),
+                                      @kotlinx.serialization.SerialName("continue") val going: List<Episode> = emptyList(),
+                                      val new: List<Episode> = emptyList())
+
+@Serializable data class PodcastResult(val title: String, val author: String = "", val feedUrl: String, val image: String? = null,
+                                       val episodes: Int? = null, val following: Boolean = false, val id: Int? = null)
+
+@Serializable data class PodcastSearch(val results: List<PodcastResult> = emptyList(), val error: String? = null)
 
 @Serializable data class SearchArtist(val name: String, val albums: Int = 0)
 

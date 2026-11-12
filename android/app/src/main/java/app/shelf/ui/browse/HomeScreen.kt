@@ -50,7 +50,8 @@ private fun greeting(name: String?): String {
 @Composable
 fun HomeScreen(source: LibrarySource, username: String?, onAlbum: (Int) -> Unit, onMix: (String) -> Unit, onPlayAlbum: (Int) -> Unit, signedOut: SignedOutHandler,
                onSettings: () -> Unit = {}, onPeople: (() -> Unit)? = null, onStats: (() -> Unit)? = null,
-               onRowUsed: ((String) -> Unit)? = null) {
+               onRowUsed: ((String) -> Unit)? = null, onPlayEpisode: ((app.shelf.data.Episode) -> Unit)? = null,
+               onPodcast: ((Int) -> Unit)? = null) {
     val (state, retry) = rememberLoad("home") {
         coroutineScope { val h = async { source.home() }; val m = async { source.mixes() }; HomeData(h.await(), m.await()) }
     }
@@ -103,6 +104,17 @@ fun HomeScreen(source: LibrarySource, username: String?, onAlbum: (Int) -> Unit,
                         Shelf(d.mixes) { m ->
                             CoverCard(m.name, m.description, onClick = { used(); onMix(m.key) }) {
                                 TapeCover(m.name, albumColor(m.color, m.name), m.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 160) })
+                            }
+                        }
+                    }
+                    return@forEach
+                }
+                if (row.key == "podcasts") {
+                    if (row.episodes.isNotEmpty() && onPlayEpisode != null) item(key = row.key) {
+                        SectionTitle(row.title ?: "Your podcasts")
+                        Shelf(row.episodes) { e ->
+                            CoverCard(e.title, e.album, onClick = { used(); onPlayEpisode(e) }) {
+                                CaseCover(source.coverUrl(e.albumId, e.cover, 320), e.album, albumColor(null, e.album))
                             }
                         }
                     }

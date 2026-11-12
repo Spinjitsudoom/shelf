@@ -545,6 +545,7 @@ export class Player extends EventTarget {
   _crossfadeSeconds(cur, nxt) {
     const cf = settings.get("crossfade");
     if (!(cf > 0) || !this.engine.active || !nxt || this._mixOn()) return 0;
+    if (cur.kind === "episode" || nxt.kind === "episode") return 0; // talk isn't faded into music
     // Keep albums played in order seamless, the way they were mastered.
     const sameAlbum = !this.shuffle && cur.albumId === nxt.albumId;
     if (sameAlbum && !settings.get("crossfadeAlbums")) return 0;

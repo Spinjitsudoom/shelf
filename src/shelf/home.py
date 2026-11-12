@@ -30,7 +30,7 @@ TAP_WEIGHT = 8.0
 TAP_CAP = 60.0          # a row used all the time can climb above every other
 
 # Where each row starts before your use moves it: higher comes first.
-BASE = {"mixes": 60, "following": 50, "like": 45, "recent": 40, "added": 30, "top": 25, "releases": 20, "rediscover": 10}
+BASE = {"mixes": 60, "following": 50, "like": 45, "recent": 40, "podcasts": 35, "added": 30, "top": 25, "releases": 20, "rediscover": 10}
 
 
 def kind(key: str) -> str:

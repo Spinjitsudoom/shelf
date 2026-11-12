@@ -57,6 +57,20 @@ Last updated: 2026-11-12, after v0.7.7 shipped.
 - **Connect** (`connect.py`, web `connect.js`, Android `connect/`): every open Shelf is a
   device; play on one, control from another; queue and position hand over between devices.
 - **Party mode** (`party.py`): others join "X's party", add songs, vote to skip.
+- **Podcasts** (`podcasts.py`, web `podcasts.js`, Android `PodcastScreens.kt`): follow shows by name
+  (Apple's free podcast directory, `itunes.apple.com/search`) or by pasting a link: the RSS feed,
+  a Podbean show page (`<name>.podbean.com` → `feed.podbean.com/<name>/feed.xml`), an Apple
+  Podcasts page (lookup API), or any page with `<link rel=alternate type=application/rss+xml>`.
+  Feeds are stored once (`podcasts`, `episodes`), followed per person (`podcast_subs`), checked
+  every 2 h while followed (`Refresher`), and dropped when nobody follows them. **Episodes are
+  tracks with ids ≥ 1,000,000,000** (`EP_BASE` + episode id) and show artwork is album
+  `SHOW_BASE` + show id, so queue, Connect, lock screen, Android downloads and resume work
+  unchanged; `/api/tracks/{id}/stream` proxies the audio from the host (Range passed through),
+  `/resume` keeps the place in `episode_state` (near the end = finished), and played/skipped are
+  no-ops, so podcasts stay out of stats and recommendations. Only public-internet addresses are
+  fetched (redirects re-checked). No crossfade into or out of an episode; no Favourites or
+  playlists for episodes. Home gets a "Your podcasts" row (in progress, then new from the last
+  two weeks); web Library lists followed shows (Podcasts chip); Android reaches it from Library.
 - **Extras:** per-device equalizer + mixer screen with live spectrum (`mixer.js`,
   `EqualizerScreen.kt`), visualizer (`visualizer.js`, `Visualizer.kt`), sleep timer, lyrics
   (`lyrics.py`: LRCLIB and tags, synced where possible), music videos via YouTube lookup
@@ -177,4 +191,4 @@ Redmi 9.
 - **iOS:** options discussed (Subsonic apps now; PWA; sideloaded .ipa; TestFlight needs the
   $99 account) — waiting on the owner's choice.
 - **Phone checks pending:** playlist import and the share target on the Redmi.
-- **Unreleased on main:** Requests (`requests.py`, web `requests.js`); following artists (`follows.py`); Home shaped by taste (`home.py`).
+- **Unreleased on main:** Requests (`requests.py`, web `requests.js`); following artists (`follows.py`); Home shaped by taste (`home.py`); podcasts (`podcasts.py`).
