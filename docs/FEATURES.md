@@ -197,5 +197,9 @@ Redmi 9.
 - **Casting** (Chromecast / DLNA / Sonos): waiting on which devices the owner has.
 - **iOS:** options discussed (Subsonic apps now; PWA; sideloaded .ipa; TestFlight needs the
   $99 account) — waiting on the owner's choice.
-- **Phone checks pending:** playlist import and the share target on the Redmi.
+- **Phone checks pending:** podcasts, Requests, following artists and the taste-shaped Home
+  have only been checked in a browser, not on the Redmi. (Playlist import and the share target
+  were checked on the Redmi on 2026-11-12.)
+- **Waiting on the owner:** Last.fm API key and secret; whether AcoustID auto-tagging is wanted
+  and how far it may go; whether admins should be told when a request comes in.
 - **Unreleased on main:** nothing yet. 0.7.8 (2026-11-12) shipped Requests, following artists, Home shaped by taste and podcasts.
