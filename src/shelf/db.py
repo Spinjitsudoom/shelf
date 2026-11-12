@@ -398,6 +398,7 @@ def init_db(db_path: Path) -> None:
         conn.executescript("""
             CREATE INDEX IF NOT EXISTS likes_time ON likes(user_id, liked_at);
             CREATE INDEX IF NOT EXISTS plays_user ON plays(user_id, played_at);
+            CREATE INDEX IF NOT EXISTS plays_track ON plays(track_id, played_at);
             CREATE INDEX IF NOT EXISTS playlists_user ON playlists(user_id, updated_at);
         """)
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(requests)")}

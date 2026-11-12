@@ -2221,8 +2221,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             # Albums you haven't played in a month (or ever), in a new order each visit.
             rediscover = conn.execute(
                 """
-                SELECT * FROM albums a WHERE NOT EXISTS (
-                    SELECT 1 FROM plays p WHERE p.album_key = a.key AND p.played_at > ? AND p.user_id = ?
+                SELECT * FROM albums a WHERE a.key NOT IN (
+                    SELECT p.album_key FROM plays p WHERE p.played_at > ? AND p.user_id = ?
                 ) ORDER BY RANDOM() LIMIT 14
                 """,
                 (now - 30 * 86400, me_id),
@@ -3230,9 +3230,28 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 break
         return out
 
+    _mix_cache: dict[tuple, dict] = {}
+
     def _made_for_you(me_id: int) -> dict[str, dict]:
-        """Every mix for this person, by key, with its songs."""
+        """Every mix for this person, by key, with its songs. Made once a day (they're daily
+        mixes), again sooner if the library, your likes or what you've turned down change."""
         now = time.time()
+        with db() as conn:
+            lib = conn.execute("SELECT COUNT(*), MAX(id), SUM(sound IS NOT NULL) / 500 FROM tracks").fetchone()
+            mine = conn.execute("SELECT (SELECT COUNT(*) FROM likes WHERE user_id = ?), (SELECT COUNT(*) FROM feedback WHERE user_id = ? AND kind != 'skip')",
+                                (me_id, me_id)).fetchone()
+        key = (me_id, mixes.day_seed(me_id, now), mixes.week_seed(me_id, now), tuple(lib), tuple(mine))
+        got = _mix_cache.get(key)
+        if got is None:
+            got = _make_mixes(me_id, now)
+            for k in [k for k in _mix_cache if k[0] == me_id]:
+                del _mix_cache[k]
+            if len(_mix_cache) > 100:
+                _mix_cache.clear()
+            _mix_cache[key] = got
+        return got
+
+    def _make_mixes(me_id: int, now: float) -> dict[str, dict]:
         with db() as conn:
             rows = conn.execute(TRACK_SELECT).fetchall()
             plays = [(r[0], r[1]) for r in conn.execute(

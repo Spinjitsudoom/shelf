@@ -33,11 +33,18 @@ SKIP = {"various artists", "various", "soundtrack", "unknown artist"}
 GENRES_EVERY = 30 * DAY
 
 
+_genres_cache: dict = {"raw": None, "value": {}}
+
+
 def artist_genres(db_path: Path) -> dict[str, list[str]]:
-    """{folded artist name: their MusicBrainz genres, most votes first}."""
+    """{folded artist name: their MusicBrainz genres, most votes first}. The same dict until
+    they change, so what's worked out from it can be kept (genres.song_genres). Don't change it."""
     with session(db_path) as conn:
-        known = json.loads(get_meta(conn, "mb_artist_genres") or "{}")
-    return {k: v["genres"] for k, v in known.items() if v.get("genres")}
+        raw = get_meta(conn, "mb_artist_genres") or "{}"
+    if raw != _genres_cache["raw"]:
+        known = json.loads(raw)
+        _genres_cache.update(raw=raw, value={k: v["genres"] for k, v in known.items() if v.get("genres")})
+    return _genres_cache["value"]
 
 
 def _get(url: str, timeout: float = 20) -> bytes:

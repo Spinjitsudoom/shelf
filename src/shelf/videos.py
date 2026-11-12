@@ -14,6 +14,7 @@ import re
 import threading
 import time
 import unicodedata
+from functools import lru_cache
 from pathlib import Path
 
 from .db import session
@@ -38,6 +39,7 @@ _inflight: dict[str, threading.Event] = {}
 _lock = threading.Lock()
 
 
+@lru_cache(maxsize=262144)  # the same names are folded over and over (every song, every mix)
 def fold(s: str) -> str:
     s = unicodedata.normalize("NFKD", s or "")
     s = "".join(c for c in s if not unicodedata.combining(c))
