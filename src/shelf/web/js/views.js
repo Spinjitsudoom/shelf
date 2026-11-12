@@ -766,7 +766,7 @@ export async function searchView(el, query) {
     if (input.value.trim() !== q) return; // a newer query is on its way
     setTracks(r.tracks, { label: `Search: ${q}`, href: `#/search?q=${encodeURIComponent(q)}` });
     if (!r.artists.length && !r.albums.length && !r.tracks.length) {
-      results.innerHTML = `<div class="empty"><strong>Nothing matches “${esc(q)}”</strong>Try part of a title or an artist’s name.</div>`;
+      results.innerHTML = `<div class="empty"><strong>Nothing matches “${esc(q)}”</strong>Try part of a title or an artist’s name. Not on the shelf at all? <a href="#/requests?artist=${encodeURIComponent(q)}" style="text-decoration:underline">Request it</a>.</div>`;
       return;
     }
     results.innerHTML = `
@@ -1326,7 +1326,7 @@ export async function releasesView(el, { admin = false } = {}) {
           : r.state?.running ? `Checking MusicBrainz: ${r.state.checked} of ${r.state.total} artists…`
           : when ? `Albums and EPs by your artists that you don’t have yet, from MusicBrainz. Checked ${when}.`
           : "Shelf checks MusicBrainz for your artists’ albums once a day. The first check is on its way."}</p></div>
-        ${admin && !r.off ? `<div class="head-tools"><button class="btn" type="button" data-action="releases-check" ${r.state?.running ? "disabled" : ""}>Check now</button></div>` : ""}
+        <div class="head-tools"><a class="btn" href="#/requests">Requests</a>${admin && !r.off ? `<button class="btn" type="button" data-action="releases-check" ${r.state?.running ? "disabled" : ""}>Check now</button>` : ""}</div>
       </header>
       ${[...byArtist].map(([artist, list]) => `
         <section class="row-section">

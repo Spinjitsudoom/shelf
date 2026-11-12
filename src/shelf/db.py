@@ -208,6 +208,19 @@ CREATE TABLE IF NOT EXISTS stars (
     PRIMARY KEY (user_id, kind, ref)
 );
 
+-- Music people ask for: an artist, or one album (requests.py). Admins mark them done or
+-- declined; a scan that brings the music in marks them done by itself.
+CREATE TABLE IF NOT EXISTS requests (
+    id          INTEGER PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    artist      TEXT NOT NULL,
+    album       TEXT,             -- NULL: anything by the artist
+    note        TEXT NOT NULL DEFAULT '',
+    status      TEXT NOT NULL DEFAULT 'open',  -- open, done, declined
+    created_at  REAL NOT NULL,
+    resolved_at REAL
+);
+
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT

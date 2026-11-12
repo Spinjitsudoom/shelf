@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from . import procs
-from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, releases, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -280,6 +280,16 @@ class SharingBody(BaseModel):
     enabled: bool
 
 
+class RequestBody(BaseModel):
+    artist: str = Field(max_length=300)
+    album: str | None = Field(None, max_length=300)
+    note: str | None = Field(None, max_length=1000)
+
+
+class RequestStatusBody(BaseModel):
+    status: Literal["open", "done", "declined"]
+
+
 class SecureBody(BaseModel):
     url: str | None = Field(None, max_length=300)
 
@@ -504,6 +514,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     def _tell_library(result, started: float) -> None:
         with session(cfg.db_path) as conn:
+            wishlist.fulfil(conn)  # requests the new music answers are done now
             new = conn.execute("SELECT title, artist FROM albums WHERE added_at >= ? ORDER BY artist, title LIMIT 20",
                                (started,)).fetchall()
         hooks.emit("library", {"added": result.added, "updated": result.updated, "removed": result.removed,
@@ -3332,6 +3343,53 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         with db() as conn:
             shares.set_enabled(conn, body.enabled)
         return admin_shares()
+
+    def _request_json(row, me: int) -> dict:
+        return {"id": row["id"], "artist": row["artist"], "album": row["album"], "note": row["note"],
+                "status": row["status"], "requestedBy": row["username"], "mine": row["user_id"] == me,
+                "createdAt": row["created_at"], "resolvedAt": row["resolved_at"]}
+
+    @app.get("/api/requests")
+    def list_requests():
+        me = uid()
+        with db() as conn:
+            return {"requests": [_request_json(r, me) for r in wishlist.listed(conn)]}
+
+    @app.post("/api/requests")
+    def create_request(body: RequestBody):
+        user = CURRENT.get()
+        artist = body.artist.strip()
+        album = (body.album or "").strip() or None
+        if not artist:
+            raise HTTPException(400, "Whose music is it? The artist's name is the one thing a request needs.")
+        with db() as conn:
+            if wishlist.on_shelf(conn, artist, album):
+                raise HTTPException(409, "Good news: that’s already on the shelf.")
+            earlier = wishlist.open_duplicate(conn, artist, album)
+            if earlier is not None:
+                who = "You" if earlier["user_id"] == user.id else earlier["username"]
+                raise HTTPException(409, f"{who} already asked for this. An admin will get to it.")
+            rid = wishlist.create(conn, user.id, artist, album, (body.note or "").strip())
+            return _request_json(wishlist.find(conn, rid), user.id)
+
+    @app.patch("/api/requests/{rid}")
+    def resolve_request(rid: int, body: RequestStatusBody):
+        admin_only()
+        with db() as conn:
+            if wishlist.find(conn, rid) is None:
+                raise HTTPException(404, "No such request")
+            wishlist.set_status(conn, rid, body.status)
+            return _request_json(wishlist.find(conn, rid), uid())
+
+    @app.delete("/api/requests/{rid}")
+    def withdraw_request(rid: int):
+        user = CURRENT.get()
+        with db() as conn:
+            row = wishlist.find(conn, rid)
+            if row is None or (row["user_id"] != user.id and not user.admin):
+                raise HTTPException(404, "No such request")
+            wishlist.remove(conn, rid)
+        return {"ok": True}
 
     def _secure_json(request: Request) -> dict:
         return {"url": app.state.secure_url, "here": request.url.scheme == "https",

@@ -32,6 +32,7 @@ import {
   videoCard, youTubeOnly, youTubeOnlyList, likedView, downloadsView, refreshDownloads, mixView, peopleView, releasesView, personDisc,
   features,
 } from "./views.js";
+import { requestsView } from "./requests.js";
 import { offline } from "./offline.js";
 import { claimHandoff, moveToSecure } from "./secure.js";
 
@@ -101,6 +102,7 @@ function parseRoute() {
     case "stats": return { name: "stats", period: params.get("period") || "year", nav: "stats" };
     case "wrapped": return { name: "wrapped", year: Number(parts[1]) || new Date().getFullYear(), nav: "stats" };
     case "releases": return { name: "releases", nav: "home" };
+    case "requests": return { name: "requests", artist: params.get("artist") || "", nav: "requests" };
     case "radio": return { name: "mix", radio: parts[1] === "artist" ? "artist" : "track", value: decodeURIComponent(parts.slice(2).join("/")), nav: "home" };
     case "playlist": return { name: "playlist", id: Number(parts[1]), nav: "playlists" };
     default: return { name: "home", nav: "home" };
@@ -135,6 +137,7 @@ async function drawRoute(route, key) {
         unmountPage = () => clearInterval(timer);
         break;
       }
+      case "requests": await requestsView(view, { admin: !!session.user?.admin, artist: route.artist }); break;
       case "people": {
         await peopleView(view);
         // Keep it live while it's open.
@@ -2155,6 +2158,7 @@ function meMenu(at) {
       { label: "Friend activity", icon: "i-people", run: go("#/people") },
       { label: "Downloads", icon: "i-download", run: go("#/downloads") },
       { label: "Not on your shelf", icon: "i-disc", run: go("#/releases") },
+      { label: "Requests", icon: "i-request", run: go("#/requests") },
       ...(u.admin ? [{ label: "Admin dashboard", icon: "i-admin", run: go("#/admin") }] : []),
       "sep",
       { label: "Sign out", icon: "i-close", run: () => runAction("logout", at).catch((e) => toast(e.message)) },

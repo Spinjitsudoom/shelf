@@ -446,6 +446,19 @@ body.q-dragging .track-row[data-queue-index]:not(.q-lifted) { transition: transf
 .hook-pick input { width: 18px; height: 18px; accent-color: var(--cobalt); }
 @media (max-width: 560px) { .hook { flex-direction: column; align-items: stretch; } .hook-actions { justify-content: flex-end; } }
 
+/* requests: asking for music the shelf doesn't have */
+.request-form {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end;
+  margin: 4px 0 24px; padding: 16px; border-radius: 12px; background: var(--sleeve); max-width: 720px;
+}
+.request-form .request-note { grid-column: 1 / -1; }
+.request-form .btn { justify-self: start; }
+.request-form .field small { font-weight: 500; }
+.request-row .hook-url { white-space: normal; }
+.request-row.settled .hook-main { opacity: 0.6; }
+.requests-list { max-width: 720px; }
+@media (max-width: 560px) { .request-form { grid-template-columns: 1fr; } }
+
 /* importing playlists */
 .imp-dialog { width: min(600px, calc(100vw - 32px)); }
 .imp-dialog form { max-height: calc(100dvh - 48px); overflow-y: auto; }

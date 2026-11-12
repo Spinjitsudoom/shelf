@@ -64,6 +64,7 @@ object Routes {
     const val SETTINGS = "settings"
     const val SEARCH = "search"
     const val ADMIN = "web/admin"
+    const val REQUESTS = "web/requests"
     const val EQUALIZER = "settings/eq"
     const val PEOPLE = "people"
     const val STATS = "stats"
@@ -169,8 +170,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
         containerColor = Shelf.colors.tray,
         snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
         bottomBar = {
-            // The admin dashboard is a web page with its own layout: the whole screen is its.
-            if (current != Routes.ADMIN) Column {
+            // Web pages (the admin dashboard, requests) have their own layout: the whole screen is theirs.
+            if (current?.startsWith("web/") != true) Column {
                 if (player != null && playing.current != null) {
                     MiniPlayer(playing, cover, player::toggle, player::next, player::previous, { nowPlaying = true }, device = playingOn)
                 }
@@ -253,13 +254,17 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             composable("mix/{key}") { MixScreen(it.arguments!!.getString("key")!!, source, onPlay, back, signedOut) }
             composable(Routes.SETTINGS) {
                 app.shelf.ui.settings.SettingsScreen(container, app.shelf.BuildConfig.VERSION_NAME, onChangeServer, onSignOut, back,
-                    onAdmin = { nav.navigate(Routes.ADMIN) }, onEqualizer = { nav.navigate(Routes.EQUALIZER) })
+                    onAdmin = { nav.navigate(Routes.ADMIN) }, onEqualizer = { nav.navigate(Routes.EQUALIZER) },
+                    onRequests = { nav.navigate(Routes.REQUESTS) })
             }
             composable(Routes.EQUALIZER) {
                 app.shelf.ui.settings.EqualizerScreen(container, back)
             }
             composable(Routes.ADMIN) {
                 app.shelf.ui.web.WebPageScreen(container.store.server ?: "", container.store.token, "?embed#/admin", back)
+            }
+            composable(Routes.REQUESTS) {
+                app.shelf.ui.web.WebPageScreen(container.store.server ?: "", container.store.token, "?embed#/requests", back)
             }
         }
     }

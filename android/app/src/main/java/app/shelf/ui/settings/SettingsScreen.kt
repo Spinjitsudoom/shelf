@@ -42,7 +42,7 @@ private val QUALITIES = listOf("original" to "Original", "veryhigh" to "320 kbps
 
 @Composable
 fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: () -> Unit, onSignOut: () -> Unit, onBack: () -> Unit,
-                   onAdmin: () -> Unit = {}, onEqualizer: () -> Unit = {}) {
+                   onAdmin: () -> Unit = {}, onEqualizer: () -> Unit = {}, onRequests: () -> Unit = {}) {
     val admin by produceState(false, container.store.server) { value = runCatching { container.api?.session()?.user?.admin == true }.getOrDefault(false) }
     val s by container.settings.settings.collectAsStateWithLifecycle()
     val serverVersion by produceState("", container.store.server) { value = runCatching { container.api?.ping() ?: "" }.getOrDefault("") }
@@ -99,8 +99,12 @@ fun SettingsScreen(container: AppContainer, appVersion: String, onChangeServer: 
                     OutlinedButton(onClick = onChangeServer) { Text("Change server", color = Shelf.colors.ink) }
                     OutlinedButton(onClick = onSignOut) { Text("Sign out", color = Shelf.colors.ink) }
                 }
-                // Admins: users, adding music, CD ripping and server updates, from the web app.
-                if (admin) OutlinedButton(onClick = onAdmin) { Text("Admin dashboard", color = Shelf.colors.ink) }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // Asking for music the shelf doesn't have, from the web app.
+                    OutlinedButton(onClick = onRequests) { Text("Requests", color = Shelf.colors.ink) }
+                    // Admins: users, adding music, CD ripping and server updates, from the web app.
+                    if (admin) OutlinedButton(onClick = onAdmin) { Text("Admin dashboard", color = Shelf.colors.ink) }
+                }
             }
         }
         item { Section("About") }

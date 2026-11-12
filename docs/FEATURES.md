@@ -4,13 +4,13 @@ A reference for anyone (or any Claude session) working on this project. The user
 lives in README.md; this is the complete inventory, with the file that owns each feature, plus
 the project's standing decisions. Update it when features land or decisions change.
 
-Last updated: 2026-11-12, after v0.7.6 shipped.
+Last updated: 2026-11-12, after v0.7.7 shipped.
 
 ## The shape of the project
 
 - **What:** a self-hosted music server for the owner's CD rips, with the features of a big
   streaming app, for a household of accounts. Public repo: github.com/Spinjitsudoom/shelf,
-  AGPL-3.0-or-later. Latest release: **v0.7.6** (2026-11-12).
+  AGPL-3.0-or-later. Latest release: **v0.7.7** (2026-11-12).
 - **Server:** Python 3 + FastAPI + SQLite, in `src/shelf/`. Runs on Windows (installer,
   PyInstaller + Inno Setup) and Linux (`install.sh`: uv + systemd user service). ffmpeg does all
   audio work; Essentia analyses where available (not on Windows — `dsp.py` is the numpy fallback).
@@ -51,7 +51,7 @@ Last updated: 2026-11-12, after v0.7.6 shipped.
   time (`transcode.py`); Android falls back to 320k AAC when the phone lacks a FLAC/ALAC decoder.
 - **Queue:** add/next, Smart Shuffle suggestions, clear-up-next, autoplay of similar songs when
   it runs out; reorder by dragging on Android (`QueueMove.kt`) and on the web
-  (`queuedrag.js`, unreleased, post-0.7.6) — moves relay over Connect when another device plays.
+  (`queuedrag.js`, since 0.7.7) — moves relay over Connect when another device plays.
 - **Mix transitions:** beat-matched crossfades with a DJ-style editor over both waveforms
   (`transitions.js`, `transition-editor.js`, `dsp` on Android in `Transition.kt`/`Decks.kt`).
 - **Connect** (`connect.py`, web `connect.js`, Android `connect/`): every open Shelf is a
@@ -88,6 +88,12 @@ Last updated: 2026-11-12, after v0.7.6 shipped.
   expiry, off until an admin enables.
 - **Scrobbling:** ListenBrainz per user (`scrobble.py`); Last.fm support exists (`lastfm.py`)
   but is **deferred** — no API keys yet. AcoustID is likewise deferred.
+- **Requests** (`requests.py`, web `requests.js`, Android opens it in a web view from Settings):
+  anyone asks for an artist or one album, with an optional note; the whole household sees the
+  list. Refused when it's already on the shelf or someone already asked. Admins mark requests done,
+  declined or open again; a scan that brings the music marks matching requests done by itself.
+  You withdraw your own; admins can withdraw anyone's. Reached from the top bar, the account menu,
+  an empty search and the "Not on your shelf" page.
 - **Artist pages** (`artists.py`): Wikipedia biography + photo (name only is sent out).
 
 ## Admin and operations
@@ -151,4 +157,4 @@ Redmi 9.
 - **iOS:** options discussed (Subsonic apps now; PWA; sideloaded .ipa; TestFlight needs the
   $99 account) — waiting on the owner's choice.
 - **Phone checks pending:** playlist import and the share target on the Redmi.
-- **Unreleased on main:** web queue reordering (`queuedrag.js`).
+- **Unreleased on main:** Requests (`requests.py`, web `requests.js`).
