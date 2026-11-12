@@ -1,5 +1,5 @@
 """Library health, for the admin dashboard: albums with no cover or only a small one, gaps in
-track numbers, the same song twice, songs with no artist, albums whose songs disagree on the
+track numbers, the same song twice (by name, or by its sound: fingerprint.py), songs with no artist, albums whose songs disagree on the
 year, lossless files made from an MP3 (lossy.py), and files that couldn't be read. It only reports; nothing in the music folders changes.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Callable
 
-from . import lossy
+from . import fingerprint, lossy
 from .smart import _lossless
 from .videos import fold
 
@@ -24,7 +24,7 @@ def report(conn, cover_size: Callable[[str], tuple[int, int] | None], unreadable
     albums = conn.execute("SELECT * FROM albums ORDER BY artist COLLATE NOCASE, title COLLATE NOCASE").fetchall()
     by_key = {a["key"]: a for a in albums}
     tracks = conn.execute("SELECT id, path, title, artist, album_key, track_no, disc_no, duration, codec, bitrate, year,"
-                          " cutoff, cutoff_checked"
+                          " cutoff, cutoff_checked, fp_checked"
                           " FROM tracks ORDER BY album_key, COALESCE(disc_no, 1), COALESCE(track_no, 9999)").fetchall()
 
     no_cover, small = [], []
@@ -83,6 +83,23 @@ def report(conn, cover_size: Callable[[str], tuple[int, int] | None], unreadable
                 })
             cluster = [t] if t is not None else []
 
+    # The same recording under other names (an untagged copy, a FLAC and an MP3 in different folders),
+    # found by its sound. Copies with the same artist and title on different albums are listed above.
+    by_id = {t["id"]: t for t in tracks}
+    same_audio = []
+    for g in fingerprint.stored_groups(conn):
+        copies = [by_id[i] for i in g if i in by_id]
+        if len(copies) < 2:
+            continue
+        if len({(fold(c["artist"]), fold(c["title"])) for c in copies}) == 1 and len({c["album_key"] for c in copies}) > 1:
+            continue
+        best = max(copies, key=lambda c: (_lossless(c["codec"]), c["bitrate"] or 0))
+        same_audio.append({"best": best["id"], "copies": [
+            {"id": c["id"], "title": c["title"], "artist": c["artist"], "codec": c["codec"], "bitrate": c["bitrate"],
+             "album": by_key[c["album_key"]]["title"] if c["album_key"] in by_key else "",
+             "albumId": by_key[c["album_key"]]["id"] if c["album_key"] in by_key else None, "path": c["path"]}
+            for c in copies]})
+
     # Lossless files whose sound stops dead where an MP3's or AAC's does: probably made from one.
     lossless = [t for t in tracks if _lossless(t["codec"])]
     fake = [{"id": t["id"], "title": t["title"], "artist": t["artist"], "path": t["path"], "codec": t["codec"],
@@ -90,7 +107,8 @@ def report(conn, cover_size: Callable[[str], tuple[int, int] | None], unreadable
              "cutoff": round(t["cutoff"]), "likely": lossy.likely_source(t["cutoff"])}
             for t in lossless if t["cutoff_checked"] and lossy.looks_lossy(t["cutoff"])]
 
-    found = {"noCover": no_cover, "smallCover": small, "gaps": gaps, "duplicates": duplicates,
+    found = {"noCover": no_cover, "smallCover": small, "gaps": gaps, "duplicates": duplicates, "sameAudio": same_audio,
              "noArtist": no_artist, "mixedYears": mixed, "fakeLossless": fake, "unreadable": list(unreadable)}
     return {"counts": {k: len(v) for k, v in found.items()}, **{k: v[:LIMIT] for k, v in found.items()},
-            "lossless": {"checked": sum(1 for t in lossless if t["cutoff_checked"]), "total": len(lossless)}}
+            "lossless": {"checked": sum(1 for t in lossless if t["cutoff_checked"]), "total": len(lossless)},
+            "fingerprints": {"checked": sum(1 for t in tracks if t["fp_checked"]), "total": len(tracks)}}

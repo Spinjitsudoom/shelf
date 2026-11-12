@@ -123,7 +123,7 @@ function libraryPart(o, dirs) {
 
 /** Library health: the report, or the button that asks for it. */
 function healthHtml(r) {
-  const intro = "Albums without covers, gaps in track numbers, the same song twice, lossless files made from an MP3 and files Shelf can’t read. Looking changes nothing.";
+  const intro = "Albums without covers, gaps in track numbers, the same song twice (by name or by its sound), lossless files made from an MP3 and files Shelf can’t read. Looking changes nothing.";
   if (!r) {
     return `<h2 class="settings-section">Library health</h2>
       ${row("Check your library", intro, `<button class="btn" type="button" data-admin="health-check">Check library</button>`)}`;
@@ -147,6 +147,10 @@ function healthHtml(r) {
     ["duplicates", "The same song twice", "The same artist and title, the same length, on different albums. The best copy is marked.",
       r.duplicates.map((d) => `<li><b>${esc(d.title)}</b> <span class="health-by">by ${esc(d.artist)}</span><ul class="health-copies">${d.copies.map((x) =>
         `<li>${esc(x.album)} <span class="health-by">${esc((x.codec || "").toUpperCase())}${x.bitrate ? ` ${Math.round(x.bitrate / 1000)} kbps` : ""}</span>${x.id === d.best ? `<span class="tag">Best copy</span>` : ""}</li>`).join("")}</ul></li>`).join(""), ""],
+    ["sameAudio", "The same recording under another name", "These sound the same (Shelf compares their audio, not their tags), but are named differently or are on one album twice. The best copy is marked.",
+      r.sameAudio.map((d) => `<li><ul class="health-copies">${d.copies.map((x) =>
+        `<li><b>${esc(x.title)}</b> <span class="health-by">by ${esc(x.artist)}${x.album ? `, ${esc(x.album)}` : ""}, ${esc((x.codec || "").toUpperCase())}${x.bitrate ? ` ${Math.round(x.bitrate / 1000)} kbps` : ""}</span>${x.id === d.best ? `<span class="tag">Best copy</span>` : ""}
+          <span class="health-path">${esc(x.path)}</span></li>`).join("")}</ul></li>`).join(""), ""],
     ["noArtist", "Songs with no artist", "Their files have no artist tag, so they show as Unknown Artist.",
       r.noArtist.map((t) => `<li><b>${esc(t.title)}</b> <span class="health-path">${esc(t.path)}</span></li>`).join(""), ""],
     ["mixedYears", "Albums with mixed years", "Their songs disagree on the year, often a remaster mixed with the original.",
@@ -162,6 +166,7 @@ function healthHtml(r) {
     <div class="people-head"><h2 class="settings-section">Library health</h2>
       <button class="btn" type="button" data-admin="health-check">Check again</button></div>
     ${finding ? `<p class="people-note">${esc(finding)}</p>` : ""}
+    ${r.fingerprints && r.fingerprints.checked < r.fingerprints.total ? `<p class="people-note">Listening for the same recording under other names: ${r.fingerprints.checked.toLocaleString()} of ${r.fingerprints.total.toLocaleString()} songs so far. It runs after each scan.</p>` : ""}
     ${r.lossless && r.lossless.checked < r.lossless.total ? `<p class="people-note">Listening for lossless files made from an MP3: ${r.lossless.checked.toLocaleString()} of ${r.lossless.total.toLocaleString()} checked so far. It runs after each scan.</p>` : ""}
     ${total ? kinds.map(([k, title, note, items, action]) => `
       <details class="health" data-kind="${k}">

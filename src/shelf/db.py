@@ -229,6 +229,8 @@ def init_db(db_path: Path) -> None:
             ("sound_checked", "INTEGER NOT NULL DEFAULT 0"),
             ("cutoff", "REAL"),  # Hz where a lossless file's sound stops dead (made from an MP3?), see lossy.py
             ("cutoff_checked", "INTEGER NOT NULL DEFAULT 0"),
+            ("fp", "BLOB"),  # the first minute's audio fingerprint, for finding the same recording twice (fingerprint.py)
+            ("fp_checked", "INTEGER NOT NULL DEFAULT 0"),
         ):
             _add_column(conn, "tracks", cols, name, decl)
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(playlists)")}

@@ -116,6 +116,7 @@ def scan(cfg: Config, progress=None) -> ScanResult:
                 bitrate=info.bitrate, sample_rate=info.sample_rate, bits=info.bits,
                 lufs=info.lufs, peak=info.peak, loud_checked=int(info.lufs is not None),
                 has_art=int(info.has_art), bpm=None, musical_key=None, rhythm_checked=0, cutoff=None, cutoff_checked=0,
+                fp=None, fp_checked=0,
                 added_at=now,
             )
             cols = ", ".join(values)
@@ -132,6 +133,8 @@ def scan(cfg: Config, progress=None) -> ScanResult:
                 "rhythm_checked": f"CASE WHEN {same} THEN tracks.rhythm_checked ELSE 0 END",
                 "cutoff": f"CASE WHEN {same} THEN tracks.cutoff END",
                 "cutoff_checked": f"CASE WHEN {same} THEN tracks.cutoff_checked ELSE 0 END",
+                "fp": f"CASE WHEN {same} THEN tracks.fp END",
+                "fp_checked": f"CASE WHEN {same} THEN tracks.fp_checked ELSE 0 END",
             }
             updates = ", ".join(
                 f"{k} = {special.get(k, f'excluded.{k}')}" for k in values if k not in ("path", "added_at")

@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from . import procs
-from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lossy, lyrics, imports, mixes, moods, party, peaks, playlist_maker, releases, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, lossy, lyrics, imports, mixes, moods, party, peaks, playlist_maker, releases, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -94,6 +94,8 @@ class ScanManager:
             loudness.analyze_pending(self.cfg.db_path, stop=self._stop)
             # Lossless files made from an MP3 or AAC, for Library health (quick: half a minute of each).
             lossy.check_pending(self.cfg.db_path, stop=self._stop)
+            # The same recording under other names, by its sound, for Library health.
+            fingerprint.check_pending(self.cfg.db_path, stop=self._stop)
             # Tempo and key (slower still), for playlist columns and recommendations.
             if self.cfg.analyze_tempo:  # Essentia, or Shelf's own engine where it's missing (Windows)
                 analysis.analyze_pending(self.cfg.db_path, stop=self._stop)
