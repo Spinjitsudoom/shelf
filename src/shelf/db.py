@@ -179,6 +179,18 @@ CREATE TABLE IF NOT EXISTS dj_feedback (
 CREATE INDEX IF NOT EXISTS dj_feedback_user ON dj_feedback(user_id, at);
 
 -- Someone else's shared playlist, saved to your library.
+-- Webhooks: where to tell another program what happens (webhooks.py). Admins add them.
+CREATE TABLE IF NOT EXISTS webhooks (
+    id          INTEGER PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    url         TEXT NOT NULL,
+    events      TEXT NOT NULL,           -- JSON list: playing, paused, played, library
+    secret      TEXT NOT NULL DEFAULT '',
+    created_at  REAL NOT NULL,
+    last_at     REAL,
+    last_status TEXT
+);
+
 CREATE TABLE IF NOT EXISTS playlist_follows (
     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,

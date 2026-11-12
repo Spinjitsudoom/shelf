@@ -423,6 +423,20 @@ a.npv-context[href]:hover { text-decoration: underline; }
 .field input:focus, .field textarea:focus { outline: 2px solid var(--cobalt); outline-offset: 0; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
 
+/* webhooks (admin) */
+.hooks { list-style: none; margin: 4px 0 8px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hook { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--sleeve); min-width: 0; }
+.hook-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.hook-url { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hook-events, .hook-status { font-size: 13.5px; color: var(--ink-2); }
+.hook-status.bad { color: #c0392b; }
+.hook-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.hook-pick { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hook-pick legend { padding: 0; margin-bottom: 8px; color: var(--ink-2); font-size: 13.5px; font-weight: 650; }
+.hook-pick label { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.hook-pick input { width: 18px; height: 18px; accent-color: var(--cobalt); }
+@media (max-width: 560px) { .hook { flex-direction: column; align-items: stretch; } .hook-actions { justify-content: flex-end; } }
+
 /* importing playlists */
 .imp-dialog { width: min(600px, calc(100vw - 32px)); }
 .imp-dialog form { max-height: calc(100dvh - 48px); overflow-y: auto; }

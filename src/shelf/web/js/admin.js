@@ -5,6 +5,7 @@ import { api } from "./api.js";
 import { openMenu } from "./menu.js";
 import { esc, fallbackColor, fmtListening, plural, toast } from "./util.js";
 import { fmtBytes, row } from "./views.js";
+import { mountWebhooks } from "./webhooks.js";
 
 const REFRESH_MS = 15_000;
 
@@ -356,6 +357,8 @@ function page(o, dirs, me) {
       ${o.update && o.update.kind !== "manual" ? row("Install updates by themselves", "At night, once nothing has played on any device for half an hour, so music is never cut off.",
         `<button class="switch" type="button" role="switch" data-admin="update-auto" aria-checked="${!!o.update.auto}" aria-label="Install updates by themselves"></button>`) : ""}
 
+      <div id="hooks-slot"></div>
+
       <p class="about">Shelf server ${esc(o.version)}${o.update?.checkedAt && !o.update.available
         ? `, up to date (checked ${esc(ago(o.update.checkedAt))})` : ""}
         <button class="link-btn" type="button" data-admin="update-check">Check for updates</button></p>
@@ -386,6 +389,10 @@ export async function adminView(el, session, { dialog }) {
   const drawSecure = (s, allow = null, busy = false) => { secureNow = s ?? secureNow; secureBox.innerHTML = secureHtml(secureNow, allow, busy); };
   drawSecure(null);
   api.adminSecure().then((s) => drawSecure(s)).catch(() => { secureBox.innerHTML = ""; });
+  // Webhooks: their own section, loaded once and kept across redraws.
+  const hooksBox = document.createElement("section");
+  hooksBox.className = "hooks-box";
+  mountWebhooks(hooksBox);
   const draw = () => {
     const html = page(o, dirs, me);
     if (html === shown) return;
@@ -395,6 +402,7 @@ export async function adminView(el, session, { dialog }) {
     el.querySelector("#dj-slot")?.replaceWith(djBox);
     el.querySelector("#health-slot")?.replaceWith(healthBox);
     el.querySelector("#secure-slot")?.replaceWith(secureBox);
+    el.querySelector("#hooks-slot")?.replaceWith(hooksBox);
     el.scrollTop = top;
     shown = html;
   };

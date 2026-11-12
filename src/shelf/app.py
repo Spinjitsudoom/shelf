@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from . import procs
-from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, lossy, lyrics, imports, mixes, moods, party, peaks, playlist_maker, releases, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, releases, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -50,6 +50,7 @@ class ScanManager:
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self.state = {"running": False, "measuring": False, "processed": 0, "last": None, "error": None}
+        self.on_scanned = None  # (result, started): after a scan that changed something (webhooks)
 
     def start(self) -> None:
         threading.Thread(target=self._loop, name="shelf-scanner", daemon=True).start()
@@ -75,6 +76,7 @@ class ScanManager:
             return
         self.state.update(running=True, processed=0, error=None)
         try:
+            started = time.time()
             result = scan(self.cfg, progress=self._progress)
             log.info(
                 "Scan: +%d ~%d -%d, %d tracks / %d albums in %ss",
@@ -89,6 +91,11 @@ class ScanManager:
                 "failedFiles": result.failed[:500],  # every scan tries them again, so this is all of them
             }
             self.state["running"] = False
+            if self.on_scanned and (result.added or result.updated or result.removed):
+                try:
+                    self.on_scanned(result, started)
+                except Exception:
+                    log.exception("After-scan news failed")
             # Measure loudness for volume normalization (slow, so it runs after the scan is done).
             self.state["measuring"] = True
             loudness.analyze_pending(self.cfg.db_path, stop=self._stop)
@@ -202,6 +209,12 @@ class PlaylistBody(BaseModel):
     mix: bool | None = None
     shared: int | None = Field(None, ge=0, le=2)  # 0 private, 1 public, 2 collaborative
     rules: dict | None = None  # a smart playlist's rules (smart.py)
+
+
+class WebhookBody(BaseModel):
+    url: str = Field(..., max_length=2000)
+    events: list[str] = Field(default_factory=list, max_length=10)
+    secret: str | None = Field(None, max_length=200)
 
 
 class ImportBody(BaseModel):
@@ -487,6 +500,22 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     app = FastAPI(title="Shelf", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.scanner = scanner
+    hooks = app.state.webhooks = webhooks.Sender(lambda: session(cfg.db_path))
+
+    def _tell_library(result, started: float) -> None:
+        with session(cfg.db_path) as conn:
+            new = conn.execute("SELECT title, artist FROM albums WHERE added_at >= ? ORDER BY artist, title LIMIT 20",
+                               (started,)).fetchall()
+        hooks.emit("library", {"added": result.added, "updated": result.updated, "removed": result.removed,
+                               "albums": [{"title": r["title"], "artist": r["artist"]} for r in new]})
+
+    scanner.on_scanned = _tell_library
+
+    def _tell_played(user_id: int, track_id: int) -> None:
+        with session(cfg.db_path) as conn:
+            row = conn.execute(f"{TRACK_SELECT} WHERE t.id = ?", (track_id,)).fetchone()
+        if row:
+            hooks.emit("played", {"track": webhooks.track_json(row)}, user_id)
 
     def _watch_dir() -> Path | None:
         with session(cfg.db_path) as conn:
@@ -730,6 +759,43 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     cover_finder = coverfix.Finder(_albums_without_covers, _use_found_cover)
     app.state.cover_finder = cover_finder
 
+    # ---------- webhooks ----------
+
+    @app.get("/api/admin/webhooks")
+    def list_webhooks():
+        admin_only()
+        with db() as conn:
+            rows = conn.execute("SELECT * FROM webhooks ORDER BY id").fetchall()
+        return {"hooks": [webhooks.hook_json(r) for r in rows], "events": webhooks.EVENTS}
+
+    @app.post("/api/admin/webhooks")
+    def add_webhook(body: WebhookBody):
+        me_user = admin_only()
+        try:
+            url, events = webhooks.check_url(body.url), webhooks.check_events(body.events)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        with db() as conn:
+            hid = conn.execute("INSERT INTO webhooks(user_id, url, events, secret, created_at) VALUES(?, ?, ?, ?, ?)",
+                               (me_user.id, url, json.dumps(events), (body.secret or "").strip(), time.time())).lastrowid
+            return webhooks.hook_json(conn.execute("SELECT * FROM webhooks WHERE id = ?", (hid,)).fetchone())
+
+    @app.delete("/api/admin/webhooks/{hook_id}")
+    def remove_webhook(hook_id: int):
+        admin_only()
+        with db() as conn:
+            conn.execute("DELETE FROM webhooks WHERE id = ?", (hook_id,))
+        return {"ok": True}
+
+    @app.post("/api/admin/webhooks/{hook_id}/test")
+    def test_webhook(hook_id: int):
+        """Sends a test message straight away; the answer's status, or why it didn't arrive."""
+        admin_only()
+        with db() as conn:
+            if not conn.execute("SELECT 1 FROM webhooks WHERE id = ?", (hook_id,)).fetchone():
+                raise HTTPException(404, "Webhook not found")
+        return {"status": hooks.send_now(hook_id)}
+
     @app.get("/api/admin/health")
     def library_health():
         """What's missing or wrong on the shelf; nothing is changed by looking."""
@@ -802,7 +868,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         return _smart_rows(conn, row["id"], rules, user_id) if rules else None
 
     sub_api = subsonic.Subsonic(cfg, auth, scrobbler=scrobbler, scanner=scanner, set_user=CURRENT.set,
-                                smart_rows=lambda conn, row, user_id: _smart_for(conn, row, user_id))
+                                smart_rows=lambda conn, row, user_id: _smart_for(conn, row, user_id), on_played=_tell_played)
     subsonic.mount(app, sub_api)
 
     @app.get("/api/me/subsonic")
@@ -2115,6 +2181,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 (track_id, row["album_key"], when, uid()),
             )
         scrobbler.queue(uid(), track_id, when)
+        _tell_played(uid(), track_id)
         return {"ok": True}
 
     @app.get("/api/tracks/random")
@@ -3140,7 +3207,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             return
         hub = hubs.get(user.id)
         if hub is None:
-            hub = hubs[user.id] = Hub()
+            hub = hubs[user.id] = Hub(on_change=lambda event, track, device, u=user.id: hooks.emit(
+                event, {"track": webhooks.track_json(track), "device": device}, u))
         await hub.serve(ws)
 
     @app.get("/api/tracks/{track_id}/similar")

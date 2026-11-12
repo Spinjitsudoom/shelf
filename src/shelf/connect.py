@@ -77,7 +77,11 @@ def same_origin(ws: WebSocket) -> bool:
 
 
 class Hub:
-    def __init__(self) -> None:
+    def __init__(self, on_change=None) -> None:
+        # on_change(event, track, device name): "playing" when a song starts (or starts again),
+        # "paused" when it stops; for webhooks (webhooks.py).
+        self.on_change = on_change
+        self._was: tuple | None = None
         self.devices: dict[str, Device] = {}
         self.active: str | None = None
         self.state: dict | None = None  # latest state from the active device
@@ -124,6 +128,30 @@ class Hub:
             "repeat": s.get("repeat", "off"),
             "context": s.get("context"),
         }
+
+    async def _state_changed(self, dev, state: dict, queue: dict | None = None) -> None:
+        """The playing device's news: passed on to the other devices, and to on_change when a
+        different song starts, or the music starts or stops."""
+        self.state = state
+        self.state_at = time.monotonic()
+        out = {"type": "state", "state": self.state, "from": dev.id}
+        if isinstance(queue, dict):
+            self.queue = queue
+            out["queue"] = self.queue
+        await self._broadcast(out, skip=dev.id)
+        if self.on_change is None:
+            return
+        tracks = (self.queue or {}).get("tracks") or []
+        i = state.get("index", 0)
+        track = tracks[i] if isinstance(i, int) and 0 <= i < len(tracks) and isinstance(tracks[i], dict) else None
+        now = (track.get("id") if track else None, bool(state.get("playing")))
+        if now == self._was or now[0] is None:
+            return
+        was, self._was = self._was, now
+        if now[1]:
+            self.on_change("playing", track, dev.name)
+        elif was and was[1]:
+            self.on_change("paused", track, dev.name)
 
     async def command(self, name: str, *args) -> bool:
         """Send a command to the device that's playing (for party mode). False if none is."""
@@ -205,13 +233,7 @@ class Hub:
         elif kind == "state":
             if self.active != dev.id or not isinstance(msg.get("state"), dict):
                 return
-            self.state = msg["state"]
-            self.state_at = time.monotonic()
-            out = {"type": "state", "state": self.state, "from": dev.id}
-            if isinstance(msg.get("queue"), dict):
-                self.queue = msg["queue"]
-                out["queue"] = self.queue
-            await self._broadcast(out, skip=dev.id)
+            await self._state_changed(dev, msg["state"], msg.get("queue"))
 
         elif kind == "cmd":
             name = msg.get("name")

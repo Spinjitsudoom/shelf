@@ -217,8 +217,9 @@ class Params:
 
 class Subsonic:
     def __init__(self, cfg, auth, *, scrobbler=None, scanner=None, set_user: Callable | None = None,
-                 smart_rows: Callable | None = None):
+                 smart_rows: Callable | None = None, on_played: Callable | None = None):
         self.cfg, self.auth, self.scrobbler, self.scanner = cfg, auth, scrobbler, scanner
+        self.on_played = on_played or (lambda user_id, track_id: None)  # a listen counted (webhooks)
         self.smart_rows = smart_rows or (lambda conn, row, user_id: None)  # a smart playlist's songs, now
         self.set_user = set_user or (lambda u: None)
         self.now_playing: dict[int, dict] = {}
@@ -824,6 +825,7 @@ class Subsonic:
                              (row["id"], row["album_key"], min(when, now), user.id))
                 if self.scrobbler:
                     self.scrobbler.queue(user.id, row["id"], min(when, now))
+                self.on_played(user.id, row["id"])
         return {}
 
     def m_getNowPlaying(self, p, user):
