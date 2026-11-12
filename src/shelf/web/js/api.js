@@ -130,6 +130,7 @@ export const api = {
   library: () => request("GET", "library"),
   rescan: () => { invalidate(); return request("POST", "scan"); },
   home: () => request("GET", "home"),
+  homeUsed: (row) => request("POST", "home/used", { row }),
   albums: (sort = "artist") => cached(`albums?sort=${encodeURIComponent(sort)}`),
   artistAlbums: (name) => cached(`albums?artist=${encodeURIComponent(name)}`),
   // Each track carries its album's loudness, for album-mode volume normalization.

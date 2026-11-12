@@ -46,6 +46,8 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     override suspend fun album(id: Int): AlbumDetail = call("api/albums/$id", AlbumDetail.serializer())
     suspend fun lyrics(id: Int): Lyrics = call("api/tracks/$id/lyrics", Lyrics.serializer())
     suspend fun similar(id: Int): List<Track> = call("api/tracks/$id/similar?limit=40", ListSerializer(Track.serializer()))
+    /** Something on Home was opened from this row; rows that get used move up. */
+    suspend fun homeUsed(row: String) = send("POST", "api/home/used", buildJsonObject { put("row", row) }.toString())
     suspend fun setShareActivity(on: Boolean) = send("PATCH", "api/me", buildJsonObject { put("shareActivity", on) }.toString())
     suspend fun people(): List<Person> = call("api/people", ListSerializer(Person.serializer()))
     suspend fun blend(otherId: Int): MixDetail = call("api/blend/$otherId", MixDetail.serializer())

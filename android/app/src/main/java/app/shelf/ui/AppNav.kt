@@ -197,7 +197,10 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             composable(Routes.HOME) {
                 HomeScreen(source, container.store.username, openAlbum, { nav.navigate(Routes.mix(it)) }, openAlbum, signedOut,
                     onSettings = { nav.navigate(Routes.SETTINGS) }, onPeople = api?.let { { nav.navigate(Routes.PEOPLE) } },
-                    onStats = api?.let { { nav.navigate(Routes.STATS) } })
+                    onStats = api?.let { { nav.navigate(Routes.STATS) } },
+                    onRowUsed = api?.let { a -> { row: String ->
+                        if (!container.settings.settings.value.privateSession) scope.launch { runCatching { a.homeUsed(row) } }
+                    } })
             }
             composable(Routes.SEARCH) { app.shelf.ui.search.SearchScreen(container.api!!, onPlay, openAlbum, openArtist) }
             composable(Routes.LIBRARY) {

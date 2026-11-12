@@ -81,7 +81,12 @@ data class MixDetail(
     val kind: String = "", val covers: List<CoverRef> = emptyList(), val tracks: List<Track> = emptyList(),
 )
 
-@Serializable data class Home(val recent: List<Album> = emptyList(), val added: List<Album> = emptyList(), val rediscover: List<Album> = emptyList())
+@Serializable data class Home(val recent: List<Album> = emptyList(), val added: List<Album> = emptyList(), val rediscover: List<Album> = emptyList(),
+                              val rows: List<HomeRow> = emptyList())
+
+/** One row of Home, in the order the server put them (taste and use). "mixes" and "releases" carry no albums. */
+@Serializable data class HomeRow(val key: String, val kind: String = "", val title: String? = null, val albums: List<Album> = emptyList(),
+                                 val artist: String? = null)
 
 @Serializable data class SearchArtist(val name: String, val albums: Int = 0)
 

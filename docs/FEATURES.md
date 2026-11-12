@@ -69,6 +69,14 @@ Last updated: 2026-11-12, after v0.7.7 shipped.
 
 - **Made for you** (`mixes.py`): Shelf Mixes, On Repeat, Rediscover, Discover; song and artist
   radio. Matched on sound fingerprint, artist, genre, tempo, key.
+- **Home shaped by taste** (`home.py`, `/api/home` → `rows`): "More like <artist>" rows for two
+  of your top four artists (plays with a 30-day half-life, likes, +3 for a followed artist; a
+  different pair each day), filled by `_recommend` and cached per person per day; "From artists you
+  follow" (added in the last month first, then least played). The row order is a base weight
+  per row plus how often you come back to it (`home_taps`, POST `/api/home/used`, once per half hour
+  at most, two-week half-life; not sent in a private session). Little listening yet (< 20 plays in
+  30 days): Recently added moves up. Web and Android draw rows in the server's order; offline
+  Android falls back to the fixed rows.
 - **Mood mixes** (`moods.py`): Workout, Chill, Party, Feel Good, Melancholy, Heavy.
 - **Together** (`together.py`): co-occurrence from shared playlists and listening sessions;
   Blends and Friend activity.
@@ -169,4 +177,4 @@ Redmi 9.
 - **iOS:** options discussed (Subsonic apps now; PWA; sideloaded .ipa; TestFlight needs the
   $99 account) — waiting on the owner's choice.
 - **Phone checks pending:** playlist import and the share target on the Redmi.
-- **Unreleased on main:** Requests (`requests.py`, web `requests.js`); following artists (`follows.py`).
+- **Unreleased on main:** Requests (`requests.py`, web `requests.js`); following artists (`follows.py`); Home shaped by taste (`home.py`).

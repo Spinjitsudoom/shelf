@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.shelf.data.Home
+import app.shelf.data.HomeRow
 import app.shelf.data.LibrarySource
 import app.shelf.data.MixSummary
 import app.shelf.ui.SignedOutHandler
@@ -48,7 +49,8 @@ private fun greeting(name: String?): String {
 
 @Composable
 fun HomeScreen(source: LibrarySource, username: String?, onAlbum: (Int) -> Unit, onMix: (String) -> Unit, onPlayAlbum: (Int) -> Unit, signedOut: SignedOutHandler,
-               onSettings: () -> Unit = {}, onPeople: (() -> Unit)? = null, onStats: (() -> Unit)? = null) {
+               onSettings: () -> Unit = {}, onPeople: (() -> Unit)? = null, onStats: (() -> Unit)? = null,
+               onRowUsed: ((String) -> Unit)? = null) {
     val (state, retry) = rememberLoad("home") {
         coroutineScope { val h = async { source.home() }; val m = async { source.mixes() }; HomeData(h.await(), m.await()) }
     }
@@ -87,19 +89,31 @@ fun HomeScreen(source: LibrarySource, username: String?, onAlbum: (Int) -> Unit,
                     }
                 }
             }
-            if (d.mixes.isNotEmpty()) item {
-                SectionTitle("Made for you")
-                Shelf(d.mixes) { m ->
-                    CoverCard(m.name, m.description, onClick = { onMix(m.key) }) {
-                        TapeCover(m.name, albumColor(m.color, m.name), m.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 160) })
-                    }
-                }
+            // The rows in the order the server picked from your taste and use; offline (or an
+            // older server) there's no order, so the usual few.
+            val rows = d.home.rows.ifEmpty {
+                listOf(HomeRow("mixes"), HomeRow("added", title = "Recently added", albums = d.home.added),
+                    HomeRow("rediscover", title = "Rediscover", albums = d.home.rediscover))
             }
-            listOf("Recently added" to d.home.added, "Rediscover" to d.home.rediscover).forEach { (title, albums) ->
-                if (albums.isNotEmpty()) item {
-                    SectionTitle(title)
+            rows.forEach { row ->
+                val used = { onRowUsed?.invoke(row.key); Unit }
+                if (row.key == "mixes") {
+                    if (d.mixes.isNotEmpty()) item(key = row.key) {
+                        SectionTitle("Made for you")
+                        Shelf(d.mixes) { m ->
+                            CoverCard(m.name, m.description, onClick = { used(); onMix(m.key) }) {
+                                TapeCover(m.name, albumColor(m.color, m.name), m.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 160) })
+                            }
+                        }
+                    }
+                    return@forEach
+                }
+                // "Jump back in" already shows the latest of Recently played.
+                val albums = if (row.key == "recent") row.albums.drop(1) else row.albums
+                if (albums.isNotEmpty() && row.title != null) item(key = row.key) {
+                    SectionTitle(row.title)
                     Shelf(albums) { a ->
-                        CoverCard(a.title, a.artist, onClick = { onAlbum(a.id) }) {
+                        CoverCard(a.title, a.artist, onClick = { used(); onAlbum(a.id) }) {
                             CaseCover(source.coverUrl(a.id, a.cover, 320), a.title, albumColor(a.color, a.title))
                         }
                     }

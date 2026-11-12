@@ -191,6 +191,14 @@ CREATE TABLE IF NOT EXISTS webhooks (
     last_status TEXT
 );
 
+-- Which Home rows someone opens things from (home.py): rows they use climb, others sink.
+CREATE TABLE IF NOT EXISTS home_taps (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    row     TEXT NOT NULL,
+    at      REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS home_taps_user ON home_taps(user_id, at);
+
 CREATE TABLE IF NOT EXISTS playlist_follows (
     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,

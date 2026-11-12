@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from . import procs
-from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, home as home_rows, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -292,6 +292,10 @@ class RequestBody(BaseModel):
     albumId: str | None = Field(None, pattern=MBID_PATTERN)
     year: int | None = Field(None, ge=1000, le=3000)
     type: str | None = Field(None, max_length=40)
+
+
+class HomeUsedBody(BaseModel):
+    row: str = Field(..., min_length=1, max_length=240)
 
 
 class RequestStatusBody(BaseModel):
@@ -2171,13 +2175,92 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 "JOIN tracks t ON t.id = p.track_id WHERE p.played_at > ? AND p.user_id = ?",
                 (now - 7 * 86400, me_id),
             ).fetchone()
-        return {
+            rows = _taste_rows(conn, me_id, now)
+        out = {
             "recent": [album_json(r) | {"lastPlayed": r["last_played"]} for r in recent],
             "top": [album_json(r) | {"plays": r["plays"]} for r in top],
             "added": [album_json(r) for r in added],
             "rediscover": [album_json(r) for r in rediscover],
             "week": {"plays": listened["n"], "seconds": round(listened["secs"])},
         }
+        # The rows to show, in the order this person's taste and use put them. "mixes" (Made
+        # for you) and "releases" (New from your artists) are filled in by the apps.
+        album_rows = {
+            "following": ("From artists you follow", rows["following"]),
+            "recent": ("Recently played", out["recent"]),
+            "added": ("Recently added", out["added"]),
+            "top": ("Most played", out["top"]),
+            "rediscover": ("Haven’t heard these in a while", out["rediscover"] if len(out["rediscover"]) >= 4 else []),
+            **{f"like:{name}": (f"More like {name}", albums) for name, albums in rows["like"]},
+        }
+        keys = ["mixes", "releases"] + [k for k, (_, albums) in album_rows.items() if albums]
+        out["rows"] = [
+            {"key": k, "kind": home_rows.kind(k)} | (
+                {"title": album_rows[k][0], "albums": album_rows[k][1]} if k in album_rows else {})
+            | ({"artist": k.split(":", 1)[1]} if k.startswith("like:") else {})
+            for k in home_rows.order(keys, rows["used"], rows["newListener"])
+        ]
+        return out
+
+    _like_cache: dict[tuple, list[int]] = {}
+
+    def _taste_rows(conn, me_id: int, now: float) -> dict:
+        """The rows of Home that come from your taste (see home.py)."""
+        tracks = conn.execute(TRACK_SELECT).fetchall()
+        plays = [(r[0], r[1]) for r in conn.execute(
+            "SELECT track_id, played_at FROM plays WHERE user_id = ? AND played_at > ?", (me_id, now - 400 * 86400))]
+        liked = {r[0] for r in conn.execute("SELECT track_id FROM likes WHERE user_id = ?", (me_id,))}
+        mine = follows.followed(conn, me_id)
+        taste = home_rows.artist_taste(tracks, mixes.affinity(plays, liked, now), mine)
+        seed = mixes.day_seed(me_id, now)
+
+        likes_rows = []
+        stamp = (len(tracks), max((t["id"] for t in tracks), default=0))
+        by_album = None
+        for name in home_rows.seed_artists(taste, seed):
+            key = (me_id, seed, videos.fold(name), stamp)
+            ids = _like_cache.get(key)
+            if ids is None:
+                theirs = [t for t in tracks if credits.credited(t["album_artist_name"], name) or credits.credited(t["artist"], name)]
+                own = {x["id"] for x in theirs}
+                others = [t for t in tracks if t["id"] not in own]
+                picks = _recommend(theirs, others, random.Random(seed).randrange(1, 10**6), 150)
+                ids = home_rows.like_albums(picks, name)
+                if len(_like_cache) > 200:
+                    _like_cache.clear()
+                _like_cache[key] = ids
+            if len(ids) >= 4:
+                if by_album is None:
+                    by_album = {r["id"]: r for r in conn.execute("SELECT * FROM albums")}
+                likes_rows.append((name, [album_json(by_album[i]) for i in ids if i in by_album]))
+
+        following = []
+        if mine:
+            album_plays = {r[0]: r[1] for r in conn.execute(
+                "SELECT album_key, COUNT(*) FROM plays WHERE user_id = ? GROUP BY album_key", (me_id,))}
+            following = [album_json(a) for a in home_rows.following_albums(
+                conn.execute("SELECT * FROM albums").fetchall(), mine, album_plays, now)]
+
+        taps = [(r[0], r[1]) for r in conn.execute(
+            "SELECT row, at FROM home_taps WHERE user_id = ? AND at > ?", (me_id, now - 120 * 86400))]
+        recent_plays = sum(1 for _, at in plays if at > now - 30 * 86400)
+        return {"like": likes_rows, "following": following, "used": home_rows.tap_scores(taps, now),
+                "newListener": recent_plays < 20}
+
+    @app.post("/api/home/used")
+    def home_used(body: HomeUsedBody):
+        """Something on Home was opened from this row; rows people use move up."""
+        now = time.time()
+        row = home_rows.kind(body.row)
+        with db() as conn:
+            # Browsing one row for a while counts once: it's coming back to a row that moves it.
+            if conn.execute("SELECT 1 FROM home_taps WHERE user_id = ? AND row = ? AND at > ?",
+                            (uid(), row, now - home_rows.TAP_GAP)).fetchone():
+                return {"ok": True}
+            conn.execute("INSERT INTO home_taps(user_id, row, at) VALUES(?, ?, ?)", (uid(), row, now))
+            # Only the recent past counts; keep the table small.
+            conn.execute("DELETE FROM home_taps WHERE user_id = ? AND at < ?", (uid(), now - 120 * 86400))
+        return {"ok": True}
 
     @app.get("/api/tracks/{track_id}/resume")
     def get_resume(track_id: int):

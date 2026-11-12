@@ -80,10 +80,10 @@ function trackRow(t, i, { withArt = false } = {}) {
     </div>`;
 }
 
-function rowShelf(title, albums, { href, showArtist = true } = {}) {
+function rowShelf(title, albums, { href, showArtist = true, row } = {}) {
   if (!albums.length) return "";
   return `
-    <section class="row-section">
+    <section class="row-section"${row ? ` data-row="${esc(row)}"` : ""}>
       <div class="row-head">
         <h2 class="section-title">${esc(title)}</h2>
         ${href ? `<a class="see-all" href="${href}">See all</a>` : ""}
@@ -137,7 +137,20 @@ export async function homeView(el, player) {
   const week = home.week.plays
     ? `${plural(home.week.plays, "song")}, ${fmtListening(home.week.seconds)} of listening this week`
     : "Nothing played this week yet";
-  const recent = cur ? home.recent : home.recent.slice(1);
+  // The rows in the order the server picked from your taste and what you use (home.py).
+  const rows = (home.rows ?? []).map((r) => {
+    if (r.key === "mixes") return `<section class="row-section" data-row="mixes">
+        <div class="row-head"><h2 class="section-title">Made for you</h2></div>
+        <div class="row-shelf">${features.dj ? djCard() : ""}${made.map(mixCard).join("")}</div>
+      </section>`;
+    if (r.key === "releases") return fresh.length ? `<section class="row-section" data-row="releases">
+        <div class="row-head"><h2 class="section-title">New from your artists</h2><a class="see-all" href="#/releases">See all</a></div>
+        <div class="row-shelf">${fresh.map(releaseCard).join("")}</div>
+      </section>` : "";
+    const albums = r.key === "recent" && !cur ? r.albums.slice(1) : r.albums;
+    const href = r.key === "added" ? "#/albums?sort=added" : undefined;
+    return rowShelf(r.title, albums, { href, row: r.key });
+  }).join("");
 
   el.innerHTML = `
     <div class="page">
@@ -145,19 +158,13 @@ export async function homeView(el, player) {
         <div><h1 class="page-title">Home</h1><p class="page-sub"><a class="home-stats" href="#/stats" title="Your listening">${week}</a></p></div>
       </header>
       ${hero}
-      <section class="row-section">
-        <div class="row-head"><h2 class="section-title">Made for you</h2></div>
-        <div class="row-shelf">${features.dj ? djCard() : ""}${made.map(mixCard).join("")}</div>
-      </section>
-      ${fresh.length ? `<section class="row-section">
-        <div class="row-head"><h2 class="section-title">New from your artists</h2><a class="see-all" href="#/releases">See all</a></div>
-        <div class="row-shelf">${fresh.map(releaseCard).join("")}</div>
-      </section>` : ""}
-      ${rowShelf("Recently played", recent)}
-      ${rowShelf("Recently added", home.added, { href: "#/albums?sort=added" })}
-      ${rowShelf("Most played", home.top)}
-      ${home.rediscover.length >= 4 ? rowShelf("Haven’t heard these in a while", home.rediscover) : ""}
+      ${rows}
     </div>`;
+  // Opening something from a row teaches Home to put that row higher (not in a private session).
+  el.querySelector(".page").addEventListener("click", (e) => {
+    const row = e.target.closest("[data-row]");
+    if (row && e.target.closest("a, button") && !settings.get("privateSession")) api.homeUsed(row.dataset.row).catch(() => {});
+  });
   const heroEl = el.querySelector(".hero:not(.hero-welcome)");
   if (heroEl && cur) api.album(cur.albumId).then((a) => applyAlbumColor(heroEl, a.color)).catch(() => {});
   else if (heroEl && last) applyAlbumColor(heroEl, last.color);
