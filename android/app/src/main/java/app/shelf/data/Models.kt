@@ -44,12 +44,13 @@ data class Track(
     val plays: Int = 0, // in stats: how often it was played
 )
 
-@Serializable data class ArtistSummary(val name: String, val albums: Int = 0, val tracks: Int = 0, val coverAlbumId: Int? = null, val cover: String? = null)
+@Serializable data class ArtistSummary(val name: String, val albums: Int = 0, val tracks: Int = 0, val coverAlbumId: Int? = null, val cover: String? = null,
+                                        val following: Boolean = false)
 
 @Serializable
 data class ArtistPage(
     val name: String, val albums: List<Album> = emptyList(), val popular: List<Track> = emptyList(),
-    val appearsOn: List<Album> = emptyList(),
+    val appearsOn: List<Album> = emptyList(), val following: Boolean = false,
 )
 
 @Serializable data class CoverRef(val albumId: Int, val cover: String? = null)

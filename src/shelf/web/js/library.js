@@ -1,5 +1,7 @@
 // "Your Library": the left-hand panel on wider screens. Playlists, albums and artists in one list,
-// with filter chips, a sort menu, a quick filter, and the playing album marked.
+// with filter chips, a sort menu, a quick filter, and the playing album marked. Once you follow
+// artists it holds just them and their albums (the sort menu can still show everything);
+// until then it shows the whole shelf.
 
 import { api, invalidate } from "./api.js";
 import { openMenu } from "./menu.js";
@@ -27,6 +29,8 @@ export function mountLibrary(root, player) {
   const sortBtn = root.querySelector("#lib-sort");
   let filter = store.get("libFilter", null);
   let sort = store.get("libSort", "recent");
+  let everything = !!store.get("libEverything", false);
+  let follows = new Set();
   let query = "";
   let albums = [], artists = [], playlists = [];
 
@@ -56,11 +60,17 @@ export function mountLibrary(root, player) {
       recency.set(key, Math.max(recency.get(key) || 0, t));
     }
     for (const ar of artists) ar.recency = recency.get(fold(ar.name)) || 0;
+    follows = new Set(artists.filter((ar) => ar.following).map((ar) => fold(ar.name)));
     draw();
   }
 
+  /** Just what you follow: on once you follow someone, unless the sort menu says everything. */
+  const tidy = () => follows.size > 0 && !everything;
+  const followedAlbum = (a) => (a.artists?.length ? a.artists : [a.artist]).some((n) => follows.has(fold(n)));
+
   function items() {
     const out = [];
+    const only = tidy();
     const dl = filter === "downloaded";
     if (!filter || filter === "playlists" || dl) {
       for (const p of playlists) {
@@ -70,11 +80,12 @@ export function mountLibrary(root, player) {
     if (!filter || filter === "albums" || dl) {
       for (const a of albums) {
         if (dl && !offline.isSaved(`album:${a.id}`)) continue;
+        if (only && !dl && !followedAlbum(a)) continue;
         out.push({ kind: "album", a, name: a.title, by: a.artist, added: a.addedAt || 0, recent: Math.max(a.lastPlayed || 0, a.addedAt || 0) });
       }
     }
     if (!filter || filter === "artists") {
-      for (const ar of artists) out.push({ kind: "artist", ar, name: ar.name, by: ar.name, added: ar.recency, recent: ar.recency });
+      for (const ar of artists) if (!only || ar.following) out.push({ kind: "artist", ar, name: ar.name, by: ar.name, added: ar.recency, recent: ar.recency });
     }
     const q = fold(query.trim());
     const shown = q ? out.filter((it) => fold(it.name).includes(q) || fold(it.by).includes(q)) : out;
@@ -121,7 +132,7 @@ export function mountLibrary(root, player) {
     }
     const ar = it.ar;
     return `
-      <a class="lib-item lib-artist" role="listitem" href="${artistHref(ar.name)}" data-artist-name="${esc(ar.name)}" title="${esc(ar.name)}">
+      <a class="lib-item lib-artist" role="listitem" href="${artistHref(ar.name)}" data-artist-name="${esc(ar.name)}" data-following="${!!ar.following}" title="${esc(ar.name)}">
         ${caseHtml({ id: ar.coverAlbumId, cover: ar.cover, title: ar.name }, { size: 160, cls: "case-sm", sizes: "48px" })}
         <span class="lib-text"><span class="lib-name">${esc(ar.name)}</span><span class="lib-sub">Artist</span></span>
         <svg class="lib-playing" aria-label="Playing"><use href="#i-volume"/></svg>
@@ -136,12 +147,19 @@ export function mountLibrary(root, player) {
     root.querySelector("#lib-sort-label").textContent = SORTS[sort];
   }
 
+  function hint() {
+    if (query || filter === "playlists" || filter === "downloaded" || !artists.length) return "";
+    if (!follows.size) return `<p class="lib-hint">Follow the artists you like and this list keeps to them and their albums.</p>`;
+    return "";
+  }
+
   function draw() {
     drawChips();
     const all = items();
-    list.innerHTML = all.length
-      ? all.map(itemHtml).join("")
-      : `<p class="lib-empty">${query ? `Nothing in your library matches “${esc(query)}”.` : "Your library is empty. Add music folders in config.toml."}</p>`;
+    const empty = query ? `Nothing in your library matches “${esc(query)}”.`
+      : tidy() ? "Nothing here from the artists you follow."
+      : "Your library is empty. Add music folders in config.toml.";
+    list.innerHTML = hint() + (all.length ? all.map(itemHtml).join("") : `<p class="lib-empty">${empty}</p>`);
     markPlaying();
     markCurrent();
   }
@@ -174,11 +192,19 @@ export function mountLibrary(root, player) {
   sortBtn.addEventListener("click", () => {
     openMenu({
       at: sortBtn,
-      heading: "Sort by",
-      items: Object.entries(SORTS).map(([k, label]) => ({
-        label, icon: k === sort ? "i-check" : "i-sort", current: k === sort,
-        run: () => { sort = k; store.set("libSort", k); draw(); list.scrollTop = 0; },
-      })),
+      heading: "Sort and show",
+      items: [
+        ...Object.entries(SORTS).map(([k, label]) => ({
+          label, icon: k === sort ? "i-check" : "i-sort", current: k === sort,
+          run: () => { sort = k; store.set("libSort", k); draw(); list.scrollTop = 0; },
+        })),
+        "sep",
+        ...[[false, "What you follow", follows.size ? `${plural(follows.size, "artist")} and their albums` : "Follow an artist from their page"],
+          [true, "Everything on the server", null]].map(([all, label, sub]) => ({
+          label, sub, icon: all === everything ? "i-check" : "i-library", current: all === everything,
+          run: () => { everything = all; store.set("libEverything", all); draw(); list.scrollTop = 0; },
+        })),
+      ],
     });
   });
 
@@ -209,6 +235,7 @@ export function mountLibrary(root, player) {
   player.addEventListener("state", markPlaying);
   player.addEventListener("played", () => { invalidate("albums?sort=recent"); load(); });
   window.addEventListener("playlists-changed", () => load());
+  window.addEventListener("follows-changed", () => load());
 
   // "+": a new, empty playlist, opened right away .
   root.querySelector("#lib-new").addEventListener("click", async () => {

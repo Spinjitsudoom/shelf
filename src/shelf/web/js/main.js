@@ -523,6 +523,13 @@ async function runAction(action, el) {
     }
     case "pl-refresh": await refreshRecommendations(view, parseRoute().id); break;
     case "pl-menu": playlistMenu(parseRoute().id, el); break;
+    case "follow-artist": {
+      const name = el.dataset.artist;
+      const on = el.getAttribute("aria-pressed") !== "true";
+      await api.followArtist(name, on);
+      toast(on ? `${name} is in your library now` : `${name} is out of your library`);
+      break;
+    }
     case "pl-follow": {
       const id = parseRoute().id;
       const on = el.getAttribute("aria-pressed") !== "true";
@@ -1125,6 +1132,23 @@ function albumMenu(card, at) {
       "sep",
       { label: "Go to album", icon: "i-album-go", run: () => { location.hash = `#/album/${id}`; } },
       ...artistItems(artists),
+    ],
+  });
+}
+
+function artistMenu(name, following, item, at) {
+  openMenu({
+    at,
+    header: { art: item.querySelector(".case")?.outerHTML, title: name, sub: "Artist" },
+    items: [
+      { label: "Shuffle", icon: "i-shuffle", run: () => runAction("shuffle-artist", { dataset: { artist: name } }).catch((e) => toast(e.message)) },
+      { label: "Artist radio", icon: "i-radio", run: () => { location.hash = `#/radio/artist/${encodeURIComponent(name)}`; } },
+      { label: "Go to artist", icon: "i-album-go", run: () => { location.hash = artistHref(name); } },
+      "sep",
+      { label: following ? "Unfollow" : "Follow", icon: following ? "i-close" : "i-plus",
+        run: () => api.followArtist(name, !following)
+          .then(() => toast(following ? `${name} is out of your library` : `${name} is in your library now`))
+          .catch((e) => toast(e.message)) },
     ],
   });
 }
@@ -1992,12 +2016,21 @@ function mountShell() {
   });
   findVideo();
   const lib = $("library");
+  // Followed or unfollowed anywhere: every Follow button for that artist agrees.
+  addEventListener("follows-changed", ({ detail: { name, following } }) => {
+    document.querySelectorAll('[data-action="follow-artist"]').forEach((b) => {
+      if (b.dataset.artist.toLowerCase() !== name.toLowerCase()) return;
+      b.setAttribute("aria-pressed", String(following));
+      b.textContent = following ? "Following" : "Follow";
+    });
+  });
   lib.addEventListener("contextmenu", (e) => {
-    const item = e.target.closest(".lib-item[data-album], .lib-item[data-playlist]");
+    const item = e.target.closest(".lib-item[data-album], .lib-item[data-playlist], .lib-item[data-artist-name]");
     if (!item) return;
     e.preventDefault();
     const at = e.clientX || e.clientY ? { x: e.clientX, y: e.clientY } : item;
     if (item.dataset.playlist) playlistMenu(Number(item.dataset.playlist), at);
+    else if (item.dataset.artistName) artistMenu(item.dataset.artistName, item.dataset.following === "true", item, at);
     else albumMenu(item, at);
   });
   lib.addEventListener("dblclick", (e) => {

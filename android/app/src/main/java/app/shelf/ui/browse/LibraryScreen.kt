@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,6 +51,10 @@ import app.shelf.ui.theme.Shelf as Theme
 
 private data class LibraryData(val playlists: List<PlaylistSummary>, val albums: List<Album>, val artists: List<ArtistSummary>)
 
+/** Names compared the way the server does: case and accents don't matter. */
+private fun fold(name: String) = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFKD)
+    .replace(Regex("\\p{M}+"), "").lowercase()
+
 private enum class Filter(val label: String) { Playlists("Playlists"), Albums("Albums"), Artists("Artists"), Downloaded("Downloaded") }
 
 @Composable
@@ -67,15 +72,26 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
         }
     }
     var filter by rememberSaveable { mutableStateOf<Filter?>(null) }
+    // Once you follow artists, the Library is them and their albums; this shows the whole shelf instead.
+    val prefs = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("library", android.content.Context.MODE_PRIVATE)
+    var everything by remember { mutableStateOf(prefs.getBoolean("everything", false)) }
     val downloads = app.shelf.downloads.LocalDownloads.current
     val downloaded by (downloads?.items ?: kotlinx.coroutines.flow.MutableStateFlow(emptyList())).collectAsStateWithLifecycle()
     LoadContent(state, retry, signedOut) { d ->
+        val follows = remember(d) { d.artists.filter { it.following }.map { fold(it.name) }.toSet() }
+        val tidy = follows.isNotEmpty() && !everything
+        val albums = if (!tidy) d.albums else d.albums.filter { a -> a.artists.ifEmpty { listOf(a.artist) }.any { fold(it) in follows } }
+        val artists = if (!tidy) d.artists else d.artists.filter { it.following }
         LazyColumn(Modifier.fillMaxSize()) {
             item {
-                Column(Modifier.statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 18.dp)) {
-                    Text("Library", style = MaterialTheme.typography.displayMedium, color = Theme.colors.ink)
-                    Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 8.dp, top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Library", style = MaterialTheme.typography.displayMedium, color = Theme.colors.ink, modifier = Modifier.weight(1f))
+                    if (follows.isNotEmpty()) androidx.compose.material3.TextButton(onClick = {
+                        everything = !everything
+                        prefs.edit().putBoolean("everything", everything).apply()
+                    }) { Text(if (everything) "Just what I follow" else "Show everything", color = Theme.colors.cobalt) }
                 }
+                Spacer(Modifier.height(10.dp))
                 LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(Filter.entries.filter { it != Filter.Downloaded || downloaded.isNotEmpty() }) { f ->
                         FilterChip(selected = filter == f, onClick = { filter = if (filter == f) null else f }, label = { Text(f.label) },
@@ -84,6 +100,12 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
                     }
                 }
                 Spacer(Modifier.height(8.dp))
+                if (follows.isEmpty() && d.artists.isNotEmpty() && (filter == null || filter == Filter.Albums || filter == Filter.Artists)) {
+                    Text("Follow the artists you like (on their page) and this list keeps to them and their albums.",
+                        style = MaterialTheme.typography.bodySmall, color = Theme.colors.ink2,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth()
+                            .background(Theme.colors.sleeve, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(12.dp))
+                }
             }
             if (filter == null || filter == Filter.Playlists) {
                 if (onNewPlaylist != null) item {
@@ -114,12 +136,12 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
                     }
                 }
             }
-            if (filter == null || filter == Filter.Albums) items(d.albums, key = { "a${it.id}" }) { a ->
+            if (filter == null || filter == Filter.Albums) items(albums, key = { "a${it.id}" }) { a ->
                 LibraryRow(a.title, "Album, ${a.artist}", { onAlbum(a.id) }) {
                     CaseCover(source.coverUrl(a.id, a.cover, 160), a.title, albumColor(a.color, a.title))
                 }
             }
-            if (filter == null || filter == Filter.Artists) items(d.artists, key = { "r${it.name}" }) { r ->
+            if (filter == null || filter == Filter.Artists) items(artists, key = { "r${it.name}" }) { r ->
                 LibraryRow(r.name, "Artist", { onArtist(r.name) }) {
                     ArtistAvatar(r.coverAlbumId?.let { source.coverUrl(it, r.cover, 160) }, r.name, albumColor(null, r.name))
                 }
@@ -133,6 +155,10 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
                         else -> FavouritesCover()
                     }
                 }
+            }
+            if (tidy && (filter == Filter.Albums && albums.isEmpty() || filter == Filter.Artists && artists.isEmpty())) item {
+                Text("Nothing here from the artists you follow.", style = MaterialTheme.typography.bodyMedium, color = Theme.colors.ink2,
+                    modifier = Modifier.padding(16.dp))
             }
             item { Spacer(Modifier.height(24.dp)) }
         }

@@ -599,6 +599,7 @@ export async function artistView(el, name) {
           <button class="big-play" type="button" data-action="play-list" aria-label="Play ${esc(display)}" title="Play"${popular.length ? "" : " disabled"}><svg><use href="#i-play"/></svg></button>
           <button class="icon-btn artist-shuffle" type="button" data-action="shuffle-artist" data-artist="${esc(display)}" aria-label="Shuffle ${esc(display)}" title="Shuffle"><svg><use href="#i-shuffle"/></svg></button>
           <button class="btn" type="button" data-action="artist-radio" data-artist="${esc(display)}"><svg><use href="#i-radio"/></svg>Artist radio</button>
+          <button class="btn follow-btn" type="button" data-action="follow-artist" data-artist="${esc(display)}" aria-pressed="${!!data.following}" title="Followed artists and their albums make up your library">${data.following ? "Following" : "Follow"}</button>
         </div>
 
         ${popular.length ? `<section class="artist-section">

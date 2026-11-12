@@ -145,6 +145,13 @@ export const api = {
   video: (id) => cached(`tracks/${id}/video`, 600_000),
   recommendations: (id, seed = 0, limit = 10) => request("GET", `playlists/${id}/recommendations?seed=${seed}&limit=${limit}`),
   artist: (name) => request("GET", `artist?name=${encodeURIComponent(name)}`),
+  /** Follow (on) or unfollow an artist; the Library redraws to match. */
+  followArtist: async (name, on) => {
+    const r = await request(on ? "PUT" : "DELETE", `artist/follow?name=${encodeURIComponent(name)}`);
+    invalidate("artists");
+    window.dispatchEvent(new CustomEvent("follows-changed", { detail: { name, following: r.following } }));
+    return r;
+  },
   artistAbout: (name) => cached(`artist/about?name=${encodeURIComponent(name)}`, 3_600_000),
   artistVideos: (name) => cached(`artist/videos?name=${encodeURIComponent(name)}`, 3_600_000),
   playlists: () => cached("playlists", 5_000),

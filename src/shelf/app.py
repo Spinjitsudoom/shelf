@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from . import procs
-from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -2081,12 +2081,27 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     def artists():
         with db() as conn:
             rows = conn.execute("SELECT id, artist, year, track_count, cover_src FROM albums").fetchall()
+            mine = follows.followed(conn, uid())
         return [
             {"name": a["name"], "albums": a["albums"], "tracks": a["tracks"],
              "coverAlbumId": a["cover"][1] if a["cover"] else None,
-             "cover": _cover_version(a["cover"][2]) if a["cover"] else None}
+             "cover": _cover_version(a["cover"][2]) if a["cover"] else None,
+             "following": videos.fold(a["name"]) in mine}
             for a in sorted(_album_artists(rows), key=lambda a: a["name"].casefold())
         ]
+
+    @app.put("/api/artist/follow")
+    def follow_artist(name: str = Query(..., min_length=1, max_length=200)):
+        """Follow an artist: they (and their albums) show in your Library."""
+        with db() as conn:
+            follows.follow(conn, uid(), credits.display(name))
+        return {"following": True}
+
+    @app.delete("/api/artist/follow")
+    def unfollow_artist(name: str = Query(..., min_length=1, max_length=200)):
+        with db() as conn:
+            follows.unfollow(conn, uid(), credits.display(name))
+        return {"following": False}
 
     @app.get("/api/search")
     def search(q: str = Query("", max_length=200)):
@@ -2359,8 +2374,11 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         display = credits.display(name)
         total_plays = sum(t["plays"] for t in tracks)
         mine = [t for t in tracks if t["album_id"] in order]
+        with db() as conn:
+            following = follows.is_following(conn, me_id, display)
         return {
             "name": display,
+            "following": following,
             "albums": [album_json(a) | {"plays": a["plays"], "kind": _release_kind(a)} for a in albums],
             "popular": [track_json(t) | {"plays": t["plays"]} for t in popular],
             "appearsOn": [album_json(a) for a in appears],

@@ -206,6 +206,7 @@ body.is-resizing iframe { pointer-events: none; }
 .lib-item.is-playing .lib-name { color: var(--cobalt); }
 .lib-item.is-playing:not(.is-paused) .lib-playing { display: block; }
 .lib-empty { padding: 12px 8px; color: var(--ink-2); font-size: 14px; }
+.lib-hint { margin: 2px 8px 8px; padding: 10px 12px; border-radius: 8px; background: var(--sleeve); color: var(--ink-2); font-size: 13px; line-height: 1.4; }
 .lib-head-end { display: flex; align-items: center; }
 .lib-new { width: 34px; height: 34px; }
 .lib-new svg { width: 20px; height: 20px; }

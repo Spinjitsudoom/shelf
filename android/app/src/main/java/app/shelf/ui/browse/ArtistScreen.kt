@@ -21,6 +21,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -46,12 +49,14 @@ import app.shelf.ui.theme.Shelf as Theme
 
 @Composable
 fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (Int) -> Unit, onBack: () -> Unit, signedOut: SignedOutHandler,
-                 onRadio: (() -> Unit)? = null) {
+                 onRadio: (() -> Unit)? = null, onFollow: (suspend (Boolean) -> Unit)? = null) {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val (state, retry) = rememberLoad(name) { source.artist(name) }
     LoadContent(state, retry, signedOut) { a ->
         val color = a.albums.firstOrNull()?.let { albumColor(it.color, it.title) } ?: albumColor(null, a.name)
         val ctx = PlayContext(a.name, Routes.artist(a.name))
         val popular = a.popular.take(5)
+        var following by androidx.compose.runtime.remember(a) { androidx.compose.runtime.mutableStateOf(a.following) }
         Box(Modifier.fillMaxSize()) {
             LazyColumn(Modifier.fillMaxSize()) {
                 item {
@@ -67,6 +72,13 @@ fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (
                             }
                             if (onRadio != null) androidx.compose.material3.OutlinedButton(onClick = onRadio) {
                                 Icon(painterResource(R.drawable.ic_radio), null, Modifier.size(20.dp), tint = Theme.colors.ink); Spacer(Modifier.size(8.dp)); Text("Radio", color = Theme.colors.ink)
+                            }
+                            if (onFollow != null) androidx.compose.material3.OutlinedButton(onClick = {
+                                val on = !following
+                                following = on
+                                scope.launch { try { onFollow(on) } catch (e: app.shelf.data.ShelfError) { following = !on } }
+                            }, border = androidx.compose.foundation.BorderStroke(1.dp, if (following) Theme.colors.cobalt else Theme.colors.ink2)) {
+                                Text(if (following) "Following" else "Follow", color = if (following) Theme.colors.cobalt else Theme.colors.ink)
                             }
                         }
                     }

@@ -222,7 +222,13 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             }
             composable("artist/{name}") {
                 val name = it.arguments!!.getString("name")!!
-                ArtistScreen(name, source, onPlay, openAlbum, back, signedOut, onRadio = api?.let { { nav.navigate(Routes.artistRadio(name)) } })
+                ArtistScreen(name, source, onPlay, openAlbum, back, signedOut, onRadio = api?.let { { nav.navigate(Routes.artistRadio(name)) } },
+                    onFollow = api?.let { a -> { on: Boolean ->
+                        try {
+                            a.followArtist(name, on)
+                            say(if (on) "$name is in your library now" else "$name is out of your library")
+                        } catch (e: app.shelf.data.ShelfError) { say(e.message ?: "Couldn’t reach the server"); throw e }
+                    } })
             }
             composable("playlist/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
                 PlaylistScreen(it.arguments!!.getInt("id"), source, onPlay, back, signedOut, api = api, say = say,

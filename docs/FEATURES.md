@@ -88,6 +88,13 @@ Last updated: 2026-11-12, after v0.7.7 shipped.
   expiry, off until an admin enables.
 - **Scrobbling:** ListenBrainz per user (`scrobble.py`); Last.fm support exists (`lastfm.py`)
   but is **deferred** — no API keys yet. AcoustID is likewise deferred.
+- **Following artists** (`follows.py`): a Follow button on the artist page (web and Android);
+  stored as the Subsonic artist star (`stars` table, kind 'artist', folded name), so starring an
+  artist in a Subsonic app is the same thing. Once you follow anyone, **Your Library** (web side
+  panel, Android Library tab) keeps to playlists, followed artists and their albums; until then it
+  shows everything with a hint. Web: the library's sort menu has "What you follow / Everything on
+  the server" (per device), and right-clicking an artist there offers Unfollow. Android: "Show
+  everything" next to the Library title. The web Albums/Artists pages still show the whole shelf.
 - **Requests** (`requests.py`, web `requests.js`, Android opens it in a web view from Settings):
   anyone asks for an artist or one album, with an optional note; the whole household sees the
   list. Refused when it's already on the shelf or someone already asked. Admins mark requests done,
@@ -162,4 +169,4 @@ Redmi 9.
 - **iOS:** options discussed (Subsonic apps now; PWA; sideloaded .ipa; TestFlight needs the
   $99 account) — waiting on the owner's choice.
 - **Phone checks pending:** playlist import and the share target on the Redmi.
-- **Unreleased on main:** Requests (`requests.py`, web `requests.js`).
+- **Unreleased on main:** Requests (`requests.py`, web `requests.js`); following artists (`follows.py`).

@@ -141,6 +141,12 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
 
     fun streamUrl(trackId: Int, quality: String): String = url("api/tracks/$trackId/stream?q=$quality").toString()
 
+    /** Follow (on) or unfollow an artist: followed artists and their albums make up the Library. */
+    suspend fun followArtist(name: String, on: Boolean) {
+        call(url("api/artist/follow").newBuilder().addQueryParameter("name", name).build(), JsonObject.serializer(),
+            "{}".toRequestBody(JSON), if (on) "PUT" else "DELETE")
+    }
+
     /** A request whose answer isn't needed (PUT, DELETE, PATCH, POST): errors still throw. */
     private suspend fun send(method: String, path: String, body: String? = null) {
         call(url(path), JsonObject.serializer(), (body ?: "{}").toRequestBody(JSON), method)
