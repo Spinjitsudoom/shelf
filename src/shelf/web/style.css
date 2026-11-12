@@ -376,6 +376,15 @@ a.npv-context[href]:hover { text-decoration: underline; }
 .pl-card:hover { background: var(--hover); }
 .pl-card .pl-cover { margin-bottom: 8px; box-shadow: var(--shadow); }
 .lib-item.drop-target, .pl-card.drop-target { background: color-mix(in srgb, var(--cobalt) 16%, transparent); box-shadow: inset 0 0 0 2px var(--cobalt); }
+/* Moving a song in the playing queue (queuedrag.js) */
+.q-grip { touch-action: none; cursor: grab; color: var(--ink-2); }
+.q-grip:hover { color: var(--ink); }
+body.q-dragging, body.q-dragging * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+body.q-dragging .track-row[data-queue-index]:not(.q-lifted) { transition: transform .18s cubic-bezier(.2, .8, .2, 1); }
+.track-row.q-lifted { position: relative; z-index: 5; background: var(--sleeve); box-shadow: var(--shadow); }
+.track-row.q-lifted .q-grip { color: var(--cobalt); }
+@media (prefers-reduced-motion: reduce) { body.q-dragging .track-row[data-queue-index]:not(.q-lifted) { transition: none; } }
+
 .drag-ghost {
   position: fixed; top: -100px; left: 0; max-width: 300px;
   display: flex; align-items: center; gap: 10px; padding: 5px 12px 5px 5px; border-radius: 8px;

@@ -24,6 +24,7 @@ import { follow as followHost } from "./party.js";
 import { startRing } from "./visualizer.js";
 import { editRules } from "./smart.js";
 import { importPlaylists } from "./importer.js";
+import { attachQueueDrag, queueDragging } from "./queuedrag.js";
 import { applyAlbumColor, caseHtml, coverUrl, esc, fmtTime, playlistCover, plural, quality, store, toast } from "./util.js";
 import {
   albumView, albumsView, artistHref, artistItems, artistLinks, artistView, artistsView, balanceLabel, ctx, homeView, mixerView,
@@ -351,6 +352,15 @@ view.addEventListener("click", async (e) => {
   if (qrow) { player.jumpTo(Number(qrow.dataset.queueIndex)); return; }
   const row = e.target.closest(".track-row[data-index]");
   if (row && !e.target.closest("a")) player.playList(ctx.tracks, rowIndex(row), { context: ctx.context });
+});
+
+attachQueueDrag(view, player, {
+  redraw: () => {
+    if (parseRoute().name !== "queue") return;
+    const top = view.scrollTop;
+    queueView(view, player);
+    view.scrollTop = top;
+  },
 });
 
 view.addEventListener("keydown", (e) => {
@@ -1255,7 +1265,7 @@ view.addEventListener("contextmenu", (e) => {
 // Long-press on touch screens (iOS doesn't send contextmenu for it).
 let press = null;
 view.addEventListener("pointerdown", (e) => {
-  if (e.pointerType !== "touch" || !e.target.closest(".album-card, .track-row")) return;
+  if (e.pointerType !== "touch" || !e.target.closest(".album-card, .track-row") || e.target.closest(".q-grip")) return;
   const start = { x: e.clientX, y: e.clientY };
   press = {
     start,
@@ -1363,7 +1373,7 @@ function syncPlayer() {
   markPlayingRow();
   syncVolume();
   const route = parseRoute().name;
-  if (route === "queue") {
+  if (route === "queue" && !queueDragging()) {
     const top = view.scrollTop;
     queueView(view, player);
     view.scrollTop = top;
@@ -1683,7 +1693,7 @@ let dragging = null; // what's being dragged: { trackIds?, albumId?, entryIndex?
 // Rows become draggable when a mouse presses them (not on touch screens, where a long
 // press opens the menu instead).
 document.addEventListener("pointerdown", (e) => {
-  if (e.pointerType !== "mouse") return;
+  if (e.pointerType !== "mouse" || e.target.closest?.(".q-grip")) return;
   const row = e.target.closest?.(".track-row[data-track]");
   if (row && !row.draggable) row.draggable = true;
 }, true);

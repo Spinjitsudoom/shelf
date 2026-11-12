@@ -6,6 +6,7 @@ import { offline } from "./offline.js";
 import { currentServer } from "./server.js";
 import { detectDevice } from "./connect.js";
 import { likeButton, likes } from "./likes.js";
+import { gripHtml } from "./queuedrag.js";
 import { STYLE_LABEL, describe as describeTransition, isCustom, normalize as normalizeTransition } from "./transitions.js";
 import { EQ_BANDS, EQ_PRESETS, IS_IOS, QUALITY_LABELS, qualityDetail, settings } from "./settings.js";
 import {
@@ -819,7 +820,7 @@ export function queueView(el, player) {
       ${qrow(cur, player.index, "")}
       <h2 class="section-title">Up next${next.length ? `, ${plural(next.length, "song")}, ${fmtLength(left)}` : ""}</h2>
       ${next.length ? next.map((t, i) => (t.autoplay && !next[i - 1]?.autoplay ? `<h2 class="section-title">Autoplay: similar songs from your library</h2>` : "") + qrow(t, offset + i, `
-          <button class="icon-btn" type="button" data-action="remove-queue" data-queue-index="${offset + i}" aria-label="Remove ${esc(t.title)} from the queue"><svg><use href="#i-close"/></svg></button>`)).join("")
+          <button class="icon-btn" type="button" data-action="remove-queue" data-queue-index="${offset + i}" aria-label="Remove ${esc(t.title)} from the queue"><svg><use href="#i-close"/></svg></button>${gripHtml(t, offset + i)}`)).join("")
         : `<p class="page-sub">That’s the last song${player.repeat === "all" ? ". Repeat is on, so the queue starts over after it." : "."}</p>`}
     </div>`;
 }

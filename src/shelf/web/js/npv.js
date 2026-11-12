@@ -5,6 +5,7 @@
 
 import { api } from "./api.js";
 import { likeButton, likes } from "./likes.js";
+import { attachQueueDrag, gripHtml, queueDragging } from "./queuedrag.js";
 import { mountTransitionEditor } from "./transition-editor.js";
 import { caseHtml, esc, fmtLength, fmtTime, keyBadge, plural, quality, store, toast } from "./util.js";
 import { artistHref, artistLinks, youTubeOnly } from "./views.js";
@@ -72,11 +73,11 @@ export function mountPanel(player, { fallbackQueue, onVideo = () => {}, onRelate
     return text ? `<span class="badge${q?.lossless ? " lossless" : ""}" title="${esc(streamed ? "Streaming a smaller copy" : q?.detail ?? "")}">${esc(text)}</span>` : "";
   };
 
-  const row = (t, qi, current) => `
+  const row = (t, qi, current, movable = false) => `
     <div class="track-row with-art npv-row${current ? ` playing${player.playing ? "" : " paused"}` : ""}" data-queue-index="${qi}" data-track="${t.id}" tabindex="0">
       ${caseHtml(t, { size: 160, cls: "case-sm", sizes: "44px" })}
       <span class="t-main"><span class="t-title">${esc(t.title)}</span><span class="t-sub">${esc(t.artist)}</span></span>
-      <span></span>
+      <span>${movable ? gripHtml(t, qi) : ""}</span>
       <span class="dur">${fmtTime(t.duration)}</span>
     </div>`;
 
@@ -170,7 +171,7 @@ export function mountPanel(player, { fallbackQueue, onVideo = () => {}, onRelate
       <h3 class="npv-h">Now playing</h3>
       ${row(t, player.index, true)}
       ${next.length ? `<h3 class="npv-h">${from ? `Next from: ${esc(from)}` : "Next up"}</h3>
-        ${next.slice(0, QUEUE_LIMIT).map((x, i) => (x.autoplay && !next[i - 1]?.autoplay ? `<h3 class="npv-h">Autoplay: similar songs</h3>` : "") + row(x, offset + i, false)).join("")}
+        ${next.slice(0, QUEUE_LIMIT).map((x, i) => (x.autoplay && !next[i - 1]?.autoplay ? `<h3 class="npv-h">Autoplay: similar songs</h3>` : "") + row(x, offset + i, false, true)).join("")}
         ${next.length > QUEUE_LIMIT ? `<a class="npv-more" href="#/queue">${plural(next.length - QUEUE_LIMIT, "more song")} in the queue</a>` : ""}`
         : `<p class="npv-note">That’s the last song${player.repeat === "all" ? ". Repeat is on, so the queue starts over after it." : "."}</p>`}`;
   }
@@ -249,7 +250,7 @@ export function mountPanel(player, { fallbackQueue, onVideo = () => {}, onRelate
   }
 
   function render() {
-    if (panel.hidden || editor) return;
+    if (panel.hidden || editor || queueDragging()) return;
     if (add) {
       const key = `add|${add.pid}`;
       if (drawn !== key) { drawn = key; renderAdd(); }
@@ -274,6 +275,8 @@ export function mountPanel(player, { fallbackQueue, onVideo = () => {}, onRelate
     if (mode === "queue") renderQueue(t); else renderNow(t);
     body.scrollTop = mode === "queue" ? scroll : 0;
   }
+
+  attachQueueDrag(body, player, { redraw: () => { drawn = ""; render(); } });
 
   body.addEventListener("click", async (e) => {
     const tab = e.target.closest("[data-add-tab]");
