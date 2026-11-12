@@ -48,6 +48,9 @@ async function request(method, path, body) {
   if (!res.ok) {
     let detail = res.statusText;
     try { detail = (await res.json()).detail || detail; } catch { /* not JSON */ }
+    // A request the server didn't understand (422) says why as a list: say it in words instead,
+    // usually because the server is an older Shelf than this page.
+    if (typeof detail !== "string") detail = res.status === 422 ? "The server didn’t understand this. It may need updating to the latest Shelf." : "Something went wrong on the server";
     throw new ApiError(res.status, detail);
   }
   return res.json();
