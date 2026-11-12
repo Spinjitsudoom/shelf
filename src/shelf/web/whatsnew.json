@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.7.7",
+    "date": "2026-11-12",
+    "new": [
+      {"title": "Reorder the queue on the web", "text": "Songs still to come have a grip: drag it to move the song, or tap it and use the arrow keys. Works on the Queue page and in the side panel, even when the music plays on another device."}
+    ],
+    "fixed": []
+  },
+  {
     "version": "0.7.6",
     "date": "2026-11-11",
     "new": [
