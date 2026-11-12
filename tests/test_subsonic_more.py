@@ -60,21 +60,33 @@ def test_api_keys(client):
     assert call("ping", apiKey=key)["error"]["code"] == 44
 
 
+class AccountSub(Sub):
+    """An app signed in with the account's own password (p=), as changing accounts needs."""
+
+    def auth(self):
+        return {"u": self.u, "p": self.pw, "v": "1.16.1", "c": "test", "f": "json"}
+
+
 def test_accounts(client):
     sub = setup(client)
-    sub.ok("createUser", username="sam", password="enc:" + "longpassword1".encode().hex(), email="", adminRole="false")
+    # An app password (or API key) can't change accounts: one lost with a phone mustn't be enough.
+    assert sub("createUser", username="sam", password="longpassword1")["error"]["code"] == 50
+    assert sub("changePassword", username="admin", password="anotherpass2")["error"]["code"] == 50
+    acct = AccountSub(client, "hunter2")
+    acct.ok("createUser", username="sam", password="enc:" + "longpassword1".encode().hex(), email="", adminRole="false")
     assert {u["username"] for u in sub.ok("getUsers")["users"]["user"]} == {"admin", "sam"}
-    sub.ok("updateUser", username="sam", adminRole="true")
+    acct.ok("updateUser", username="sam", adminRole="true")
     assert sub.ok("getUser", username="sam")["user"]["adminRole"] is True
-    sub.ok("changePassword", username="sam", password="anotherpass2")
+    acct.ok("changePassword", username="sam", password="anotherpass2")
     c = TestClient(client.app)
     r = c.get("/rest/ping", params={"u": "sam", "p": "anotherpass2", "f": "json"}).json()["subsonic-response"]
     assert r["status"] == "ok"
-    assert sub("deleteUser", username="admin")["error"]["code"] == 0  # not yourself
-    sub.ok("deleteUser", username="sam")
+    assert acct("deleteUser", username="admin")["error"]["code"] == 0  # not yourself
+    acct.ok("deleteUser", username="sam")
     assert sub("getUser", username="sam")["error"]["code"] == 70
     av = sub.raw("getAvatar", username="admin")
     assert av.status_code == 200 and av.headers["content-type"] == "image/png" and av.content[:4] == b"\x89PNG"
+    assert sub.raw("getAvatar", username="nobody-here").headers["content-type"] == "image/png"  # says nothing
 
 
 def test_shares(client):

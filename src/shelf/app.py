@@ -607,6 +607,11 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             log.warning("Slow request: %s %s took %.1f s", request.method, request.url.path, took)
         return response
 
+    @app.exception_handler(OverflowError)
+    async def too_big(_request: Request, _exc: OverflowError):
+        """A number too big for the database (/api/albums/99999999999999999999) is nothing's id."""
+        return JSONResponse({"detail": "Not found"}, status_code=404)
+
     @app.middleware("http")
     async def guard(request: Request, call_next):
         path = request.url.path

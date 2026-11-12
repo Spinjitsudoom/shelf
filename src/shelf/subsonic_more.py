@@ -109,6 +109,7 @@ class More:
         if user is None:
             self.auth.failed(client)
             raise Fail(44, "Invalid API key")
+        p.signed_in_with = "key"
         return user
 
     def m_tokenInfo(self, p, user):
@@ -122,6 +123,16 @@ class More:
         if not user.admin:
             raise Fail(50, f"Only an admin can {what}")
 
+    @staticmethod
+    def _really_you(p):
+        """Accounts change only for someone who signed in with the account's own password (or
+        through the proxy), never with an app password or API key: a key lost with a phone
+        mustn't be enough to take the account."""
+        from .subsonic import Fail
+
+        if getattr(p, "signed_in_with", "app") not in ("account", "proxy"):
+            raise Fail(50, "Changing accounts from an app needs your account password, not an app password or API key")
+
     def _named(self, name: str):
         from .subsonic import not_found
 
@@ -133,6 +144,7 @@ class More:
     def m_createUser(self, p, user):
         from .subsonic import Fail
 
+        self._really_you(p)
         self._admin(user, "add people")
         try:
             self.auth.create(p.need("username"), _dec(p.need("password")), admin=p.flag("adminRole", False))
@@ -143,6 +155,7 @@ class More:
     def m_updateUser(self, p, user):
         from .subsonic import Fail
 
+        self._really_you(p)
         self._admin(user, "change other people’s accounts")
         row = self._named(p.need("username"))
         try:
@@ -162,6 +175,7 @@ class More:
     def m_deleteUser(self, p, user):
         from .subsonic import Fail
 
+        self._really_you(p)
         self._admin(user, "remove people")
         row = self._named(p.need("username"))
         if row["id"] == user.id:
@@ -175,6 +189,7 @@ class More:
     def m_changePassword(self, p, user):
         from .subsonic import Fail
 
+        self._really_you(p)
         row = self._named(p.need("username"))
         if row["id"] != user.id:
             self._admin(user, "change other people’s passwords")
@@ -187,8 +202,9 @@ class More:
         return {}
 
     def m_getAvatar(self, p, user):  # answered with the image, see subsonic.mount
-        row = self._named(p.get("username") or user.username)
-        return Response(avatar_png(row["username"]), media_type="image/png",
+        # Drawn from the name asked for, whether or not there's such a person (so it doesn't say).
+        name = (p.get("username") or user.username)[:100]
+        return Response(avatar_png(name), media_type="image/png",
                         headers={"Cache-Control": "private, max-age=86400"})
 
     # ----- shares -----
@@ -856,6 +872,7 @@ class More:
         if codec not in transcode.LIVE or not kbps.isdigit():
             raise Fail(0, "Those transcodeParams didn’t come from Shelf")
         row = self.file_for(p.need("mediaId"))
+        kbps = str(max(32, min(int(kbps), 512))) if codec != "flac" else "0"
         try:
             offset = max(0.0, float(p.get("offset") or 0))
         except ValueError:

@@ -154,7 +154,9 @@ believes it from:
       SHELF_PROXY_TRUSTED: 172.16.0.0/12      # Docker's own networks; or the proxy's address
 ```
 
-Someone Shelf hasn't met gets an account of their own. Subsonic apps behind the proxy that send
+The proxy must set that header itself on every request, replacing any copy a visitor sends
+(Authelia, Authentik and Caddy's `forward_auth` do), and Shelf must only be reachable through
+the proxy. Someone Shelf hasn't met gets an account of their own. Subsonic apps behind the proxy that send
 no password of their own are signed in the same way. Apps that do send one (and API keys) work
 as usual.
 

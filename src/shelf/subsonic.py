@@ -208,6 +208,9 @@ class Params:
     def __init__(self, items: list[tuple[str, str]]):
         self.items = items
         self.body = None  # a JSON body, for the one call that has one (getTranscodeDecision)
+        # How the app signed in: "app" (app password), "key" (API key), "account" (the account's
+        # own password) or "proxy". Changing accounts needs "account" or "proxy".
+        self.signed_in_with = "app"
 
     def get(self, name: str, default=None):
         for k, v in self.items:
@@ -294,6 +297,7 @@ class Subsonic(More):
                 if not ok and verify_password(pw, row["pw_hash"]):
                     ok = True
                     self._pw_ok[user.id] = (digest, user.version, time.time() + 600)
+                p.signed_in_with = "account" if ok else p.signed_in_with
         else:
             raise missing("p or t and s")
         if not ok or user is None:
@@ -1197,6 +1201,7 @@ def mount(app, api: Subsonic) -> None:
                 # Signed in by a trusted reverse proxy (proxyauth.py), when the app sends nothing itself.
                 if api.proxy_user and p.get("u") is None and p.get("apiKey") is None:
                     user = await asyncio.to_thread(api.proxy_user, request)
+                    p.signed_in_with = "proxy" if user else p.signed_in_with
                 if user is None:
                     user = await asyncio.to_thread(api.sign_in, p, request.client.host if request.client else "?")
                 api.set_user(user)
@@ -1212,3 +1217,5 @@ def mount(app, api: Subsonic) -> None:
             return answer(p, await asyncio.to_thread(api.call, method, p, user, request))
         except Fail as f:
             return answer(p, fail=f)
+        except OverflowError:  # an id too big for the database is no id of anything
+            return answer(p, fail=not_found())
