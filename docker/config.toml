@@ -1,0 +1,15 @@
+# Shelf's settings in the container. Environment variables win over these (SHELF_MUSIC_DIRS,
+# SHELF_PASSWORD, SHELF_ARTIST_INFO, SHELF_MUSIC_VIDEOS, SHELF_ONLINE_LYRICS...).
+#
+# The music folder mounted at /music. Once you add or change folders in Settings, that list is
+# kept instead (mount more folders under /music, e.g. /music/vinyl-rips, and add them there).
+music_dirs = ["/music"]
+
+# Look for new and changed files this often.
+scan_interval_minutes = 15
+
+# Converted copies (for streaming below the original quality) are kept up to this size.
+transcode_cache_mb = 2048
+
+# Shelf checks GitHub for new versions; in a container you update by pulling the new image.
+check_updates = false
