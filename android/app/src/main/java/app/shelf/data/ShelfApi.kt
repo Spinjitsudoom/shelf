@@ -84,6 +84,9 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     /** Songs for a playlist from a few words ("metal, high energy"); a ShelfError.Server says why not. */
     suspend fun makePlaylist(prompt: String, size: Int = 30): MadePlaylist =
         call("api/playlists/make", MadePlaylist.serializer(), body { put("prompt", prompt); put("size", size) })
+    /** A playlist from a Spotify or YouTube link, a playlist file or a list of songs, found in the library (nothing saved). */
+    suspend fun importPlaylists(text: String, filename: String = ""): ImportResult =
+        call("api/playlists/import", ImportResult.serializer(), body { put("text", text); put("filename", filename) })
     suspend fun editPlaylist(id: Int, name: String? = null, description: String? = null) =
         send("PATCH", "api/playlists/$id", buildJsonObject { name?.let { put("name", it) }; description?.let { put("description", it) } }.toString())
     suspend fun deletePlaylist(id: Int) = send("DELETE", "api/playlists/$id")

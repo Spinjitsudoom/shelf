@@ -36,6 +36,8 @@ class AppContainer(context: Context) {
     val sleep = app.shelf.playback.SleepTimer()
     /** The party this phone is at (as a guest), and whether it plays along here. */
     val party = kotlinx.coroutines.flow.MutableStateFlow<app.shelf.playback.PartyJoin?>(null)
+    /** A playlist link shared to Shelf from another app (Spotify, YouTube), waiting to be imported. */
+    val sharedImport = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     /** Favourites, for every heart in the app. */
     val likes = app.shelf.data.LikesStore({ api }, kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main))

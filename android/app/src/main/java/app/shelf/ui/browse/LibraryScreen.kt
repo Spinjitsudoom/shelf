@@ -55,7 +55,7 @@ private enum class Filter(val label: String) { Playlists("Playlists"), Albums("A
 @Composable
 fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (Int) -> Unit, onAlbum: (Int) -> Unit, onArtist: (String) -> Unit,
                   signedOut: SignedOutHandler, onNewPlaylist: ((String) -> Unit)? = null,
-                  onMakePlaylist: (suspend (String) -> String?)? = null) {
+                  onMakePlaylist: (suspend (String) -> String?)? = null, onImport: (() -> Unit)? = null) {
     var naming by rememberSaveable { mutableStateOf(false) }
     var making by rememberSaveable { mutableStateOf(false) }
     if (naming && onNewPlaylist != null) app.shelf.ui.common.NameDialog("New playlist", "", "Create", onNewPlaylist, { naming = false })
@@ -97,6 +97,13 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
                     LibraryRow("Make a playlist", "From a genre, artist, mood or decade", { making = true }) {
                         Box(Modifier.fillMaxSize().background(Theme.colors.sleeve), contentAlignment = Alignment.Center) {
                             androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_sparkle), null, tint = Theme.colors.ink)
+                        }
+                    }
+                }
+                if (onImport != null) item {
+                    LibraryRow("Import a playlist", "From Spotify, YouTube or a file", onImport) {
+                        Box(Modifier.fillMaxSize().background(Theme.colors.sleeve), contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_download), null, tint = Theme.colors.ink)
                         }
                     }
                 }

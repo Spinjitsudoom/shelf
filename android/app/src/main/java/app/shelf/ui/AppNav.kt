@@ -140,6 +140,26 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     // After an update: what's new and what's fixed, once.
     var whatsNew by remember { mutableStateOf(container.whatsNew.pending()) }
     val shareLinks = remember(shareOn, api) { app.shelf.ui.common.ShareLinks(shareOn, api, context, scope, say) }
+    // Importing a playlist: from the Library, or a link shared to Shelf from another app.
+    var importing by remember { mutableStateOf<String?>(null) }
+    val sharedLink by container.sharedImport.collectAsStateWithLifecycle()
+    LaunchedEffect(sharedLink, api) {
+        val link = sharedLink ?: return@LaunchedEffect
+        if (api == null) return@LaunchedEffect
+        container.sharedImport.value = null
+        importing = link
+    }
+    importing?.let { start -> api?.let { a -> androidx.compose.runtime.key(start) {
+        app.shelf.ui.common.ImportPlaylistDialog(start, { id, v -> source.coverUrl(id, v, 160) },
+            onFind = { t, f -> a.importPlaylists(t, f) },
+            onMake = { name, description, ids -> a.createPlaylist(name, ids, description).id },
+            onDone = { made ->
+                importing = null
+                if (made.size == 1) { say("Made “${made[0].second}”"); nav.navigate(Routes.playlist(made[0].first)) }
+                else { say("Imported ${app.shelf.ui.common.plural(made.size, "playlist")}"); nav.navigateTab(Routes.LIBRARY) }
+            },
+            onDismiss = { importing = null })
+    } } }
     CompositionLocalProvider(app.shelf.ui.common.LocalSongActions provides actions, app.shelf.downloads.LocalDownloads provides container.downloads,
         app.shelf.ui.common.LocalShareLinks provides shareLinks) {
     Box(Modifier.fillMaxSize()) {
@@ -192,7 +212,8 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                             nav.navigate(Routes.playlist(p.id))
                             null
                         } catch (e: app.shelf.data.ShelfError.Server) { e.message } catch (e: app.shelf.data.ShelfError) { failed }
-                    } })
+                    } },
+                    onImport = api?.let { { importing = "" } })
             }
             composable(Routes.FAVOURITES) { FavouritesScreen(source, onPlay, back, signedOut) }
             composable("album/{id}", listOf(navArgument("id") { type = NavType.IntType })) {

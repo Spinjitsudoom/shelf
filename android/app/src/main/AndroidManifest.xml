@@ -32,6 +32,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Sharing a Spotify or YouTube playlist link to Shelf imports it. -->
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:label="Import to Shelf"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
         <!-- The music. MediaLibraryService also lets Android Auto and Bluetooth find it. -->
         <service
             android:name=".playback.PlaybackService"

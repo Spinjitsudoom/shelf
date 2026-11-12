@@ -116,6 +116,11 @@ data class VideoInfo(val found: Boolean = false, val videoId: String? = null, va
 @Serializable
 data class MadePlaylist(val name: String, val understood: List<String> = emptyList(), val trackIds: List<Int> = emptyList())
 
+/** A playlist from elsewhere (POST /api/playlists/import): each song, with the library's song for it if there is one. */
+@Serializable data class ImportedSong(val want: String, val track: Track? = null)
+@Serializable data class ImportedPlaylist(val name: String, val found: Int = 0, val songs: List<ImportedSong> = emptyList())
+@Serializable data class ImportResult(val playlists: List<ImportedPlaylist> = emptyList(), val linked: Boolean = false)
+
 /** Your listening (GET /api/stats): one period's totals, tops, when, streaks, and On this day. */
 @Serializable data class StatArtist(val name: String, val plays: Int = 0, val minutes: Int = 0)
 @Serializable data class StatGenre(val name: String, val plays: Int = 0)

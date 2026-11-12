@@ -106,7 +106,7 @@ export function importPlaylists() {
       if (!trackIds.length) continue;
       const missing = p.songs.length - p.found;
       const name = form.elements[`name-${i}`].value.trim() || p.name;
-      const description = `Imported${found.linked ? " from a link" : ""}.${missing ? ` ${plural(missing, "song")} weren’t in the library.` : ""}`;
+      const description = `Imported${found.linked ? " from a link" : ""}.${missing ? ` ${plural(missing, "song")} ${missing === 1 ? "wasn’t" : "weren’t"} in the library.` : ""}`;
       const pl = await api.createPlaylist({ name, description, trackIds });
       made.push({ id: pl.id, name: pl.name, count: trackIds.length });
     }
