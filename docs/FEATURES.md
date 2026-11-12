@@ -237,7 +237,8 @@ Redmi 9.
   tests/test_fuzz.py throws junk at every Subsonic call and the main web pages; SECURITY.md. Checked
   2026-11-12 against the OpenSubsonic OpenAPI schemas (opensubsonic/open-subsonic-api, openapi/): all 45
   read calls tried match (a throwaway jsonschema script, not in the repo), and the admin's "Measuring songs" setting (any time / only at night / never,
-  `background.py`; every measuring job waits on `background.gate`).
+  `background.py`; measuring runs under a `background.Turn`, which ends a run when a scan is wanted, the scan
+  interval is up, the hours end or the server stops, so scans are never held up; the rest is measured next run).
 - **Scale (measured 2026-11-12 on a made-up 100,000-song library, fully "measured"):** full scan 23 s, unchanged
   rescan 2.5 s; every page under 0.6 s except the first Mixes of the day (5 s, made ahead of time in the
   background by `_warm_mixes`) and first Home of the day (1.4 s). Peak memory ~500 MB (was ~890): whole-library

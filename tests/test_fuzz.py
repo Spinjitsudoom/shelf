@@ -53,3 +53,14 @@ def test_hostile_values_on_the_web_api(client):
             url = path.format(value.replace("\x00", "%00"))
             r = client.get(url)
             assert r.status_code < 500, (url, r.status_code, r.text[:200])
+
+
+def test_malformed_client_info(client):
+    sub = setup(client)
+    album = sub.ok("getAlbumList2", type="newest", size=1)["albumList2"]["album"][0]
+    song = sub.ok("getAlbum", id=album["id"])["album"]["song"][0]
+    for body in ({"maxAudioBitrate": "320k"}, {"directPlayProfiles": ["mp3"]}, {"directPlayProfiles": [{"maxAudioChannels": "x"}]},
+                 {"transcodingProfiles": [None]}, {"codecProfiles": [{"name": 5, "limitations": "no"}]}, [1, 2], "text"):
+        r = sub.c.post("/rest/getTranscodeDecision", params={**sub.auth(), "mediaId": song["id"], "mediaType": "song"}, json=body)
+        assert r.status_code == 200, (body, r.text[:200])
+        assert r.json()["subsonic-response"]["status"] in ("ok", "failed")

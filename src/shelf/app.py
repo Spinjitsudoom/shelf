@@ -99,23 +99,26 @@ class ScanManager:
                     self.on_scanned(result, started)
                 except Exception:
                     log.exception("After-scan news failed")
-            # Measuring, after the scan is done: slow, so only in the hours the admin allows it
-            # (background.py). Each job waits for them; "never" skips it all.
-            if background.mode(self.cfg.db_path) == "never":
+            # Measuring, after the scan: slow, so only in the hours the admin allows (background.py),
+            # and it gives way to the next scan, wanted or due, carrying on afterwards.
+            turn = background.Turn(self.cfg.db_path, self._stop, self._wake, self.cfg.scan_interval_minutes)
+            if turn.is_set():
                 return
-            gate = background.gate(self.cfg.db_path, self._stop)
             self.state["measuring"] = True
             # Loudness, for volume normalization.
-            loudness.analyze_pending(self.cfg.db_path, stop=self._stop, gate=gate)
+            loudness.analyze_pending(self.cfg.db_path, stop=turn)
             # Lossless files made from an MP3 or AAC, for Library health (quick: half a minute of each).
-            lossy.check_pending(self.cfg.db_path, stop=self._stop, gate=gate)
+            if not turn.is_set():
+                lossy.check_pending(self.cfg.db_path, stop=turn)
             # The same recording under other names, by its sound, for Library health.
-            fingerprint.check_pending(self.cfg.db_path, stop=self._stop, gate=gate)
+            if not turn.is_set():
+                fingerprint.check_pending(self.cfg.db_path, stop=turn)
             # Tempo and key (slower still), for playlist columns and recommendations.
-            if self.cfg.analyze_tempo:  # Essentia, or Shelf's own engine where it's missing (Windows)
-                analysis.analyze_pending(self.cfg.db_path, stop=self._stop, gate=gate)
+            if self.cfg.analyze_tempo and not turn.is_set():  # Essentia, or Shelf's own engine (Windows)
+                analysis.analyze_pending(self.cfg.db_path, stop=turn)
                 # How each song sounds, for "sounds like" in recommendations, radio and mixes.
-                sound.analyze_pending(self.cfg.db_path, stop=self._stop, gate=gate)
+                if not turn.is_set():
+                    sound.analyze_pending(self.cfg.db_path, stop=turn)
         except Exception as e:  # keep the scanner thread alive
             log.exception("Scan failed")
             self.state["error"] = str(e)
@@ -524,6 +527,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app):
+        app.state.loop = asyncio.get_running_loop()  # for work started from other threads
         if not cfg.music_dirs:
             log.warning("No music folders yet; add them in Settings (or music_dirs in config.toml)")
         if not auth.has_users():
@@ -586,6 +590,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     app.state.backups = saved_copies
     app.state.scrobbler = scrobbler
     app.state.cfg = cfg
+    app.state.loop = None
     hubs: dict[int, Hub] = {}  # Connect: each person's devices only see each other
     app.state.hubs = hubs
 
@@ -1147,6 +1152,19 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             conn.execute("DELETE FROM playlists WHERE user_id = ?", (user_id,))
             conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         auth.forget(user_id)
+        # Their devices still connected for Connect are let go too, from the web dashboard or a
+        # Subsonic app's deleteUser (which runs off the event loop) alike.
+        hub = hubs.pop(user_id, None)
+        loop = app.state.loop
+        if hub and loop is not None:
+            for d in list(hub.devices.values()):
+                asyncio.run_coroutine_threadsafe(_close_quietly(d.ws), loop)
+
+    async def _close_quietly(ws) -> None:
+        try:
+            await ws.close(code=1008)
+        except Exception:  # already gone
+            pass
 
     @app.delete("/api/users/{user_id}")
     async def delete_user(user_id: int):
@@ -1159,13 +1177,6 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         if target.admin and auth.admins() <= 1:
             raise HTTPException(409, "Shelf needs at least one admin")
         _remove_account(user_id)
-        hub = hubs.pop(user_id, None)
-        if hub:
-            for d in list(hub.devices.values()):
-                try:
-                    await d.ws.close(code=1008)
-                except Exception:  # already gone
-                    pass
         return {"ok": True}
 
     @app.get("/api/admin/signins")
@@ -3673,7 +3684,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     @app.websocket("/api/connect")
     async def connect_ws(ws: WebSocket):
         # The HTTP sign-in check doesn't cover WebSockets, so it's repeated here.
-        user = auth.user_for(token_from(ws.headers, ws.cookies) or ws.query_params.get("token"))
+        user = auth.user_for(token_from(ws.headers, ws.cookies) or ws.query_params.get("token")) or proxy_auth.user_for(ws)
         if user is None or not same_origin(ws):
             await ws.close(code=1008)
             return

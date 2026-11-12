@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import re
 import secrets
 
 log = logging.getLogger("shelf.proxyauth")
@@ -61,6 +62,14 @@ def _peer(request) -> str | None:
     return request.client.host if request.client else None
 
 
+def shelf_name(sent: str) -> str:
+    """The account name for what the proxy sent: as it is if Shelf can use it, otherwise made to
+    fit (alice@example.com -> alice_example.com), the same way every time."""
+    name = re.sub(r"[^A-Za-z0-9 ._-]", "_", re.sub(r"\s+", " ", sent).strip())
+    name = re.sub(r"^[^A-Za-z0-9]+", "", name)[:32].strip()
+    return name
+
+
 class ProxyAuth:
     def __init__(self, auth, header: str, trusted: list):
         self.auth, self.header, self.trusted = auth, (header or "").strip(), networks(trusted)
@@ -83,7 +92,7 @@ class ProxyAuth:
         """The person the proxy says this is, or None."""
         if not self.on:
             return None
-        name = (request.headers.get(self.header) or "").strip()
+        name = shelf_name(request.headers.get(self.header) or "")
         if not name or not self.from_proxy(request):
             return None
         row = self.auth.find(name)

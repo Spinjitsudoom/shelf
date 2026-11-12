@@ -140,7 +140,7 @@ def measure(path: Path, duration: float) -> list[float] | None:
         return None
 
 
-def analyze_pending(db_path: Path, stop=None, workers: int = 2, gate=None) -> int:
+def analyze_pending(db_path: Path, stop=None, workers: int = 2) -> int:
     current = version()
     with session(db_path) as conn:
         # Fingerprints from the other engine go at once, so the two are never compared.
@@ -152,7 +152,7 @@ def analyze_pending(db_path: Path, stop=None, workers: int = 2, gate=None) -> in
     log.info("Measuring how %d tracks sound", len(rows))
     done = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(procs.gated(gate, measure), Path(r["path"]), r["duration"] or 0): r["id"] for r in rows}
+        futures = {pool.submit(measure, Path(r["path"]), r["duration"] or 0): r["id"] for r in rows}
         for fut in futures:
             if stop is not None and stop.is_set():
                 pool.shutdown(wait=False, cancel_futures=True)
@@ -194,6 +194,7 @@ def vectors(rows) -> dict[int, "object"]:
         _cache["key"] = key
         _cache["vectors"] = out
         _cache["matrix"] = m if out else None
+        _cache["ids"] = ids if out else []
         _cache["pos"] = {i: n for n, i in enumerate(ids)} if out else {}
     return out
 
@@ -207,6 +208,24 @@ def library_vectors(db_path) -> dict[int, "object"]:
                 return _cache["vectors"]
         rows = conn.execute("SELECT id, sound FROM tracks WHERE sound IS NOT NULL").fetchall()
     return vectors(rows)
+
+
+def ranked(vecs: dict, seed_id: int) -> tuple[list[int], "object"]:
+    """Every other measured song, and how much each sounds like the seed (-1..1), in the same
+    order. Uses the library's matrix when `vecs` is the cached one, instead of building it."""
+    import numpy as np
+
+    with _lock:
+        cached = _cache["vectors"] is vecs and _cache.get("matrix") is not None
+        m, ids = (_cache["matrix"], _cache["ids"]) if cached else (None, None)
+    if not cached:
+        ids = list(vecs)
+        m = np.array([vecs[i] for i in ids]) if ids else np.zeros((0, 1))
+    if seed_id not in vecs or not ids:
+        return [], np.zeros(0)
+    sims = m @ vecs[seed_id]
+    keep = np.array([i != seed_id for i in ids])
+    return [i for i, k in zip(ids, keep) if k], sims[keep]
 
 
 def centre(vecs: dict, ids) -> "object | None":

@@ -50,3 +50,18 @@ def test_off_without_trusted_addresses(tmp_path, library):
     app = make(tmp_path, library, [])
     c = TestClient(app, client=("10.1.2.3", 5000))
     assert c.get("/api/albums", headers={"Remote-User": "admin"}).status_code == 401
+
+
+def test_email_names_and_connect(tmp_path, library):
+    from shelf.proxyauth import shelf_name
+
+    assert shelf_name("alice@example.com") == "alice_example.com"
+    assert shelf_name("  Sam Smith ") == "Sam Smith" and shelf_name("@@@") == ""
+    app = make(tmp_path, library, ["10.0.0.0/8"])
+    proxy = TestClient(app, client=("10.1.2.3", 5000))
+    s = proxy.get("/api/session", headers={"Remote-User": "alice@example.com"}).json()
+    assert s["signedIn"] and s["user"]["username"] == "alice_example.com"
+    again = proxy.get("/api/session", headers={"Remote-User": "alice@example.com"}).json()
+    assert again["user"]["id"] == s["user"]["id"]  # the same account every time
+    with proxy.websocket_connect("/api/connect", headers={"Remote-User": "alice@example.com", "Origin": "http://testserver"}) as ws:
+        ws.send_json({"type": "hello", "name": "Test", "kind": "web"})

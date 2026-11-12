@@ -20,17 +20,6 @@ def low_priority(nice: int = 10) -> dict:
     return {"preexec_fn": lambda: os.nice(nice)}
 
 
-def gated(gate, fn):
-    """fn, made to wait for `gate()` first (see background.gate): for measuring jobs."""
-    if gate is None:
-        return fn
-
-    def run(*args):
-        gate()
-        return fn(*args)
-    return run
-
-
 def no_window() -> dict:
     """subprocess arguments that keep a helper from flashing a console window on Windows."""
     return {"creationflags": subprocess.CREATE_NO_WINDOW} if WINDOWS else {}

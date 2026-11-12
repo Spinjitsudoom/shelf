@@ -139,7 +139,7 @@ def stored_groups(conn) -> list[list[int]]:
         return []
 
 
-def check_pending(db_path: Path, stop=None, workers: int = 2, gate=None) -> int:
+def check_pending(db_path: Path, stop=None, workers: int = 2) -> int:
     """Fingerprints songs not done yet (or changed since), then works out the groups again.
     Returns how many were done."""
     with session(db_path) as conn:
@@ -156,7 +156,7 @@ def check_pending(db_path: Path, stop=None, workers: int = 2, gate=None) -> int:
 
     done = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(procs.gated(gate, one), r): r["id"] for r in rows}
+        futures = {pool.submit(one, r): r["id"] for r in rows}
         for fut in futures:
             if stop is not None and stop.is_set():
                 pool.shutdown(wait=False, cancel_futures=True)

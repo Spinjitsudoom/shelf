@@ -46,7 +46,7 @@ def pending_count(db_path: Path) -> tuple[int, int]:
     return total - todo, total
 
 
-def analyze_pending(db_path: Path, stop=None, progress=None, workers: int = 2, gate=None) -> int:
+def analyze_pending(db_path: Path, stop=None, progress=None, workers: int = 2) -> int:
     with session(db_path) as conn:
         rows = conn.execute("SELECT id, path FROM tracks WHERE loud_checked = 0 ORDER BY id").fetchall()
     if not rows:
@@ -54,7 +54,7 @@ def analyze_pending(db_path: Path, stop=None, progress=None, workers: int = 2, g
     log.info("Measuring loudness of %d tracks for volume normalization", len(rows))
     done = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(procs.gated(gate, measure), Path(r["path"])): r["id"] for r in rows}
+        futures = {pool.submit(measure, Path(r["path"])): r["id"] for r in rows}
         for fut in futures:
             if stop is not None and stop.is_set():
                 pool.shutdown(wait=False, cancel_futures=True)

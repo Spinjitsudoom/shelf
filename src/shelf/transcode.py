@@ -71,7 +71,8 @@ async def stream_transcode(cache_dir: Path, src: Path, mtime: float, kbps: int, 
         # song as one fragment whose size (unknown in a pipe) is left as 0, which Android can't read.
         "-movflags", "+frag_keyframe+empty_moov+default_base_moof", "-frag_duration", "2000000",
         "-f", "mp4", "pipe:1",
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, **procs.no_window(),
+        # Its complaints are let go (see live()): unread, they could stall the song.
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL, **procs.no_window(),
     )
     out = open(tmp, "wb") if tmp else None
     ok = False
@@ -80,10 +81,9 @@ async def stream_transcode(cache_dir: Path, src: Path, mtime: float, kbps: int, 
             if out:
                 out.write(chunk)
             yield chunk
-        err = await proc.stderr.read()
         await proc.wait()
         if proc.returncode != 0:
-            raise RuntimeError(f"ffmpeg failed for {src}: {err.decode(errors='replace')[:500]}")
+            raise RuntimeError(f"ffmpeg couldn’t convert {src} (exit {proc.returncode})")
         ok = True
     finally:
         if proc.returncode is None:  # the listener went away mid-song
@@ -168,17 +168,18 @@ async def live(src: Path, codec: str, kbps: int, offset: float = 0.0):
     if codec == "opus":
         args += ["-ar", "48000"]
     args += ["-f", container, "pipe:1"]
-    proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    # ffmpeg's complaints are let go: a damaged file can say more than a pipe holds while nobody
+    # reads it, which would stall the song. No sound at all says it failed.
+    proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
                                                 **procs.no_window())
     try:
         got = False
         while chunk := await proc.stdout.read(64 * 1024):
             got = True
             yield chunk
-        err = await proc.stderr.read()
         await proc.wait()
         if proc.returncode != 0 and not got:
-            raise RuntimeError(f"ffmpeg failed for {src}: {err.decode(errors='replace')[:500]}")
+            raise RuntimeError(f"ffmpeg couldn’t convert {src}")
     finally:
         if proc.returncode is None:  # the listener went away
             proc.kill()

@@ -102,7 +102,7 @@ def likely_source(cut: float) -> str:
     return "an MP3 or AAC of 160 kbps or more"
 
 
-def check_pending(db_path: Path, stop=None, workers: int = 2, gate=None) -> int:
+def check_pending(db_path: Path, stop=None, workers: int = 2) -> int:
     """Checks lossless files not checked yet (or changed since). Returns how many were checked."""
     with session(db_path) as conn:
         rows = [r for r in conn.execute("SELECT id, path, duration, codec FROM tracks WHERE cutoff_checked = 0 ORDER BY id")
@@ -119,7 +119,7 @@ def check_pending(db_path: Path, stop=None, workers: int = 2, gate=None) -> int:
 
     done = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(procs.gated(gate, one), r): r["id"] for r in rows}
+        futures = {pool.submit(one, r): r["id"] for r in rows}
         for fut in futures:
             if stop is not None and stop.is_set():
                 pool.shutdown(wait=False, cancel_futures=True)

@@ -36,14 +36,22 @@ def allowed(m: str, hour: int) -> bool:
     return True
 
 
-def gate(db_path: Path, stop=None, clock=time.localtime, check_every: float = 60.0):
-    """A wait each measuring job makes before it starts: it returns at once in allowed hours,
-    and otherwise when they come round (or the server is stopping)."""
-    def wait() -> None:
-        while not allowed(mode(db_path), clock().tm_hour):
-            if stop is not None:
-                if stop.wait(check_every):
-                    return
-            else:
-                time.sleep(check_every)
-    return wait
+class Turn:
+    """The `stop` a measuring run checks between songs: it ends the run when the server is
+    stopping, a scan is wanted (new music shouldn't wait behind days of measuring), its time
+    is up (so the regular rescan happens) or the allowed hours are over. What's left is measured
+    on the next run, once it may."""
+
+    def __init__(self, db_path: Path, stop=None, wake=None, minutes: float = 15, clock=time.localtime):
+        self.db_path, self.stop, self.wake, self.clock = db_path, stop, wake, clock
+        self.until = time.monotonic() + minutes * 60
+        self._mode, self._checked = None, 0.0
+
+    def allowed_now(self) -> bool:
+        if self._mode is None or time.monotonic() - self._checked > 30:
+            self._mode, self._checked = mode(self.db_path), time.monotonic()
+        return allowed(self._mode, self.clock().tm_hour)
+
+    def is_set(self) -> bool:
+        return bool((self.stop is not None and self.stop.is_set()) or (self.wake is not None and self.wake.is_set())
+                    or time.monotonic() > self.until or not self.allowed_now())

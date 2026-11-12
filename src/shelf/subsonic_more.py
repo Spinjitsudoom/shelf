@@ -22,6 +22,7 @@ from pathlib import Path
 from fastapi.responses import Response, StreamingResponse
 
 from . import covers, credits, podcasts, shares, sound, transcode, videos
+from . import genres as genre_tags
 from .auth import check_password_rules
 from .db import get_meta, set_meta
 
@@ -661,10 +662,9 @@ class More:
                 from .subsonic import Params
                 picks = self._similar(Params([("id", str(seed["id"])), ("count", str(count))]), user)
                 return {"sonicMatch": [{"entry": s, "similarity": -1} for s in picks]}
-            ids = [i for i in vecs if i != seed["id"]]
+            ids, sims = sound.ranked(vecs, seed["id"])
             if not ids:
                 return {"sonicMatch": []}
-            sims = np.array([vecs[i] for i in ids]) @ vecs[seed["id"]]
             top = np.argsort(-sims)[:count]
             return {"sonicMatch": self._match(conn, [(ids[k], (float(sims[k]) + 1) / 2) for k in top], user)}
 
@@ -710,10 +710,9 @@ class More:
         vecs = self._vectors(conn)
         if seed_id not in vecs:
             return None
-        ids = [i for i in vecs if i != seed_id]
+        ids, sims = sound.ranked(vecs, seed_id)
         if not ids:
             return []
-        sims = np.array([vecs[i] for i in ids]) @ vecs[seed_id]
         order = [ids[k] for k in np.argsort(-sims)[:count * 3]]
         if exclude_album:
             albums = {r[0]: r[1] for r in conn.execute(
@@ -726,10 +725,12 @@ class More:
         listened to, the artists sharing the most genres with them."""
         import numpy as np
 
-        rows = conn.execute("SELECT t.id, t.sound, t.genre, a.artist FROM tracks t JOIN albums a ON a.key = t.album_key").fetchall()
-        key = (len(rows), sum(r["id"] for r in rows if r["sound"]))
+        # Worked out again only when the library or its measurements change (a cheap check).
+        key = tuple(conn.execute("""SELECT COUNT(*), COALESCE(SUM(id), 0), COALESCE(SUM(sound IS NOT NULL), 0),
+                                    (SELECT COUNT(*) FROM albums) FROM tracks""").fetchone())
         if self._artist_sound["key"] != key:
-            vecs = sound.vectors(rows)
+            rows = conn.execute("SELECT t.id, t.genre, a.artist FROM tracks t JOIN albums a ON a.key = t.album_key").fetchall()
+            vecs = sound.library_vectors(self.cfg.db_path)
             by: dict[str, list] = {}
             genres: dict[str, set] = {}
             spelled: dict[str, str] = {}
@@ -740,7 +741,7 @@ class More:
                     if r["id"] in vecs:
                         by.setdefault(f, []).append(vecs[r["id"]])
                     if r["genre"]:
-                        genres.setdefault(f, set()).update(g.strip().lower() for g in r["genre"].replace(";", "/").split("/") if g.strip())
+                        genres.setdefault(f, set()).update(genre_tags.split_tag(r["genre"]))
             centres = {}
             for f, vs in by.items():
                 c = np.mean(vs, axis=0)
@@ -859,7 +860,10 @@ class More:
                     "protocol": "http", "container": podcasts.codec(e["mime"] or "audio/mpeg"),
                     "codec": podcasts.codec(e["mime"] or "audio/mpeg")}}}
             row = self._track_row(conn, p.need("mediaId"))
-        return {"transcodeDecision": self.decide(row, info)}
+        try:
+            return {"transcodeDecision": self.decide(row, info)}
+        except (TypeError, ValueError, AttributeError, KeyError, IndexError):  # not shaped like ClientInfo
+            raise Fail(10, "The app’s abilities (ClientInfo) aren’t in the expected shape")
 
     async def transcode_stream(self, p):
         """getTranscodeStream: the conversion getTranscodeDecision chose, from `offset` seconds in."""

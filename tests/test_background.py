@@ -17,26 +17,37 @@ def test_hours():
     assert not background.allowed("never", 3)
 
 
-def test_the_gate_waits_for_its_hours(tmp_path, client):
+def test_measuring_gives_way(client):
     db = client.app.state.cfg.db_path
-    background.set_mode(db, "night")
     hour = [14]
     clock = lambda: time.struct_time((2026, 11, 12, hour[0], 0, 0, 3, 316, 0))  # noqa: E731
-    stop = threading.Event()
-    gate = background.gate(db, stop, clock=clock, check_every=0.01)
-    done = threading.Event()
-    t = threading.Thread(target=lambda: (gate(), done.set()))
-    t.start()
-    assert not done.wait(0.1)  # two in the afternoon: waits
+    stop, wake = threading.Event(), threading.Event()
+    turn = background.Turn(db, stop, wake, minutes=15, clock=clock)
+    assert not turn.is_set()  # any time, by default
+    background.set_mode(db, "night")
+    turn = background.Turn(db, stop, wake, minutes=15, clock=clock)
+    assert turn.is_set()  # two in the afternoon: not now
     hour[0] = 2
-    assert done.wait(1)  # two at night: goes
+    turn = background.Turn(db, stop, wake, minutes=15, clock=clock)
+    assert not turn.is_set()  # two at night: go
+    wake.set()
+    assert turn.is_set()  # a scan is wanted: make way
+    wake.clear()
+    assert background.Turn(db, stop, wake, minutes=0, clock=clock).is_set()  # time's up: the regular rescan
+    stop.set()
+    assert turn.is_set()
+
+
+def test_a_rescan_is_not_held_up(client):
+    """While songs wait to be measured outside their hours, scans still run."""
+    db = client.app.state.cfg.db_path
     background.set_mode(db, "never")
-    done.clear()
-    t = threading.Thread(target=lambda: (gate(), done.set()))
+    with session(db) as conn:
+        conn.execute("UPDATE tracks SET loud_checked = 0")
+    t = threading.Thread(target=client.app.state.scanner.run_once)
     t.start()
-    assert not done.wait(0.1)
-    stop.set()  # the server stopping lets it go
-    assert done.wait(1)
+    t.join(5)
+    assert not t.is_alive()
 
 
 def test_admin_chooses(client):

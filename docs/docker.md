@@ -145,20 +145,43 @@ server {
 
 If your proxy already signs people in (Authelia, Authentik, oauth2-proxy, Caddy's
 `forward_auth`), Shelf can take its word for who's there instead of asking again. Set the
-header the proxy puts the person's name in, and the proxy's addresses, the only ones Shelf
-believes it from:
+header the proxy puts the person's name in, and the proxy's own address: the only place
+Shelf believes it from. Give the proxy a fixed address on a network of its own, and take
+away Shelf's `ports:`, so nothing reaches Shelf except through the proxy:
 
 ```yaml
+services:
+  shelf:
+    image: ghcr.io/spinjitsudoom/shelf:latest
+    # no ports: here — only the proxy can reach Shelf
+    volumes:
+      - ./shelf-data:/data
+      - /path/to/your/music:/music:ro
     environment:
+      FORWARDED_ALLOW_IPS: "10.89.0.2"
       SHELF_PROXY_USER_HEADER: Remote-User
-      SHELF_PROXY_TRUSTED: 172.16.0.0/12      # Docker's own networks; or the proxy's address
+      SHELF_PROXY_TRUSTED: "10.89.0.2"          # the proxy, and nothing else
+    networks: [music]
+  proxy:
+    # your Caddy, nginx or Traefik, with Authelia or Authentik in front
+    networks:
+      music:
+        ipv4_address: 10.89.0.2
+networks:
+  music:
+    ipam:
+      config:
+        - subnet: 10.89.0.0/24
 ```
 
-The proxy must set that header itself on every request, replacing any copy a visitor sends
-(Authelia, Authentik and Caddy's `forward_auth` do), and Shelf must only be reachable through
-the proxy. Someone Shelf hasn't met gets an account of their own. Subsonic apps behind the proxy that send
-no password of their own are signed in the same way. Apps that do send one (and API keys) work
-as usual.
+Don't trust a whole range like `172.16.0.0/12`: with Shelf's port published, Docker can pass
+outside connections on from an address in that range, and then anyone could send the header.
+
+The proxy must set the header itself on every request, replacing any copy a visitor sends
+(Authelia, Authentik and Caddy's `forward_auth` do). Someone Shelf hasn't met gets an account
+of their own; names Shelf can't use as they are are made to fit (`alice@example.com` becomes
+`alice_example.com`). Subsonic apps behind the proxy that send no password of their own are
+signed in the same way, and so is Connect. Apps that do send one (and API keys) work as usual.
 
 If you'd rather not open anything to the internet, Tailscale is simpler: see "Listening away
 from home" in the README.
