@@ -1,0 +1,55 @@
+# The Shelf server as a container image, for PCs and servers (amd64) and Raspberry Pi and other
+# ARM boards (arm64): ghcr.io/spinjitsudoom/shelf. A release tag (v1.2.3) publishes :1.2.3, :1.2
+# and :latest. Running it by hand (Actions tab) builds both without publishing anything.
+name: Docker
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    name: Server image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Sign in to GitHub's registry
+        if: github.ref_type == 'tag'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/shelf
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+          labels: |
+            org.opencontainers.image.title=Shelf
+            org.opencontainers.image.description=A self-hosted music server and player
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.ref_type == 'tag' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Try the amd64 image
+        if: github.ref_type == 'tag'
+        run: |
+          docker run -d --name shelf -p 4533:4533 ghcr.io/${{ github.repository_owner }}/shelf:latest
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:4533/api/ping && exit 0; sleep 2; done
+          docker logs shelf; exit 1

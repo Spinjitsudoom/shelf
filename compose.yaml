@@ -1,0 +1,16 @@
+# Shelf with Docker Compose:   docker compose up -d   then open http://<this computer>:4533
+# The first person to open it makes the admin account. See docs/docker.md for more.
+services:
+  shelf:
+    image: ghcr.io/spinjitsudoom/shelf:latest
+    container_name: shelf
+    restart: unless-stopped
+    ports:
+      - "4533:4533"
+    volumes:
+      - ./shelf-data:/data           # accounts, library database, covers: keep this
+      - /path/to/your/music:/music:ro  # your music (Shelf never changes it)
+    # user: "1000:1000"              # run as the owner of the music and ./shelf-data
+    environment:
+      TZ: Europe/London              # your time zone: "only at night", daily mixes and stats use it
+      # FORWARDED_ALLOW_IPS: "*"     # behind a reverse proxy (Caddy, nginx, Traefik): see docs/docker.md

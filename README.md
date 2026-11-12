@@ -86,6 +86,13 @@ and **players** on the devices you listen on. Everything is on the
   (Open Shelf, Start with Windows, Quit) and has ffmpeg built in. Windows asks once whether
   to let it on the network: allow it, so your phone can reach it. Tempo and key analysis,
   "sounds like", CD ripping and the DJ aren't available on Windows.
+- **Docker** (PCs, servers, Raspberry Pi and other ARM boards): `ghcr.io/spinjitsudoom/shelf`.
+  See [docs/docker.md](docs/docker.md) for the Compose file, Raspberry Pi notes and reverse
+  proxies (Caddy, nginx, Traefik).
+
+  ```bash
+  docker run -d --name shelf -p 4533:4533 -v ./shelf-data:/data -v /path/to/music:/music:ro ghcr.io/spinjitsudoom/shelf
+  ```
 - **From the source code** (any system with [uv](https://docs.astral.sh/uv/) and `ffmpeg`):
 
   ```bash
@@ -449,8 +456,15 @@ send the password itself can use either). **Turn off** stops every app using it.
 
 In those apps, starring a song likes it in Shelf, playlists are your Shelf playlists, and
 what you play counts as a play (and goes on to ListenBrainz or Last.fm if you've connected
-them). Albums and artists can be starred too. Smaller copies are made when an app asks for a
-lower bitrate. Bookmarks in those apps are the same places in long tracks as Shelf keeps.
+them). Albums and artists can be starred too. Bookmarks in those apps are the same places in
+long tracks as Shelf keeps.
+
+Everything in the Subsonic and OpenSubsonic API is there: the podcasts you follow (keeping an
+episode there puts it in Your Episodes), share links, internet radio stations (an admin adds
+them), the play queue across devices, songs that sound alike (from Shelf's own listening), and
+conversions to MP3, Opus, AAC or FLAC at the bitrate the app asks for, starting anywhere in the
+song. Newer apps can sign in with an **API key** instead (**Settings → Account → API keys**:
+make one per app, remove it to sign that app out).
 
 ## Chromecast
 

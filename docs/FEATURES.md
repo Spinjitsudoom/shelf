@@ -224,7 +224,9 @@ Redmi 9.
 - **Waiting on the owner:** Last.fm API key and secret; whether AcoustID auto-tagging is wanted
   and how far it may go; whether admins should be told when a request comes in.
 - **Unreleased on main:** complete Subsonic/OpenSubsonic support (see Admin and operations), API keys in Settings,
-  big-library speed and memory work, and the admin's "Measuring songs" setting (any time / only at night / never,
+  big-library speed and memory work, a Docker image (`Dockerfile`, `compose.yaml`, `docker/config.toml`,
+  `.github/workflows/docker.yml` publishes amd64+arm64 to ghcr.io/spinjitsudoom/shelf on release tags; guide in
+  docs/docker.md; ARM builds skip Essentia and use the dsp engine; ~1.2 GB, mostly Debian's ffmpeg), and the admin's "Measuring songs" setting (any time / only at night / never,
   `background.py`; every measuring job waits on `background.gate`).
 - **Scale (measured 2026-11-12 on a made-up 100,000-song library, fully "measured"):** full scan 23 s, unchanged
   rescan 2.5 s; every page under 0.6 s except the first Mixes of the day (5 s, made ahead of time in the
