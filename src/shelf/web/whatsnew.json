@@ -5,6 +5,7 @@
     "new": [
       {"title": "Secure connections", "text": "When your server has a secure address, Shelf moves to it by itself, still signed in, so passwords and music are encrypted away from home."},
       {"title": "Secure address", "text": "Give Shelf an https address for people away from home with one button (Tailscale Funnel), or use your own domain. Admin → Secure address.", "admin": true},
+      {"title": "Import playlists", "text": "Bring a playlist over from Spotify or YouTube (paste the link, or share it to Shelf on Android), another music player, or a list of songs. Shelf finds the songs in your library. Playlists → Import."},
       {"title": "What’s new", "text": "After each update, this window shows what’s new and what’s fixed, once. It’s in Settings too."}
     ],
     "fixed": [
