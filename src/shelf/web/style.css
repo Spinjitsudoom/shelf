@@ -2450,7 +2450,17 @@ input.range.balance::-moz-range-progress { background: transparent; }
 .ep-row.open .ep-desc { display: block; -webkit-line-clamp: unset; }
 .ep-progress { display: block; height: 3px; max-width: 220px; border-radius: 2px; background: var(--rule); overflow: hidden; margin-top: 2px; }
 .ep-progress span { display: block; height: 100%; background: var(--cobalt); }
-.ep-actions { flex: none; display: flex; align-items: center; gap: 6px; }
+.ep-actions { flex: none; display: flex; align-items: center; gap: 6px; align-self: center; }
+.ep-tools { display: flex; align-items: center; gap: 2px; margin: 2px 0 0 -10px; }
+.ep-tools .icon-btn { width: 40px; height: 40px; }
+.ep-tools .icon-btn svg { width: 22px; height: 22px; }
+.ep-tools .dl-btn .dl-ring { width: 24px; height: 24px; }
+.ep-save[aria-pressed="true"] { color: var(--cobalt); }
+.yours-cover { display: grid; place-items: center; background: linear-gradient(135deg, var(--cobalt), color-mix(in srgb, var(--cobalt) 55%, #000)); color: #fff; box-shadow: none; }
+.yours-cover svg { width: 38%; height: 38%; }
+.case-sm.yours-cover svg { width: 46%; height: 46%; }
+.yours-sort select { height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--rule); background: var(--sleeve); color: var(--ink); font: inherit; }
+.your-episodes .chips { margin: 4px 0 8px; }
 .ep-done[aria-pressed="true"] { color: var(--cobalt); }
 .ep-play { width: 40px; height: 40px; border-radius: 999px; border: 0; display: grid; place-items: center; cursor: pointer;
   background: var(--ink); color: var(--tray); }
@@ -2467,7 +2477,6 @@ input.range.balance::-moz-range-progress { background: transparent; }
 @media (max-width: 560px) {
   .ep-row { gap: 10px; }
   .ep-art, .ep-art .case { width: 44px; }
-  .ep-actions { flex-direction: column-reverse; gap: 2px; }
 }
 .lib-find { display: grid; place-items: center; background: var(--sleeve); color: var(--ink); box-shadow: none; }
 .lib-find svg { width: 22px; height: 22px; }

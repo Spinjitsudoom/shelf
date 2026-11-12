@@ -97,6 +97,7 @@ data class MixDetail(
     val id: Int, val episodeId: Int, val podcastId: Int, val title: String, val album: String = "", val albumId: Int,
     val cover: String? = null, val duration: Double = 0.0, val codec: String? = null, val published: Double? = null,
     val description: String = "", val position: Double = 0.0, val finished: Boolean = false,
+    val saved: Boolean = false, val savedAt: Double? = null,
 ) {
     fun asTrack() = Track(id = id, title = title, artist = album, artists = listOf(album), album = album, albumId = albumId,
         albumArtist = album, cover = cover, duration = duration, codec = codec, kind = "episode", podcastId = podcastId, episodeId = episodeId)
@@ -111,7 +112,9 @@ data class MixDetail(
 
 @Serializable data class PodcastsHome(val shows: List<PodcastShow> = emptyList(),
                                       @kotlinx.serialization.SerialName("continue") val going: List<Episode> = emptyList(),
-                                      val new: List<Episode> = emptyList())
+                                      val new: List<Episode> = emptyList(), val saved: Int = 0)
+
+@Serializable data class SavedEpisodes(val episodes: List<Episode> = emptyList())
 
 @Serializable data class PodcastResult(val title: String, val author: String = "", val feedUrl: String, val image: String? = null,
                                        val episodes: Int? = null, val following: Boolean = false, val id: Int? = null)

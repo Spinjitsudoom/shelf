@@ -62,7 +62,13 @@ Last updated: 2026-11-12, after v0.7.8 shipped.
   a Podbean show page (`<name>.podbean.com` → `feed.podbean.com/<name>/feed.xml`), an Apple
   Podcasts page (lookup API), or any page with `<link rel=alternate type=application/rss+xml>`.
   Feeds are stored once (`podcasts`, `episodes`), followed per person (`podcast_subs`), checked
-  every 2 h while followed (`Refresher`), and dropped when nobody follows them. **Episodes are
+  every 2 h while followed (`Refresher`), and dropped when nobody follows them and nobody kept an
+  episode of them. **Your Episodes** (`episode_saves`, `/api/podcasts/saved`, web `#/episodes`,
+  Android `YourEpisodesScreen`): a bookmark on each episode keeps it there; a download button
+  keeps it on the device (web IndexedDB collection kind "episode", Android `Downloadable` kind
+  "episode") and saves it too; taking an episode out deletes its download. Pinned in the Library
+  under Favourites, with Unplayed / Downloaded / In progress filters and Recently added or
+  Release date order; offline it lists what's downloaded. **Episodes are
   tracks with ids ≥ 1,000,000,000** (`EP_BASE` + episode id) and show artwork is album
   `SHOW_BASE` + show id, so queue, Connect, lock screen, Android downloads and resume work
   unchanged; `/api/tracks/{id}/stream` proxies the audio from the host (Range passed through),

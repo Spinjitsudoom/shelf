@@ -50,7 +50,7 @@ import kotlinx.coroutines.coroutineScope
 import app.shelf.ui.theme.Shelf as Theme
 
 private data class LibraryData(val playlists: List<PlaylistSummary>, val albums: List<Album>, val artists: List<ArtistSummary>,
-                               val shows: List<app.shelf.data.PodcastShow> = emptyList())
+                               val shows: List<app.shelf.data.PodcastShow> = emptyList(), val savedEpisodes: Int = 0)
 
 /** Names compared the way the server does: case and accents don't matter. */
 private fun fold(name: String) = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFKD)
@@ -62,7 +62,9 @@ private enum class Filter(val label: String) { Playlists("Playlists"), Podcasts(
 fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (Int) -> Unit, onAlbum: (Int) -> Unit, onArtist: (String) -> Unit,
                   signedOut: SignedOutHandler, onNewPlaylist: ((String) -> Unit)? = null,
                   onMakePlaylist: (suspend (String) -> String?)? = null, onImport: (() -> Unit)? = null,
-                  shows: (suspend () -> List<app.shelf.data.PodcastShow>)? = null, onShow: (Int) -> Unit = {}, onFindPodcasts: (() -> Unit)? = null) {
+                  podcasts: (suspend () -> app.shelf.data.PodcastsHome)? = null, onShow: (Int) -> Unit = {}, onFindPodcasts: (() -> Unit)? = null,
+                  onEpisodes: (() -> Unit)? = null) {
+    val shows = podcasts
     var naming by rememberSaveable { mutableStateOf(false) }
     var making by rememberSaveable { mutableStateOf(false) }
     if (naming && onNewPlaylist != null) app.shelf.ui.common.NameDialog("New playlist", "", "Create", onNewPlaylist, { naming = false })
@@ -71,8 +73,9 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
         coroutineScope {
             val p = async { source.playlists() }; val a = async { source.albums("recent") }; val r = async { source.artists() }
             // The podcasts you follow sit in the Library too (none offline).
-            val s = async { try { shows?.invoke() ?: emptyList() } catch (e: app.shelf.data.ShelfError) { emptyList() } }
-            LibraryData(p.await(), a.await(), r.await(), s.await())
+            val s = async { try { podcasts?.invoke() } catch (e: app.shelf.data.ShelfError) { null } }
+            val pods = s.await()
+            LibraryData(p.await(), a.await(), r.await(), pods?.shows.orEmpty(), pods?.saved ?: 0)
         }
     }
     var filter by rememberSaveable { mutableStateOf<Filter?>(null) }
@@ -86,6 +89,13 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
         val tidy = follows.isNotEmpty() && !everything
         val albums = if (!tidy) d.albums else d.albums.filter { a -> a.artists.ifEmpty { listOf(a.artist) }.any { fold(it) in follows } }
         val artists = if (!tidy) d.artists else d.artists.filter { it.following }
+        // Your Episodes, pinned: once you have podcasts, kept an episode or downloaded one.
+        val episodesDownloaded = downloaded.count { it.kind == "episode" }
+        val yourEpisodes = onEpisodes != null && (d.savedEpisodes > 0 || d.shows.isNotEmpty() || episodesDownloaded > 0)
+        val yourEpisodesRow: @Composable () -> Unit = {
+            LibraryRow("Your Episodes", "Playlist, " + if (d.savedEpisodes > 0) plural(d.savedEpisodes, "episode") else "saved and downloaded episodes",
+                { onEpisodes?.invoke() }) { YourEpisodesCover(Modifier.fillMaxSize()) }
+        }
         LazyColumn(Modifier.fillMaxSize()) {
             item {
                 Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 8.dp, top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -134,12 +144,14 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
                     }
                 }
                 item { LibraryRow("Favourites", "Playlist", onFavourites) { FavouritesCover() } }
+                if (filter == null && yourEpisodes) item { yourEpisodesRow() }
                 items(d.playlists, key = { "p${it.id}" }) { p ->
                     LibraryRow(p.name, "Playlist, ${plural(p.trackCount, "song")}", { onPlaylist(p.id) }) {
                         MosaicCover(p.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 160) }, p.name, albumColor(null, p.name))
                     }
                 }
             }
+            if (filter == Filter.Podcasts && yourEpisodes) item { yourEpisodesRow() }
             if (filter == null || filter == Filter.Podcasts) items(d.shows, key = { "s${it.id}" }) { s ->
                 LibraryRow(s.title, "Podcast, " + if (s.unplayed > 0) "${s.unplayed} to hear" else s.author.ifBlank { "all heard" }, { onShow(s.id) }) {
                     CaseCover(source.coverUrl(s.albumId, s.cover, 160), s.title, albumColor(null, s.title))
@@ -163,9 +175,11 @@ fun LibraryScreen(source: LibrarySource, onFavourites: () -> Unit, onPlaylist: (
                 }
             }
             if (filter == Filter.Downloaded) items(downloaded, key = { "d${it.key}" }) { c ->
-                val open = { when (c.kind) { "album" -> onAlbum(c.id); "playlist" -> onPlaylist(c.id); else -> onFavourites() } }
-                LibraryRow(c.name, listOf(c.kind.replaceFirstChar { it.uppercase() }, plural(c.tracks.size, "song")).joinToString(", "), open) {
+                val open = { when (c.kind) { "album" -> onAlbum(c.id); "playlist" -> onPlaylist(c.id); "episode" -> onEpisodes?.invoke() ?: Unit; else -> onFavourites() } }
+                val what = if (c.kind == "episode") "Episode, ${c.subtitle}" else listOf(c.kind.replaceFirstChar { it.uppercase() }, plural(c.tracks.size, "song")).joinToString(", ")
+                LibraryRow(c.name, what, open) {
                     when (c.kind) {
+                        "episode" -> c.covers.firstOrNull().let { cv -> CaseCover(cv?.let { source.coverUrl(it.albumId, it.cover, 160) }, c.subtitle, albumColor(null, c.subtitle)) }
                         "album" -> CaseCover(source.coverUrl(c.id, c.covers.firstOrNull()?.cover, 160), c.name, albumColor(c.color, c.name))
                         "playlist" -> MosaicCover(c.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 160) }, c.name, albumColor(null, c.name))
                         else -> FavouritesCover()

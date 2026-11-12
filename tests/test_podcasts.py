@@ -204,3 +204,28 @@ def test_old_shows_still_reach_home_and_search(client, feeds):
     # A pasted link is read all the same.
     r = client.get("/api/podcasts/search", params={"q": "someshow.podbean.com", "live": 1}).json()
     assert r["results"][0]["feedUrl"] == FEED
+
+
+def test_your_episodes(client, feeds):
+    login(client)
+    show = client.post("/api/podcasts", json={"feedUrl": FEED}).json()
+    one, two = show["episodeList"][1], show["episodeList"][0]
+    assert not one["saved"] and client.get("/api/podcasts/saved").json()["episodes"] == []
+    assert client.put(f"/api/podcasts/episodes/{one['episodeId']}/saved").json()["saved"]
+    client.put(f"/api/podcasts/episodes/{two['episodeId']}/saved")
+    client.put(f"/api/podcasts/episodes/{one['episodeId']}/saved")  # again: still once, still where it was
+    with session(client.app.state.cfg.db_path) as conn:  # kept one after the other
+        conn.execute("UPDATE episode_saves SET saved_at = saved_at - 60 WHERE episode_id = ?", (one["episodeId"],))
+    mine = client.get("/api/podcasts/saved").json()["episodes"]
+    assert [e["title"] for e in mine] == ["Episode 2: Again", "Episode 1: Hello"] and all(e["saved"] for e in mine)
+    assert client.get("/api/podcasts").json()["saved"] == 2
+    assert client.get(f"/api/podcasts/{show['id']}").json()["episodeList"][1]["saved"]
+    assert client.put(f"/api/podcasts/episodes/{podcasts.EP_BASE}/saved").status_code == 404
+
+    # Unfollowing keeps the show while you've kept an episode of it; it goes with the last one.
+    client.delete(f"/api/podcasts/{show['id']}")
+    assert [e["title"] for e in client.get("/api/podcasts/saved").json()["episodes"]] == ["Episode 2: Again", "Episode 1: Hello"]
+    client.delete(f"/api/podcasts/episodes/{two['episodeId']}/saved")
+    assert client.get(f"/api/podcasts/{show['id']}").status_code == 200
+    client.delete(f"/api/podcasts/episodes/{one['episodeId']}/saved")
+    assert client.get(f"/api/podcasts/{show['id']}").status_code == 404

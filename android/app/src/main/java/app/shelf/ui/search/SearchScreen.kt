@@ -170,7 +170,7 @@ fun SearchScreen(api: ShelfApi, onPlay: (List<Track>, Int, PlayContext) -> Unit,
                     items(res.episodes, key = { "e${it.id}" }) { e ->
                         app.shelf.ui.browse.EpisodeRow(e, api, { tracks, i, ctx -> remember(query); onPlay(tracks, i, ctx) }, { done ->
                             scope.launch { try { api.markEpisode(e.episodeId, done); vm.refresh() } catch (x: app.shelf.data.ShelfError) { say(x.message ?: "Couldn’t reach the server") } }
-                        }, withShow = true, onShow = onShow)
+                        }, withShow = true, onShow = onShow, api = api, say = say)
                     }
                     if (toFollow.isNotEmpty()) item { SectionTitle("Podcasts to follow") }
                     items(toFollow, key = { "f" + it.feedUrl }) { p ->

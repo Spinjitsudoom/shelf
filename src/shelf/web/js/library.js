@@ -35,6 +35,7 @@ export function mountLibrary(root, player) {
   let albums = [], artists = [], playlists = [], shows = [];
 
   let loading = Promise.resolve();
+  let savedEpisodes = 0; // in Your Episodes
   function load() {
     loading = loadNow();
     return loading;
@@ -43,7 +44,7 @@ export function mountLibrary(root, player) {
   async function loadNow() {
     try {
       [albums, artists, playlists, shows] = await Promise.all([api.albums("recent"), api.artists(), api.playlists(),
-        api.podcasts().then((p) => p.shows).catch(() => [])]);
+        api.podcasts().then((p) => { savedEpisodes = p.saved || 0; return p.shows; }).catch(() => [])]);
     } catch (e) {
       if (e.status !== 0) return;
       // Offline: what's downloaded.
@@ -53,6 +54,7 @@ export function mountLibrary(root, player) {
       playlists = saved.filter((c) => c.kind === "playlist").map((c) => ({ ...c.data, updatedAt: c.savedAt / 1000 }));
       artists = [];
       shows = [];
+      savedEpisodes = saved.filter((c) => c.kind === "episode").length;
     }
     // An artist is as recent as their most recently played or added album.
     const recency = new Map();
@@ -103,6 +105,10 @@ export function mountLibrary(root, player) {
     shown.sort(cmp);
     // Under Podcasts: a way to find more, at the end.
     if (filter === "podcasts" && !q) shown.push({ kind: "find-podcasts" });
+    // Your Episodes, pinned under Favourites, once you have podcasts or kept an episode.
+    const episodesDownloaded = offline.list().some((c) => c.kind === "episode");
+    if ((dl ? episodesDownloaded : (!filter || filter === "podcasts") && (savedEpisodes || shows.length))
+        && (!q || fold("your episodes").includes(q))) shown.unshift({ kind: "episodes" });
     // Favourites stays pinned at the top.
     if ((!filter || filter === "playlists" || (dl && offline.isSaved("liked"))) && (!q || fold("favourites").includes(q))) shown.unshift({ kind: "liked" });
     return shown;
@@ -126,6 +132,13 @@ export function mountLibrary(root, player) {
           ${playlistCover(p, { cls: "lib-cover" })}
           <span class="lib-text"><span class="lib-name">${esc(p.name)}</span><span class="lib-sub">${dlMark(`playlist:${p.id}`)}Playlist • ${p.mine === false ? esc(p.owner?.username ?? "") : plural(p.trackCount, "song")}</span></span>
           <svg class="lib-playing" aria-label="Playing"><use href="#i-volume"/></svg>
+        </a>`;
+    }
+    if (it.kind === "episodes") {
+      return `
+        <a class="lib-item" role="listitem" href="#/episodes" title="Your Episodes">
+          <span class="case case-sm yours-cover" aria-hidden="true"><svg><use href="#i-saved"/></svg></span>
+          <span class="lib-text"><span class="lib-name">Your Episodes</span><span class="lib-sub"><svg class="lib-pin" aria-label="Pinned"><use href="#i-pin"/></svg>Playlist • ${savedEpisodes ? plural(savedEpisodes, "episode") : "Saved and downloaded episodes"}</span></span>
         </a>`;
     }
     if (it.kind === "find-podcasts") {

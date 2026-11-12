@@ -33,7 +33,7 @@ import {
   features,
 } from "./views.js";
 import { requestsView } from "./requests.js";
-import { podcastsView, podcastView } from "./podcasts.js";
+import { podcastsView, podcastView, yourEpisodesView } from "./podcasts.js";
 import { offline } from "./offline.js";
 import { claimHandoff, moveToSecure } from "./secure.js";
 
@@ -91,6 +91,7 @@ function parseRoute() {
         : { name: "album", id: Number(parts[1]), nav: "albums" };
     case "podcasts": return { name: "podcasts", q: params.get("q") || "", nav: "podcasts" };
     case "podcast": return { name: "podcast", id: Number(parts[1]), nav: "podcasts" };
+    case "episodes": return { name: "episodes", nav: "podcasts" };
     case "artists": return { name: "artists", nav: "artists" };
     case "artist": return { name: "artist", artist: decodeURIComponent(parts.slice(1).join("/")), nav: "artists" };
     case "search": return { name: "search", q: params.get("q") || "", nav: "search" };
@@ -147,6 +148,7 @@ async function drawRoute(route, key) {
       case "requests": await requestsView(view, { admin: !!session.user?.admin, artist: route.artist }); break;
       case "podcasts": await podcastsView(view, player, { q: route.q }); break;
       case "podcast": await podcastView(view, route.id, player); break;
+      case "episodes": await yourEpisodesView(view, player, { me: session.user?.username ?? "" }); break;
       case "people": {
         await peopleView(view);
         // Keep it live while it's open.

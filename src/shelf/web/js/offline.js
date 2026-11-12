@@ -1,4 +1,4 @@
-// Downloads: albums, playlists and Favourites saved on this device, to play with no
+// Downloads: albums, playlists, Favourites and podcast episodes saved on this device, to play with no
 // connection.
 //
 // Everything lives in IndexedDB (it works over plain http, where service workers don't):
@@ -93,8 +93,11 @@ const ready = (async () => {
   pump();
 })();
 
+/** The songs (or the one episode) a collection is made of. */
+const listOf = (kind, data) => (kind === "liked" ? data : kind === "episode" ? (data ? [data] : []) : data?.tracks);
+
 function tracksOf(c) {
-  const list = c.kind === "liked" ? c.data : c.data?.tracks;
+  const list = listOf(c.kind, c.data);
   return Array.isArray(list) ? list : [];
 }
 
@@ -198,6 +201,7 @@ async function cleanUp() {
 function describe(kind, data) {
   if (kind === "album") return { title: data.title, sub: data.artist };
   if (kind === "playlist") return { title: data.name, sub: "Playlist" };
+  if (kind === "episode") return { title: data.title, sub: data.album };
   return { title: "Favourites", sub: "Playlist" };
 }
 
@@ -236,7 +240,7 @@ export const offline = {
     await ready;
     if (!db) throw new Error("This browser can’t store downloads");
     const key = kind === "liked" ? "liked" : `${kind}:${id}`;
-    const tracks = kind === "liked" ? data : data.tracks;
+    const tracks = listOf(kind, data);
     const c = {
       key, kind, id, ...describe(kind, data), data,
       trackIds: tracks.map((t) => t.id),
@@ -256,7 +260,7 @@ export const offline = {
   async refresh(key, data) {
     const c = collections.get(key);
     if (!c) return;
-    const tracks = c.kind === "liked" ? data : data.tracks;
+    const tracks = listOf(c.kind, data);
     const same = tracks.length === c.trackIds.length && tracks.every((t, i) => t.id === c.trackIds[i]);
     if (same) return;
     await offline.save(c.kind, c.id, data);

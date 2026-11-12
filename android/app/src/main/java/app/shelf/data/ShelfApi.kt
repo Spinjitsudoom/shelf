@@ -59,6 +59,9 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     suspend fun refreshPodcast(id: Int): PodcastShow = call("api/podcasts/$id/refresh", PodcastShow.serializer(), "{}".toRequestBody(JSON))
     suspend fun markEpisode(episodeId: Int, finished: Boolean) =
         send("PUT", "api/podcasts/episodes/$episodeId", buildJsonObject { put("finished", finished) }.toString())
+    /** Keep an episode in Your Episodes, or take it out. */
+    suspend fun saveEpisode(episodeId: Int, on: Boolean) = send(if (on) "PUT" else "DELETE", "api/podcasts/episodes/$episodeId/saved")
+    suspend fun savedEpisodes(): List<Episode> = call("api/podcasts/saved", SavedEpisodes.serializer()).episodes
 
     /** Something on Home was opened from this row; rows that get used move up. */
     suspend fun homeUsed(row: String) = send("POST", "api/home/used", buildJsonObject { put("row", row) }.toString())

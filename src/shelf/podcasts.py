@@ -289,8 +289,9 @@ def follow(conn, user_id: int, pid: int, now: float | None = None) -> None:
 
 def unfollow(conn, user_id: int, pid: int) -> None:
     conn.execute("DELETE FROM podcast_subs WHERE user_id = ? AND podcast_id = ?", (user_id, pid))
-    # Nobody follows it any more: the show and what people kept of it go.
-    if not conn.execute("SELECT 1 FROM podcast_subs WHERE podcast_id = ?", (pid,)).fetchone():
+    # Nobody follows it any more, and nobody kept an episode of it: the show goes.
+    if not conn.execute("SELECT 1 FROM podcast_subs WHERE podcast_id = ?", (pid,)).fetchone() and not conn.execute(
+            "SELECT 1 FROM episode_saves v JOIN episodes e ON e.id = v.episode_id WHERE e.podcast_id = ?", (pid,)).fetchone():
         conn.execute("DELETE FROM podcasts WHERE id = ?", (pid,))
 
 
@@ -309,7 +310,7 @@ def codec(mime: str) -> str:
             "audio/ogg": "vorbis", "audio/opus": "opus", "audio/wav": "pcm", "audio/flac": "flac"}.get(mime, "mp3")
 
 
-def episode_json(e, show, state=None) -> dict:
+def episode_json(e, show, state=None, saved_at: float | None = None) -> dict:
     """An episode as the players see a track, plus what's only an episode's."""
     return {
         "id": EP_BASE + e["id"], "kind": "episode", "episodeId": e["id"], "podcastId": show["id"],
@@ -321,6 +322,7 @@ def episode_json(e, show, state=None) -> dict:
         "key": None, "camelot": None, "mix": None,
         "published": e["published_at"], "description": e["description"] or "",
         "position": state["position"] if state else 0, "finished": bool(state["finished"]) if state else False,
+        "saved": saved_at is not None, "savedAt": saved_at,
     }
 
 
@@ -370,6 +372,20 @@ def mark(conn, user_id: int, episode_id: int, finished: bool, now: float | None 
            ON CONFLICT(user_id, episode_id) DO UPDATE SET position = 0, finished = excluded.finished,
              updated_at = excluded.updated_at""",
         (user_id, episode_id, int(finished), now or time.time()))
+
+
+def save(conn, user_id: int, episode_id: int, on: bool, now: float | None = None) -> None:
+    """Keep an episode in Your Episodes, or take it out."""
+    if on:
+        conn.execute("INSERT OR IGNORE INTO episode_saves(user_id, episode_id, saved_at) VALUES(?, ?, ?)",
+                     (user_id, episode_id, now or time.time()))
+        return
+    conn.execute("DELETE FROM episode_saves WHERE user_id = ? AND episode_id = ?", (user_id, episode_id))
+    # A show nobody follows stays only for the episodes people kept.
+    pid = conn.execute("SELECT podcast_id FROM episodes WHERE id = ?", (episode_id,)).fetchone()
+    if pid and not conn.execute("SELECT 1 FROM podcast_subs WHERE podcast_id = ?", (pid[0],)).fetchone() and not conn.execute(
+            "SELECT 1 FROM episode_saves v JOIN episodes e ON e.id = v.episode_id WHERE e.podcast_id = ?", (pid[0],)).fetchone():
+        conn.execute("DELETE FROM podcasts WHERE id = ?", (pid[0],))
 
 
 # ---------- artwork ----------

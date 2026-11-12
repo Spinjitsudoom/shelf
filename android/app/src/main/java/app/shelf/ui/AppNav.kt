@@ -71,6 +71,7 @@ object Routes {
     const val PEOPLE = "people"
     const val STATS = "stats"
     const val PODCASTS = "podcasts"
+    const val EPISODES = "episodes"
     fun podcast(id: Int) = "podcast/$id"
     fun wrapped(year: Int) = "wrapped/$year"
     fun blend(id: Int) = "blend/$id"
@@ -236,12 +237,16 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                         } catch (e: app.shelf.data.ShelfError.Server) { e.message } catch (e: app.shelf.data.ShelfError) { failed }
                     } },
                     onImport = api?.let { { importing = "" } },
-                    shows = api?.let { a -> { a.podcasts().shows } }, onShow = { nav.navigate(Routes.podcast(it)) },
-                    onFindPodcasts = api?.let { { nav.navigate(Routes.PODCASTS) } })
+                    podcasts = api?.let { a -> { a.podcasts() } }, onShow = { nav.navigate(Routes.podcast(it)) },
+                    onFindPodcasts = api?.let { { nav.navigate(Routes.PODCASTS) } },
+                    onEpisodes = api?.let { { nav.navigate(Routes.EPISODES) } })
             }
             if (api != null) {
                 composable(Routes.PODCASTS) {
                     PodcastsScreen(api, source, { nav.navigate(Routes.podcast(it)) }, onPlay, signedOut, say)
+                }
+                composable(Routes.EPISODES) {
+                    app.shelf.ui.browse.YourEpisodesScreen(api, source, container.store.username, onPlay, { nav.navigate(Routes.podcast(it)) }, back, signedOut, say)
                 }
                 composable("podcast/{id}", listOf(navArgument("id") { type = NavType.IntType })) {
                     PodcastScreen(it.arguments!!.getInt("id"), api, source, onPlay, back, signedOut, say)

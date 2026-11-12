@@ -1153,11 +1153,13 @@ export function refreshDownloads(root = document) {
 
 function downloadRow(c) {
   const st = offline.state(c.key);
-  const href = c.kind === "liked" ? "#/liked" : `#/${c.kind}/${c.id}`;
+  const href = c.kind === "liked" ? "#/liked" : c.kind === "episode" ? "#/episodes" : `#/${c.kind}/${c.id}`;
   const art = c.kind === "liked" ? likedCover("lib-cover")
     : c.kind === "playlist" ? playlistCover(c.data, { cls: "lib-cover" })
+    : c.kind === "episode" ? caseHtml({ id: c.data.albumId, cover: c.data.cover, title: c.data.album }, { size: 160, cls: "case-sm", sizes: "56px" })
     : caseHtml(c.data, { size: 160, cls: "case-sm", sizes: "56px" });
-  const what = c.kind === "album" ? `Album, ${esc(c.data.artist)}` : `Playlist, ${plural(c.trackIds.length, "song")}`;
+  const what = c.kind === "album" ? `Album, ${esc(c.data.artist)}` : c.kind === "episode" ? `Episode, ${esc(c.data.album)}`
+    : `Playlist, ${plural(c.trackIds.length, "song")}`;
   const status = st.downloading ? `Downloading ${st.done} of ${st.total}` : st.failed ? `${plural(st.failed, "song")} couldn’t be saved` : "";
   return `
     <div class="dl-row">
@@ -1167,6 +1169,13 @@ function downloadRow(c) {
       </a>
       ${downloadButton(c.kind, c.id)}
     </div>`;
+}
+
+/** "12 songs and 2 episodes" */
+function onDevice(list) {
+  const episodes = list.filter((c) => c.kind === "episode" && offline.has(c.data?.id)).length;
+  const songs = offline.count() - episodes;
+  return [songs || !episodes ? plural(songs, "song") : "", episodes ? plural(episodes, "episode") : ""].filter(Boolean).join(" and ");
 }
 
 /** Everything downloaded to this device. It's also what Home shows with no connection. */
@@ -1180,11 +1189,11 @@ export async function downloadsView(el) {
     <div class="page downloads">
       <header class="page-head"><h1 class="page-title">Downloads</h1></header>
       <p class="dl-summary">${list.length
-        ? `${plural(offline.count(), "song")} on this device, ${fmtBytes(bytes)}.${pending ? ` ${plural(pending, "song")} still to download.` : ""}`
+        ? `${onDevice(list)} on this device, ${fmtBytes(bytes)}.${pending ? ` ${pending} more still to download.` : ""}`
         : ""}</p>
       ${list.length ? `<div class="dl-list">${list.map(downloadRow).join("")}</div>` : `
         <div class="empty"><strong>Nothing downloaded yet</strong>
-          Use the download button on an album, a playlist or Favourites to keep it on this device and play it with no connection.</div>`}
+          Use the download button on an album, a playlist, Favourites or a podcast episode to keep it on this device and play it with no connection.</div>`}
     </div>`;
   refreshDownloads(el);
 }

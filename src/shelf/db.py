@@ -238,6 +238,14 @@ CREATE TABLE IF NOT EXISTS episode_state (
     PRIMARY KEY (user_id, episode_id)
 );
 
+-- Your Episodes: episodes someone kept to hear later (or downloaded), newest kept first.
+CREATE TABLE IF NOT EXISTS episode_saves (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    episode_id INTEGER NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+    saved_at   REAL NOT NULL,
+    PRIMARY KEY (user_id, episode_id)
+);
+
 -- Which Home rows someone opens things from (home.py): rows they use climb, others sink.
 CREATE TABLE IF NOT EXISTS home_taps (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

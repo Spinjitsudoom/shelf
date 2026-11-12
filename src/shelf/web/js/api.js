@@ -140,6 +140,8 @@ export const api = {
   unfollowPodcast: (id) => request("DELETE", `podcasts/${id}`).then((r) => { podcastsChanged(); return r; }),
   refreshPodcast: (id) => request("POST", `podcasts/${id}/refresh`),
   markEpisode: (eid, finished) => request("PUT", `podcasts/episodes/${eid}`, { finished }),
+  saveEpisode: (eid, on) => request(on ? "PUT" : "DELETE", `podcasts/episodes/${eid}/saved`).then((r) => { podcastsChanged(); return r; }),
+  savedEpisodes: () => request("GET", "podcasts/saved"),
   albums: (sort = "artist") => cached(`albums?sort=${encodeURIComponent(sort)}`),
   artistAlbums: (name) => cached(`albums?artist=${encodeURIComponent(name)}`),
   // Each track carries its album's loudness, for album-mode volume normalization.

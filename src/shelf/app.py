@@ -2469,18 +2469,19 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                GROUP BY p.id ORDER BY latest DESC""", (me_id, me_id)).fetchall()
         return [podcasts.show_json(r, r["n"], r["unplayed"] or 0, r["latest"]) for r in rows]
 
-    def _episode_rows(conn, me_id: int, where: str, params: tuple, limit: int) -> list[dict]:
+    def _episode_rows(conn, me_id: int, where: str, params: tuple, limit: int, order: str = "e.published_at DESC") -> list[dict]:
         rows = conn.execute(
-            f"""SELECT e.*, st.position AS st_position, st.finished AS st_finished FROM episodes e
+            f"""SELECT e.*, st.position AS st_position, st.finished AS st_finished, sv.saved_at AS sv_saved_at FROM episodes e
                 LEFT JOIN episode_state st ON st.episode_id = e.id AND st.user_id = ?
-                WHERE {where} ORDER BY e.published_at DESC LIMIT ?""", (me_id, *params, limit)).fetchall()
+                LEFT JOIN episode_saves sv ON sv.episode_id = e.id AND sv.user_id = ?
+                WHERE {where} ORDER BY {order} LIMIT ?""", (me_id, me_id, *params, limit)).fetchall()
         shows = {}
         out = []
         for r in rows:
             show = shows.get(r["podcast_id"]) or conn.execute("SELECT * FROM podcasts WHERE id = ?", (r["podcast_id"],)).fetchone()
             shows[r["podcast_id"]] = show
             st = {"position": r["st_position"] or 0, "finished": r["st_finished"] or 0}
-            out.append(podcasts.episode_json(r, show, st))
+            out.append(podcasts.episode_json(r, show, st, r["sv_saved_at"]))
         return out
 
     @app.get("/api/podcasts")
@@ -2494,7 +2495,16 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             going = _episode_rows(conn, me_id, f"{mine} AND st.position > 0 AND COALESCE(st.finished, 0) = 0", (me_id,), 20)
             fresh = _episode_rows(conn, me_id, f"{mine} AND COALESCE(st.finished, 0) = 0 AND COALESCE(st.position, 0) = 0 "
                                                "AND e.published_at > ?", (me_id, time.time() - 14 * 86400), 30)
-        return {"shows": shows, "continue": going, "new": fresh}
+            saved = conn.execute("SELECT COUNT(*) FROM episode_saves WHERE user_id = ?", (me_id,)).fetchone()[0]
+        return {"shows": shows, "continue": going, "new": fresh, "saved": saved}
+
+    @app.get("/api/podcasts/saved")
+    def saved_episodes():
+        """Your Episodes: the episodes you kept (or downloaded), the last one kept first."""
+        me_id = uid()
+        with db() as conn:
+            episodes = _episode_rows(conn, me_id, "sv.saved_at IS NOT NULL", (), 2000, order="sv.saved_at DESC")
+        return {"episodes": episodes}
 
     @app.get("/api/podcasts/search")
     async def find_podcasts(q: str = Query(..., min_length=2, max_length=500), live: bool = False):
@@ -2581,6 +2591,21 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 raise HTTPException(404, "Episode not found")
             podcasts.mark(conn, uid(), eid, body.finished)
         return {"ok": True, "finished": body.finished}
+
+    @app.put("/api/podcasts/episodes/{eid}/saved")
+    def save_episode(eid: int):
+        """Keep an episode in Your Episodes."""
+        with db() as conn:
+            if not conn.execute("SELECT 1 FROM episodes WHERE id = ?", (eid,)).fetchone():
+                raise HTTPException(404, "Episode not found")
+            podcasts.save(conn, uid(), eid, True)
+        return {"ok": True, "saved": True}
+
+    @app.delete("/api/podcasts/episodes/{eid}/saved")
+    def unsave_episode(eid: int):
+        with db() as conn:
+            podcasts.save(conn, uid(), eid, False)
+        return {"ok": True, "saved": False}
 
     # ---------- music videos ----------
 

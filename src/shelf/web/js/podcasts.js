@@ -2,6 +2,7 @@
 // Apple Podcasts, a feed...), then play episodes in the ordinary player, which keeps your place.
 
 import { api } from "./api.js";
+import { offline } from "./offline.js";
 import { caseHtml, esc, fmtLength, fmtTime, plural, toast } from "./util.js";
 
 const day = (ts) => ts ? new Date(ts * 1000).toLocaleDateString(undefined,
@@ -26,10 +27,17 @@ export function episodeRow(e, i, { withShow = false } = {}) {
         <button class="ep-title" type="button" data-ep-more aria-expanded="false">${esc(e.title)}</button>
         ${e.description ? `<p class="ep-desc">${esc(e.description)}</p>` : ""}
         ${pct ? `<span class="ep-progress" aria-hidden="true"><span style="width:${pct.toFixed(1)}%"></span></span>` : ""}
+        <div class="ep-tools">
+          <button class="icon-btn ep-save" type="button" data-ep-save aria-pressed="${!!e.saved}" title="${e.saved ? "Remove from Your Episodes" : "Save to Your Episodes"}"
+            aria-label="${e.saved ? "Remove from Your Episodes" : "Save to Your Episodes"}"><svg><use href="#i-${e.saved ? "saved" : "save"}"/></svg></button>
+          <button class="icon-btn dl-btn ep-dl" type="button" data-ep-dl data-dl="episode:${e.episodeId}" aria-pressed="false" aria-label="Download" title="Download"><svg class="dl-ring" viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="dl-track" cx="18" cy="18" r="15.5"/><circle class="dl-fill" cx="18" cy="18" r="15.5" pathLength="100"/>
+            <path class="dl-arrow" d="M18 11v12m-5-5 5 5 5-5"/></svg></button>
+          <button class="icon-btn ep-done" type="button" data-ep-done aria-pressed="${e.finished}" title="${e.finished ? "Mark as not played" : "Mark as played"}"
+            aria-label="${e.finished ? "Mark as not played" : "Mark as played"}"><svg><use href="#i-check"/></svg></button>
+        </div>
       </div>
       <div class="ep-actions">
-        <button class="icon-btn ep-done" type="button" data-ep-done aria-pressed="${e.finished}" title="${e.finished ? "Mark as not played" : "Mark as played"}"
-          aria-label="${e.finished ? "Mark as not played" : "Mark as played"}"><svg><use href="#i-check"/></svg></button>
         <button class="ep-play" type="button" data-ep-play aria-label="Play ${esc(e.title)}" title="${e.position > 0 && !e.finished ? `Resume at ${fmtTime(e.position)}` : "Play"}"><svg><use href="#i-play"/></svg></button>
       </div>
     </li>`;
@@ -50,11 +58,52 @@ export function wireEpisodes(list, episodes, player, redraw) {
         await api.markEpisode(e.episodeId, !e.finished);
         redraw();
       } catch (err) { toast(err.message); }
+    } else if (ev.target.closest("[data-ep-save]")) {
+      try {
+        await saveEpisode(e, !e.saved);
+        setSaved(row, e);
+      } catch (err) { toast(err.message); }
+    } else if (ev.target.closest("[data-ep-dl]")) {
+      try {
+        await downloadEpisode(e);
+        setSaved(row, e);
+      } catch (err) { toast(err.message); }
     } else if (ev.target.closest("[data-ep-more]")) {
       const open = row.classList.toggle("open");
       row.querySelector("[data-ep-more]").setAttribute("aria-expanded", String(open));
     }
   });
+}
+
+/** Keep an episode in Your Episodes (or take it out: its download goes too). */
+async function saveEpisode(e, on) {
+  await api.saveEpisode(e.episodeId, on);
+  e.saved = on;
+  if (!on && offline.isSaved(`episode:${e.episodeId}`)) await offline.remove(`episode:${e.episodeId}`);
+  toast(on ? "Saved to Your Episodes" : "Removed from Your Episodes");
+}
+
+/** Download an episode to this device (it's kept in Your Episodes too), or delete the download. */
+async function downloadEpisode(e) {
+  const key = `episode:${e.episodeId}`;
+  if (offline.isSaved(key)) {
+    await offline.remove(key);
+    toast("Removed from downloads");
+    return;
+  }
+  if (!navigator.onLine) { toast("Connect to the internet to download"); return; }
+  if (!e.saved) { await api.saveEpisode(e.episodeId, true); e.saved = true; }
+  await offline.save("episode", e.episodeId, { ...e, saved: true });
+  toast(`Downloading “${e.title}”`);
+}
+
+function setSaved(row, e) {
+  const b = row.querySelector("[data-ep-save]");
+  const label = e.saved ? "Remove from Your Episodes" : "Save to Your Episodes";
+  b.setAttribute("aria-pressed", String(!!e.saved));
+  b.setAttribute("aria-label", label);
+  b.title = label;
+  b.querySelector("use").setAttribute("href", e.saved ? "#i-saved" : "#i-save");
 }
 
 function showCard(s) {
@@ -205,5 +254,81 @@ export async function podcastView(el, id, player, { unheard = false } = {}) {
           break;
       }
     } catch (err) { toast(err.message); }
+  });
+}
+
+const EP_FILTERS = { unplayed: "Unplayed", downloaded: "Downloaded", going: "In progress" };
+const EP_SORTS = { added: "Recently added", released: "Release date" };
+let epSort = "added";
+try { epSort = localStorage.getItem("epSort") || "added"; } catch { /* private window */ }
+
+/** Your Episodes: the episodes you saved or downloaded, with filters, like a playlist of them. */
+export async function yourEpisodesView(el, player, { filter = "", me = "" } = {}) {
+  await offline.ready;
+  const downloaded = offline.list().filter((c) => c.kind === "episode").map((c) => c.data);
+  let all;
+  let away = false;
+  try {
+    all = (await api.savedEpisodes()).episodes;
+  } catch (err) {
+    if (err.status !== 0) throw err;
+    all = downloaded.map((e) => ({ ...e, savedAt: e.savedAt ?? 0 }));
+    away = true;
+  }
+  // Downloads made here that the server doesn't list (taken out elsewhere) still show here.
+  const known = new Set(all.map((e) => e.episodeId));
+  for (const e of downloaded) if (!known.has(e.episodeId)) all.push(e);
+
+  const pick = {
+    unplayed: (e) => !e.finished,
+    downloaded: (e) => offline.isSaved(`episode:${e.episodeId}`),
+    going: (e) => e.position > 0 && !e.finished,
+  }[filter] ?? (() => true);
+  const shown = all.filter(pick).sort(epSort === "released"
+    ? (a, b) => (b.published || 0) - (a.published || 0)
+    : (a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+
+  el.innerHTML = `
+    <div class="album-page your-episodes">
+      <section class="album-hero">
+        <div class="album-hero-inner">
+          <a class="back-link" href="#/library" data-action="back"><svg><use href="#i-back"/></svg>Back</a>
+          <span class="case yours-cover" aria-hidden="true"><svg><use href="#i-saved"/></svg></span>
+          <div>
+            <p class="pod-kicker">Playlist</p>
+            <h1 class="album-title">Your Episodes</h1>
+            <p class="album-facts">${esc([me, plural(all.length, "episode")].filter(Boolean).join(" • "))}${away ? "<br>You’re offline: these are the ones downloaded here." : ""}</p>
+            <div class="album-actions">
+              ${shown.some((e) => !e.finished) ? `<button class="btn btn-album" type="button" data-yours="play"><svg><use href="#i-play"/></svg>Play</button>` : ""}
+              <label class="yours-sort"><span class="sr-only">Sort by</span>
+                <select data-yours="sort">${Object.entries(EP_SORTS).map(([k, v]) => `<option value="${k}" ${k === epSort ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+            </div>
+          </div>
+        </div>
+      </section>
+      <div class="pod-body">
+        <div class="chips" role="group" aria-label="Show">
+          ${Object.entries(EP_FILTERS).map(([k, v]) => `<button class="chip" type="button" data-yours-filter="${k}" aria-pressed="${filter === k}">${v}</button>`).join("")}
+        </div>
+        ${shown.length ? `<ul class="ep-list" id="yours-list">${shown.map((e, i) => episodeRow(e, i, { withShow: true })).join("")}</ul>`
+    : all.length ? `<p class="pod-note">Nothing here with that filter.</p>`
+      : `<div class="empty"><strong>Nothing saved yet</strong>Save an episode with the bookmark next to it, or download it, and it shows up here.</div>`}
+      </div>
+    </div>`;
+
+  const redraw = (f = filter) => yourEpisodesView(el, player, { filter: f, me });
+  wireEpisodes(el.querySelector("#yours-list"), shown, player, () => redraw());
+  el.querySelector(".your-episodes").addEventListener("click", (ev) => {
+    const f = ev.target.closest("[data-yours-filter]");
+    if (f) { redraw(f.dataset.yoursFilter === filter ? "" : f.dataset.yoursFilter); return; }
+    if (ev.target.closest('[data-yours="play"]')) {
+      const list = shown.filter((e) => !e.finished);
+      player.playList(list, 0, { context: { label: "Your Episodes", href: "#/episodes" } });
+    }
+  });
+  el.querySelector('[data-yours="sort"]').addEventListener("change", (ev) => {
+    epSort = ev.target.value;
+    try { localStorage.setItem("epSort", epSort); } catch { /* private window */ }
+    redraw();
   });
 }
