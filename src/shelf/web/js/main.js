@@ -2211,7 +2211,6 @@ function meMenu(at) {
       { label: "Friend activity", icon: "i-people", run: go("#/people") },
       { label: "Downloads", icon: "i-download", run: go("#/downloads") },
       { label: "Not on your shelf", icon: "i-disc", run: go("#/releases") },
-      { label: "Podcasts", icon: "i-podcast", run: go("#/podcasts") },
       { label: "Requests", icon: "i-request", run: go("#/requests") },
       ...(u.admin ? [{ label: "Admin dashboard", icon: "i-admin", run: go("#/admin") }] : []),
       "sep",

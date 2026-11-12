@@ -2499,9 +2499,10 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     @app.get("/api/podcasts/search")
     async def find_podcasts(q: str = Query(..., min_length=2, max_length=500), live: bool = False):
         """Shows by name (Apple's podcast directory), or the show behind a pasted link. `live`:
-        asked while someone types in the main search, which only looks online when online
-        lookups are on (as for MusicBrainz), and not for a word or two."""
-        if live and (not cfg.artist_info or len(q.strip()) < 3):
+        asked while someone types in the main search, which only searches the directory when
+        online lookups are on (as for MusicBrainz), and not for a word or two. A pasted link is
+        always read: that's how a show gets added with lookups off."""
+        if live and not podcasts.looks_like_link(q) and (not cfg.artist_info or len(q.strip()) < 3):
             return {"results": [], "off": not cfg.artist_info}
         try:
             if podcasts.looks_like_link(q):

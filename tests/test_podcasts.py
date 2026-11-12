@@ -201,3 +201,6 @@ def test_old_shows_still_reach_home_and_search(client, feeds):
 
     # Typing in the main search only looks online when online lookups are on.
     assert client.get("/api/podcasts/search", params={"q": "history", "live": 1}).json() == {"results": [], "off": True}
+    # A pasted link is read all the same.
+    r = client.get("/api/podcasts/search", params={"q": "someshow.podbean.com", "live": 1}).json()
+    assert r["results"][0]["feedUrl"] == FEED

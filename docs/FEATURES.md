@@ -75,8 +75,9 @@ Last updated: 2026-11-12, after v0.7.7 shipped.
   after typing stops, cached an hour, only when online lookups — `artist_info` — are on); Your
   Library lists followed shows with a Podcasts chip and "Find a podcast" (web and Android); Home's
   "Your podcasts" row shows episodes in progress, new ones from the last two weeks, and otherwise
-  the newest unheard episode of each show. The Podcasts page (`#/podcasts`) is still there for
-  browsing and pasting links.
+  the newest unheard episode of each show. There's no Podcasts button any more: the page (`#/podcasts`) is
+  reached from Home's "See all" and the Library's "Find a podcast". A link pasted into search is
+  always read, even with online lookups off.
 - **Extras:** per-device equalizer + mixer screen with live spectrum (`mixer.js`,
   `EqualizerScreen.kt`), visualizer (`visualizer.js`, `Visualizer.kt`), sleep timer, lyrics
   (`lyrics.py`: LRCLIB and tags, synced where possible), music videos via YouTube lookup
