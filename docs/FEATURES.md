@@ -4,13 +4,13 @@ A reference for anyone (or any Claude session) working on this project. The user
 lives in README.md; this is the complete inventory, with the file that owns each feature, plus
 the project's standing decisions. Update it when features land or decisions change.
 
-Last updated: 2026-11-12, after v0.7.7 shipped.
+Last updated: 2026-11-12, after v0.7.8 shipped.
 
 ## The shape of the project
 
 - **What:** a self-hosted music server for the owner's CD rips, with the features of a big
   streaming app, for a household of accounts. Public repo: github.com/Spinjitsudoom/shelf,
-  AGPL-3.0-or-later. Latest release: **v0.7.7** (2026-11-12).
+  AGPL-3.0-or-later. Latest release: **v0.7.8** (2026-11-12).
 - **Server:** Python 3 + FastAPI + SQLite, in `src/shelf/`. Runs on Windows (installer,
   PyInstaller + Inno Setup) and Linux (`install.sh`: uv + systemd user service). ffmpeg does all
   audio work; Essentia analyses where available (not on Windows — `dsp.py` is the numpy fallback).
@@ -198,4 +198,4 @@ Redmi 9.
 - **iOS:** options discussed (Subsonic apps now; PWA; sideloaded .ipa; TestFlight needs the
   $99 account) — waiting on the owner's choice.
 - **Phone checks pending:** playlist import and the share target on the Redmi.
-- **Unreleased on main:** Requests (`requests.py`, web `requests.js`); following artists (`follows.py`); Home shaped by taste (`home.py`); podcasts (`podcasts.py`).
+- **Unreleased on main:** nothing yet. 0.7.8 (2026-11-12) shipped Requests, following artists, Home shaped by taste and podcasts.
