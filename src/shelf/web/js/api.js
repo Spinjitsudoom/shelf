@@ -161,6 +161,7 @@ export const api = {
   partySkip: (host) => request("POST", `party/${host}/skip`),
   stats: (period = "year") => request("GET", `stats?period=${encodeURIComponent(period)}&tz=${-new Date().getTimezoneOffset()}`),
   makePlaylist: (prompt, size = 30) => request("POST", "playlists/make", { prompt, size }),
+  importPlaylists: (text, filename = "") => request("POST", "playlists/import", { text, filename }),
   editPlaylist: (id, body) => changed(request("PATCH", `playlists/${id}`, body)),
   deletePlaylist: (id) => changed(request("DELETE", `playlists/${id}`)),
   addToPlaylist: (id, trackIds, { suggested = false } = {}) => changed(request("POST", `playlists/${id}/tracks`, { trackIds, suggested })),

@@ -23,6 +23,7 @@ import { mountDJ } from "./dj.js";
 import { follow as followHost } from "./party.js";
 import { startRing } from "./visualizer.js";
 import { editRules } from "./smart.js";
+import { importPlaylists } from "./importer.js";
 import { applyAlbumColor, caseHtml, coverUrl, esc, fmtTime, playlistCover, plural, quality, store, toast } from "./util.js";
 import {
   albumView, albumsView, artistHref, artistItems, artistLinks, artistView, artistsView, balanceLabel, ctx, homeView, mixerView,
@@ -471,6 +472,13 @@ async function runAction(action, el) {
       const p = await api.createPlaylist({ name: made.name, description: `Made by Shelf: ${made.understood.join(", ")}.`, trackIds: made.trackIds });
       toast(`Made “${made.name}” with ${plural(made.trackIds.length, "song")}`);
       location.hash = `#/playlist/${p.id}`;
+      break;
+    }
+    case "pl-import": {
+      const made = await importPlaylists();
+      if (!made?.length) break;
+      toast(made.length === 1 ? `Made “${made[0].name}” with ${plural(made[0].count, "song")}` : `Imported ${plural(made.length, "playlist")}`);
+      location.hash = made.length === 1 ? `#/playlist/${made[0].id}` : "#/playlists";
       break;
     }
     case "pl-smart-new": {

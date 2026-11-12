@@ -423,6 +423,28 @@ a.npv-context[href]:hover { text-decoration: underline; }
 .field input:focus, .field textarea:focus { outline: 2px solid var(--cobalt); outline-offset: 0; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
 
+/* importing playlists */
+.imp-dialog { width: min(600px, calc(100vw - 32px)); }
+.imp-dialog form { max-height: calc(100dvh - 48px); overflow-y: auto; }
+.imp-step { display: flex; flex-direction: column; gap: 14px; }
+.imp-file { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.imp-file-name { color: var(--ink-2); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imp-results { display: flex; flex-direction: column; gap: 18px; }
+.imp-list { display: flex; flex-direction: column; gap: 8px; }
+.imp-head { display: flex; align-items: flex-end; gap: 10px; }
+.imp-head input[type="checkbox"] { width: 20px; height: 20px; margin: 0 0 10px; accent-color: var(--cobalt); }
+.imp-name { flex: 1; min-width: 0; }
+.imp-count b { color: var(--ink); }
+.imp-list summary { cursor: pointer; font-size: 14px; font-weight: 700; color: var(--ink-2); padding: 4px 0; }
+.imp-songs { list-style: none; margin: 6px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; }
+.imp-song { display: flex; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 8px; min-width: 0; }
+.imp-song .case-sm { width: 36px; height: 36px; flex: none; }
+.imp-song .t-main { display: flex; flex-direction: column; min-width: 0; }
+.imp-song .t-title, .imp-song .t-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imp-song .t-sub { font-size: 13px; color: var(--ink-2); }
+.imp-missing { opacity: .62; }
+.imp-dot { width: 36px; height: 36px; flex: none; border-radius: 6px; box-shadow: inset 0 0 0 1.5px var(--rule); }
+
 /* smart playlist rules */
 .smart-dialog { width: min(680px, calc(100vw - 32px)); }
 .smart-dialog form { max-height: calc(100dvh - 48px); overflow-y: auto; }
@@ -519,6 +541,7 @@ a.npv-context[href]:hover { text-decoration: underline; }
 .btn svg { width: 18px; height: 18px; }
 .btn-primary { background: var(--cobalt); color: var(--cobalt-ink); box-shadow: none; }
 .btn-primary:hover { background: color-mix(in srgb, var(--cobalt) 88%, var(--ink)); }
+.btn:disabled { opacity: .45; cursor: default; pointer-events: none; }
 .btn-album { background: var(--album-strong, var(--cobalt)); color: var(--album-on, var(--cobalt-ink)); box-shadow: none; }
 .btn-album:hover { filter: brightness(1.08); background: var(--album-strong, var(--cobalt)); }
 

@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from . import procs
-from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lossy, lyrics, mixes, moods, party, peaks, playlist_maker, releases, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, lossy, lyrics, imports, mixes, moods, party, peaks, playlist_maker, releases, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from .connect import Hub, same_origin
 from . import __version__
@@ -200,6 +200,11 @@ class PlaylistBody(BaseModel):
     mix: bool | None = None
     shared: int | None = Field(None, ge=0, le=2)  # 0 private, 1 public, 2 collaborative
     rules: dict | None = None  # a smart playlist's rules (smart.py)
+
+
+class ImportBody(BaseModel):
+    text: str = Field("", max_length=8_000_000)  # a file's contents, a pasted list, or a link
+    filename: str = Field("", max_length=300)
 
 
 TRANSITIONS = ("auto", "blend", "swap", "rise", "sweep", "fade", "cut")
@@ -2445,6 +2450,34 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             else:
                 _append(conn, pid, body.trackIds)
             return _playlist_summary(conn, pid)
+
+    @app.post("/api/playlists/import")
+    def import_playlists(body: ImportBody):
+        """The songs of a playlist from elsewhere (a Spotify or YouTube link, a playlist file, a CSV
+        export, a pasted list), each with the library's song for it or null. Nothing is saved: the
+        app makes the playlist from the songs that were found."""
+        text = body.text.strip()
+        if not text:
+            raise HTTPException(400, "Paste a link or a list of songs, or choose a file.")
+        try:
+            found = [imports.fetch(text)] if imports.link(text) else imports.parse_file(body.text, body.filename)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        if not found:
+            raise HTTPException(400, "Shelf couldn’t find any songs in that.")
+        with db() as conn:
+            library = imports.Library(conn.execute(
+                "SELECT t.id, t.title, t.artist, t.album_artist, t.album, t.duration, t.path FROM tracks t"))
+            out = []
+            for p in found:
+                ids = [library.find(w) for w in p["songs"]]
+                rows = {r["id"]: r for r in conn.execute(
+                    f"{TRACK_SELECT} WHERE t.id IN ({','.join('?' * len(set(ids) - {None}))})",
+                    [i for i in set(ids) if i is not None])} if any(ids) else {}
+                songs = [{"want": imports.label(w), "track": track_json(rows[i]) if i in rows else None}
+                         for w, i in zip(p["songs"], ids)]
+                out.append({"name": p["name"][:200], "found": sum(1 for s in songs if s["track"]), "songs": songs})
+        return {"playlists": out, "linked": bool(imports.link(text))}
 
     @app.post("/api/smart/preview")
     def smart_preview(body: dict):

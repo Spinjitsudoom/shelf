@@ -470,7 +470,7 @@ export async function playlistsView(el) {
           <h1 class="page-title">Playlists</h1>
           <p class="page-sub">${list.length ? plural(list.length, "playlist") : "Make a playlist to mix songs from any album."}</p>
         </div>
-        <div class="head-tools"><button class="btn" type="button" data-action="pl-make"><svg><use href="#i-sparkle"/></svg>Make a playlist</button><button class="btn" type="button" data-action="pl-smart-new"><svg><use href="#i-shuffle-smart"/></svg>Smart playlist</button><button class="btn btn-primary" type="button" data-action="pl-new"><svg><use href="#i-plus"/></svg>New playlist</button></div>
+        <div class="head-tools"><button class="btn" type="button" data-action="pl-import"><svg><use href="#i-download"/></svg>Import</button><button class="btn" type="button" data-action="pl-make"><svg><use href="#i-sparkle"/></svg>Make a playlist</button><button class="btn" type="button" data-action="pl-smart-new"><svg><use href="#i-shuffle-smart"/></svg>Smart playlist</button><button class="btn btn-primary" type="button" data-action="pl-new"><svg><use href="#i-plus"/></svg>New playlist</button></div>
       </header>
       ${list.length || likes.count ? `<div class="shelf">
         <a class="pl-card" href="#/liked">
