@@ -4,6 +4,8 @@ A self-hosted music server for your own CD rips, with the features of a big stre
 of music, shows it as a shelf of albums, and streams to any browser (desktop, phone or TV) and
 to its own Android app, for everyone you add to it.
 
+**[Website and interactive demo →](https://spinjitsudoom.github.io/my-portfolio/shelf.html)**
+
 At a glance:
 
 - **Your music, everywhere:** an Android app with lock-screen controls and a home-screen
