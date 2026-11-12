@@ -124,7 +124,7 @@ Last updated: 2026-11-12, after v0.7.8 shipped.
   shows everything with a hint. Web: the library's sort menu has "What you follow / Everything on
   the server" (per device), and right-clicking an artist there offers Unfollow. Android: "Show
   everything" next to the Library title. The web Albums/Artists pages still show the whole shelf.
-- **Requests** (`requests.py`, web `requests.js`, Android opens it in a web view from Settings):
+- **Requests** (`requests.py`, web `requests.js`, Android opens it in a web view from the "Request music" button on Home):
   anyone asks for an artist or one album, with an optional note; the whole household sees the
   list. Refused when it's already on the shelf or someone already asked. Admins mark requests done,
   declined or open again; a scan that brings the music marks matching requests done by itself.
@@ -202,4 +202,4 @@ Redmi 9.
   were checked on the Redmi on 2026-11-12.)
 - **Waiting on the owner:** Last.fm API key and secret; whether AcoustID auto-tagging is wanted
   and how far it may go; whether admins should be told when a request comes in.
-- **Unreleased on main:** nothing yet. 0.7.8 (2026-11-12) shipped Requests, following artists, Home shaped by taste and podcasts.
+- **Unreleased on main:** Android: "Request music" on Home (out of Settings); tapping the tab you are in goes back to its first page; Back stays visible while a page loads or fails, and the artist page's Back sits on a solid circle. Not tried on a phone yet. 0.7.8 (2026-11-12) shipped Requests, following artists, Home shaped by taste and podcasts.

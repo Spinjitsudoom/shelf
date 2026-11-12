@@ -31,7 +31,7 @@ private fun LibrarySource.cover(t: Track) = coverUrl(t.albumId, t.cover, 160)
 @Composable
 fun AlbumScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onArtist: (String) -> Unit, onBack: () -> Unit, signedOut: SignedOutHandler) {
     val (state, retry) = rememberLoad(id) { source.album(id) }
-    LoadContent(state, retry, signedOut) { a ->
+    LoadContent(state, retry, signedOut, onBack) { a ->
         val color = albumColor(a.color, a.title)
         val ctx = PlayContext(a.title, Routes.album(a.id))
         TrackListPage(
@@ -69,7 +69,7 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
             try { block(); done?.let(say); retry() } catch (e: app.shelf.data.ShelfError) { say("Couldn’t save that. Check the connection and try again.") }
         }
     }
-    LoadContent(state, retry, signedOut) { loaded ->
+    LoadContent(state, retry, signedOut, onBack) { loaded ->
         val p = loaded.copy(tracks = loaded.tracks.map { t -> t.entryId?.let(picked::get)?.let { t.copy(transition = it) } ?: t })
         val color = albumColor(null, p.name)
         val ctx = PlayContext(p.name, Routes.playlist(p.id), mix = p.mix) // Mix on: songs hand over like a DJ set
@@ -136,7 +136,7 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
 @Composable
 fun BlendScreen(otherId: Int, api: app.shelf.data.ShelfApi, onPlay: OnPlay, onBack: () -> Unit, signedOut: SignedOutHandler) {
     val (state, retry) = rememberLoad("blend", otherId) { api.blend(otherId) }
-    LoadContent(state, retry, signedOut) { m ->
+    LoadContent(state, retry, signedOut, onBack) { m ->
         val color = albumColor(m.color, m.name)
         val ctx = PlayContext(m.name, "blend/$otherId")
         TrackListPage(
@@ -154,7 +154,7 @@ fun BlendScreen(otherId: Int, api: app.shelf.data.ShelfApi, onPlay: OnPlay, onBa
 @Composable
 fun RadioScreen(track: Int?, artist: String?, api: app.shelf.data.ShelfApi, onPlay: OnPlay, onBack: () -> Unit, signedOut: SignedOutHandler) {
     val (state, retry) = rememberLoad(track, artist) { api.radio(track = track, artist = artist) }
-    LoadContent(state, retry, signedOut) { m ->
+    LoadContent(state, retry, signedOut, onBack) { m ->
         val color = albumColor(m.color, m.name)
         val ctx = PlayContext(m.name, if (track != null) "radio/track/$track" else "radio/artist/${android.net.Uri.encode(artist)}")
         TrackListPage(
@@ -171,7 +171,7 @@ fun RadioScreen(track: Int?, artist: String?, api: app.shelf.data.ShelfApi, onPl
 @Composable
 fun MixScreen(key: String, source: LibrarySource, onPlay: OnPlay, onBack: () -> Unit, signedOut: SignedOutHandler) {
     val (state, retry) = rememberLoad(key) { source.mix(key) }
-    LoadContent(state, retry, signedOut) { m ->
+    LoadContent(state, retry, signedOut, onBack) { m ->
         val color = albumColor(m.color, m.name)
         val ctx = PlayContext(m.name, Routes.mix(m.key))
         TrackListPage(
@@ -188,7 +188,7 @@ fun MixScreen(key: String, source: LibrarySource, onPlay: OnPlay, onBack: () -> 
 @Composable
 fun FavouritesScreen(source: LibrarySource, onPlay: OnPlay, onBack: () -> Unit, signedOut: SignedOutHandler) {
     val (state, retry) = rememberLoad("favourites") { source.likes() }
-    LoadContent(state, retry, signedOut) { tracks ->
+    LoadContent(state, retry, signedOut, onBack) { tracks ->
         val ctx = PlayContext("Favourites", Routes.FAVOURITES)
         TrackListPage(
             color = Shelf.colors.cobalt, kind = "Playlist", title = "Favourites",

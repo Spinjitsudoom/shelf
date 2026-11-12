@@ -51,7 +51,7 @@ private fun greeting(name: String?): String {
 fun HomeScreen(source: LibrarySource, username: String?, onAlbum: (Int) -> Unit, onMix: (String) -> Unit, onPlayAlbum: (Int) -> Unit, signedOut: SignedOutHandler,
                onSettings: () -> Unit = {}, onPeople: (() -> Unit)? = null, onStats: (() -> Unit)? = null,
                onRowUsed: ((String) -> Unit)? = null, onPlayEpisode: ((app.shelf.data.Episode) -> Unit)? = null,
-               onPodcast: ((Int) -> Unit)? = null) {
+               onPodcast: ((Int) -> Unit)? = null, onRequest: (() -> Unit)? = null) {
     val (state, retry) = rememberLoad("home") {
         coroutineScope { val h = async { source.home() }; val m = async { source.mixes() }; HomeData(h.await(), m.await()) }
     }
@@ -72,6 +72,12 @@ fun HomeScreen(source: LibrarySource, username: String?, onAlbum: (Int) -> Unit,
                     androidx.compose.material3.IconButton(onClick = onSettings) {
                         androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_settings), "Settings", tint = Theme.colors.ink)
                     }
+                }
+                // Missing something? Ask for an artist or album.
+                if (onRequest != null) androidx.compose.material3.OutlinedButton(onClick = onRequest, modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 4.dp)) {
+                    androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_plus), null, Modifier.size(18.dp), tint = Theme.colors.ink)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Request music", color = Theme.colors.ink)
                 }
             }
             d.home.recent.firstOrNull()?.let { a ->

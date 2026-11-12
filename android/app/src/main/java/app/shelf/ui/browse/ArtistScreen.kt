@@ -52,7 +52,7 @@ fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (
                  onRadio: (() -> Unit)? = null, onFollow: (suspend (Boolean) -> Unit)? = null) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val (state, retry) = rememberLoad(name) { source.artist(name) }
-    LoadContent(state, retry, signedOut) { a ->
+    LoadContent(state, retry, signedOut, onBack) { a ->
         val color = a.albums.firstOrNull()?.let { albumColor(it.color, it.title) } ?: albumColor(null, a.name)
         val ctx = PlayContext(a.name, Routes.artist(a.name))
         val popular = a.popular.take(5)
@@ -106,7 +106,9 @@ fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }
-            IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(4.dp)) {
+            // On a solid circle: it stays easy to see over the coloured header and the list scrolling under it.
+            IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(8.dp),
+                colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(containerColor = Theme.colors.sleeve.copy(alpha = .85f))) {
                 Icon(painterResource(R.drawable.ic_back), contentDescription = "Back", tint = Theme.colors.ink)
             }
         }

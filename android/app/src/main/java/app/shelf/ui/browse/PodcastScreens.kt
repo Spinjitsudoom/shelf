@@ -248,7 +248,7 @@ fun PodcastScreen(id: Int, api: ShelfApi, source: LibrarySource, onPlay: OnPlay,
     val scope = rememberCoroutineScope()
     var unheard by rememberSaveable { mutableStateOf(false) }
     var aboutOpen by remember { mutableStateOf(false) }
-    LoadContent(state, retry, signedOut) { s ->
+    LoadContent(state, retry, signedOut, onBack) { s ->
         val color = albumColor(null, s.title)
         val next = s.episodeList.firstOrNull { it.position > 0 && !it.finished } ?: s.episodeList.firstOrNull { !it.finished }
         val shown = if (unheard) s.episodeList.filter { !it.finished } else s.episodeList

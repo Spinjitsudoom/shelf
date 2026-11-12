@@ -170,6 +170,10 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     Box(Modifier.fillMaxSize()) {
     val entry by nav.currentBackStackEntryAsState()
     val current = entry?.destination?.route
+    // The tab you're in: the last one you went to, or the one you're back on (with Back). An album
+    // opened from the Library still belongs to the Library.
+    var tab by rememberSaveable { mutableStateOf(Routes.HOME) }
+    LaunchedEffect(current) { if (TABS.any { it.route == current }) tab = current!! }
     Scaffold(
         containerColor = Shelf.colors.tray,
         snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
@@ -180,12 +184,16 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                     MiniPlayer(playing, cover, player::toggle, player::next, player::previous, { nowPlaying = true }, device = playingOn)
                 }
                 NavigationBar(containerColor = Shelf.colors.sleeve) {
-                    TABS.forEach { tab ->
+                    TABS.forEach { t ->
                         NavigationBarItem(
-                            selected = current == tab.route,
-                            onClick = { nav.navigateTab(tab.route) },
-                            icon = { Icon(painterResource(tab.icon), contentDescription = null) },
-                            label = { Text(tab.label, style = MaterialTheme.typography.labelMedium) },
+                            selected = tab == t.route,
+                            onClick = {
+                                // The tab you're already in: back to its first page. Another tab: where you left it.
+                                if (tab == t.route && current != t.route) { if (!nav.popBackStack(t.route, inclusive = false)) nav.navigateTab(t.route) }
+                                else if (tab != t.route) { tab = t.route; nav.navigateTab(t.route) }
+                            },
+                            icon = { Icon(painterResource(t.icon), contentDescription = null) },
+                            label = { Text(t.label, style = MaterialTheme.typography.labelMedium) },
                             colors = NavigationBarItemDefaults.colors(selectedIconColor = Shelf.colors.cobalt, selectedTextColor = Shelf.colors.cobalt,
                                 indicatorColor = Shelf.colors.cobalt.copy(alpha = .14f), unselectedIconColor = Shelf.colors.ink2, unselectedTextColor = Shelf.colors.ink2),
                         )
@@ -205,6 +213,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
                     onStats = api?.let { { nav.navigate(Routes.STATS) } },
                     onPlayEpisode = { e -> onPlay(listOf(e.asTrack()), 0, app.shelf.playback.PlayContext(e.album, Routes.podcast(e.podcastId))) },
                     onPodcast = { nav.navigate(Routes.podcast(it)) },
+                    onRequest = api?.let { { nav.navigate(Routes.REQUESTS) } },
                     onRowUsed = api?.let { a -> { row: String ->
                         if (!container.settings.settings.value.privateSession) scope.launch { runCatching { a.homeUsed(row) } }
                     } })
@@ -282,8 +291,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
             composable("mix/{key}") { MixScreen(it.arguments!!.getString("key")!!, source, onPlay, back, signedOut) }
             composable(Routes.SETTINGS) {
                 app.shelf.ui.settings.SettingsScreen(container, app.shelf.BuildConfig.VERSION_NAME, onChangeServer, onSignOut, back,
-                    onAdmin = { nav.navigate(Routes.ADMIN) }, onEqualizer = { nav.navigate(Routes.EQUALIZER) },
-                    onRequests = { nav.navigate(Routes.REQUESTS) })
+                    onAdmin = { nav.navigate(Routes.ADMIN) }, onEqualizer = { nav.navigate(Routes.EQUALIZER) })
             }
             composable(Routes.EQUALIZER) {
                 app.shelf.ui.settings.EqualizerScreen(container, back)

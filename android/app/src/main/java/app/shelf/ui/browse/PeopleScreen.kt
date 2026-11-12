@@ -51,7 +51,7 @@ fun PeopleScreen(api: ShelfApi, onBlend: (Int) -> Unit, onAlbum: (Int) -> Unit, 
         }
     }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    LoadContent(state, retry, signedOut) { d ->
+    LoadContent(state, retry, signedOut, onBack) { d ->
         LazyColumn(Modifier.fillMaxSize()) {
             item {
                 Row(Modifier.statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -66,7 +66,7 @@ fun StatsScreen(api: ShelfApi, onPlay: OnPlay, onAlbum: (Int) -> Unit, onArtist:
                 onBack: () -> Unit, signedOut: SignedOutHandler) {
     var period by rememberSaveable { mutableStateOf("year") }
     val (state, retry) = rememberLoad("stats:$period") { api.stats(period) }
-    LoadContent(state, retry, signedOut) { s ->
+    LoadContent(state, retry, signedOut, onBack) { s ->
         val ctx = PlayContext("Your top songs", "stats")
         LazyColumn(Modifier.fillMaxSize()) {
             item {

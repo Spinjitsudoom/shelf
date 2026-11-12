@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -52,9 +53,21 @@ fun <T> rememberLoad(vararg keys: Any?, loader: suspend () -> T): Pair<Load<T>, 
     return state to { attempt++ }
 }
 
-/** The screen's content when it's here; a spinner while loading; what went wrong and "Try again" if not. */
+/** The screen's content when it's here; a spinner while loading; what went wrong and "Try again" if not.
+ * With `onBack`, a Back button stays in the corner while it loads or when it fails, so you're never stuck. */
 @Composable
-fun <T> LoadContent(state: Load<T>, onRetry: () -> Unit, signedOut: SignedOutHandler, content: @Composable (T) -> Unit) {
+fun <T> LoadContent(state: Load<T>, onRetry: () -> Unit, signedOut: SignedOutHandler, onBack: (() -> Unit)? = null, content: @Composable (T) -> Unit) {
+    if (state is Load.Ready || onBack == null) return LoadBody(state, onRetry, signedOut, content)
+    Box(Modifier.fillMaxSize()) {
+        LoadBody(state, onRetry, signedOut, content)
+        androidx.compose.material3.IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(4.dp)) {
+            androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_back), contentDescription = "Back", tint = Shelf.colors.ink)
+        }
+    }
+}
+
+@Composable
+private fun <T> LoadBody(state: Load<T>, onRetry: () -> Unit, signedOut: SignedOutHandler, content: @Composable (T) -> Unit) {
     when (state) {
         is Load.Ready -> content(state.value)
         Load.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

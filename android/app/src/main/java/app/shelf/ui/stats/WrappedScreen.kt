@@ -88,7 +88,7 @@ private fun cards(s: ListeningStats, year: Int): List<Card> {
 @Composable
 fun WrappedScreen(api: ShelfApi, year: Int, onPlay: OnPlay, onBack: () -> Unit, signedOut: SignedOutHandler) {
     val (state, retry) = rememberLoad("wrapped:$year") { api.stats(year.toString()) }
-    LoadContent(state, retry, signedOut) { s ->
+    LoadContent(state, retry, signedOut, onBack) { s ->
         val list = cards(s, year)
         val pager = rememberPagerState { list.size }
         val scope = rememberCoroutineScope()
