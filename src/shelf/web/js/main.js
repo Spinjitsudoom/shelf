@@ -16,6 +16,7 @@ import { settings } from "./settings.js";
 import { Player } from "./player.js";
 import { nativeApp as android, currentServer, switchServer } from "./server.js";
 import { manageLinks, shareLink } from "./sharelinks.js";
+import { manageKeys } from "./apikeys.js";
 import { maybeShowWhatsNew, showWhatsNew } from "./whatsnew.js";
 import { clearNative, mountNative } from "./native.js";
 import { mountSleep } from "./sleep.js";
@@ -734,6 +735,9 @@ async function runAction(action, el) {
       break;
     case "share-links":
       await manageLinks();
+      break;
+    case "api-keys":
+      await manageKeys();
       break;
     case "subsonic-off": {
       const ok = await dialog({

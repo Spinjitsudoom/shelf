@@ -192,6 +192,36 @@ CREATE TABLE IF NOT EXISTS webhooks (
 );
 
 -- Podcasts (podcasts.py): each show's feed is stored once, followed by any number of people.
+-- Internet radio stations, for Subsonic apps (and the Radio row): added by an admin.
+CREATE TABLE IF NOT EXISTS radio_stations (
+    id         INTEGER PRIMARY KEY,
+    name       TEXT NOT NULL,
+    stream_url TEXT NOT NULL,
+    home_url   TEXT,
+    added_by   INTEGER,
+    added_at   REAL NOT NULL
+);
+
+-- The Subsonic chat: a few lines everyone on the server sees (the last thousand are kept).
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id      INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    message TEXT NOT NULL,
+    at      REAL NOT NULL
+);
+
+-- API keys: sign-in for apps without a username or password (OpenSubsonic apiKeyAuthentication).
+-- Only a hash of each key is kept; the key itself is shown once, when it's made.
+CREATE TABLE IF NOT EXISTS api_keys (
+    id         INTEGER PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    key_hash   TEXT NOT NULL UNIQUE,
+    hint       TEXT NOT NULL,             -- the key's last few characters, to tell keys apart
+    created_at REAL NOT NULL,
+    used_at    REAL
+);
+
 CREATE TABLE IF NOT EXISTS podcasts (
     id          INTEGER PRIMARY KEY,
     feed_url    TEXT NOT NULL UNIQUE,
@@ -328,6 +358,8 @@ def init_db(db_path: Path) -> None:
             _add_column(conn, "tracks", cols, name, decl)
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(albums)")}
         _add_column(conn, "albums", cols, "extra", "TEXT")  # the album's share of them (scanner.album_extra)
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(shares)")}
+        _add_column(conn, "shares", cols, "description", "TEXT")  # what the sharer wrote about it (Subsonic apps)
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(playlists)")}
         _add_column(conn, "playlists", cols, "mix", "INTEGER NOT NULL DEFAULT 0")
         # Accounts: what was there before belongs to the first one.

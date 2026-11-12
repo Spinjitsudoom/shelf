@@ -388,6 +388,38 @@ def save(conn, user_id: int, episode_id: int, on: bool, now: float | None = None
         conn.execute("DELETE FROM podcasts WHERE id = ?", (pid[0],))
 
 
+# ---------- streaming ----------
+
+class HostError(Exception):
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
+
+
+def open_episode(ep, range_header: str | None):
+    """The episode's audio from the show's host, a byte range of it if asked (so seeking works):
+    (response, headers to pass on, mime type). Runs in a thread."""
+    ask = {"Range": range_header} if range_header else {}
+    try:
+        upstream = open_url(ep["audio_url"], ask, 30)
+    except urllib.error.HTTPError as e:
+        raise HostError(502 if e.code != 416 else 416, f"The podcast’s host said no ({e.code})")
+    except (OSError, ValueError, FeedError):
+        raise HostError(502, "The podcast’s host didn’t answer")
+    keep = {k: upstream.headers[k] for k in ("Content-Length", "Content-Range", "Accept-Ranges") if upstream.headers.get(k)}
+    kind = upstream.headers.get_content_type()
+    mime = kind if kind.startswith("audio/") else (ep["mime"] or "audio/mpeg")
+    return upstream, keep, mime
+
+
+def body(upstream):
+    try:
+        while chunk := upstream.read(64 * 1024):
+            yield chunk
+    finally:
+        upstream.close()
+
+
 # ---------- artwork ----------
 
 def art_path(data_dir: Path, show) -> Path | None:

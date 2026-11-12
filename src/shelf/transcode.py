@@ -134,3 +134,52 @@ def _prune(cache_dir: Path, limit_mb: int) -> None:
         oldest = files.pop(0)
         total -= oldest.stat().st_size
         oldest.unlink(missing_ok=True)
+
+
+# ---------- live conversions (Subsonic apps: other formats, and starting part way in) ----------
+
+# codec: (ffmpeg encoder, container, mime type, default kbps)
+LIVE = {
+    "aac": ("aac", "adts", "audio/aac", 192),
+    "mp3": ("libmp3lame", "mp3", "audio/mpeg", 192),
+    "opus": ("libopus", "ogg", "audio/ogg", 128),
+    "flac": ("flac", "flac", "audio/flac", 0),
+}
+ALIASES = {"m4a": "aac", "mp4": "aac", "adts": "aac", "ogg": "opus", "oga": "opus"}
+
+
+def live_codec(fmt: str | None) -> str | None:
+    """The codec a format name asks for ("mp3", "opus", "m4a"...), or None if Shelf can't make it."""
+    f = (fmt or "").lower().strip()
+    f = ALIASES.get(f, f)
+    return f if f in LIVE else None
+
+
+async def live(src: Path, codec: str, kbps: int, offset: float = 0.0):
+    """Convert a song while sending it, from `offset` seconds in, nothing kept: for formats other
+    than the cached AAC copies, and for seeking in a conversion (OpenSubsonic transcodeOffset)."""
+    encoder, container, _, default = LIVE[codec]
+    args = ["ffmpeg", "-nostdin", "-v", "error"]
+    if offset > 0:
+        args += ["-ss", f"{offset:.3f}"]
+    args += ["-i", str(src), "-map", "0:a:0", "-vn", "-c:a", encoder]
+    if codec != "flac":
+        args += ["-b:a", f"{kbps or default}k"]
+    if codec == "opus":
+        args += ["-ar", "48000"]
+    args += ["-f", container, "pipe:1"]
+    proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                                                **procs.no_window())
+    try:
+        got = False
+        while chunk := await proc.stdout.read(64 * 1024):
+            got = True
+            yield chunk
+        err = await proc.stderr.read()
+        await proc.wait()
+        if proc.returncode != 0 and not got:
+            raise RuntimeError(f"ffmpeg failed for {src}: {err.decode(errors='replace')[:500]}")
+    finally:
+        if proc.returncode is None:  # the listener went away
+            proc.kill()
+            await proc.wait()

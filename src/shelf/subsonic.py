@@ -17,6 +17,7 @@ plays (and go on to ListenBrainz and Last.fm). Play counts are everyone's, like 
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -34,8 +35,9 @@ from typing import Callable
 from fastapi import Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
 
-from . import __version__, covers, credits, lyrics, resume, transcode, videos
+from . import __version__, covers, credits, lyrics, podcasts, resume, transcode, videos
 from . import artists as artist_info
+from .subsonic_more import BASE_URL, EXTENSIONS, More
 from .auth import verify_password
 from .db import get_meta, session, set_meta
 
@@ -204,6 +206,7 @@ class Params:
 
     def __init__(self, items: list[tuple[str, str]]):
         self.items = items
+        self.body = None  # a JSON body, for the one call that has one (getTranscodeDecision)
 
     def get(self, name: str, default=None):
         for k, v in self.items:
@@ -233,15 +236,18 @@ class Params:
 
 # ---------- the API ----------
 
-class Subsonic:
+class Subsonic(More):
     def __init__(self, cfg, auth, *, scrobbler=None, scanner=None, set_user: Callable | None = None,
-                 smart_rows: Callable | None = None, on_played: Callable | None = None):
+                 smart_rows: Callable | None = None, on_played: Callable | None = None,
+                 remove_user: Callable | None = None):
         self.cfg, self.auth, self.scrobbler, self.scanner = cfg, auth, scrobbler, scanner
+        self.remove_user = remove_user  # an account removed (deleteUser): everything of theirs goes
         self.on_played = on_played or (lambda user_id, track_id: None)  # a listen counted (webhooks)
         self.smart_rows = smart_rows or (lambda conn, row, user_id: None)  # a smart playlist's songs, now
         self.set_user = set_user or (lambda u: None)
         self.now_playing: dict[int, dict] = {}
         self._pw_ok: dict[int, tuple[str, int, float]] = {}  # account passwords checked lately
+        self._more_init()
 
     def db(self):
         return session(self.cfg.db_path)
@@ -259,6 +265,8 @@ class Subsonic:
                          (seal(self.cfg.secret_key, password) if password else None, user_id))
 
     def sign_in(self, p: Params, client: str):
+        if p.get("apiKey") is not None:
+            return self.key_user(p, client)
         name = p.get("u")
         if not name:
             raise missing("u")
@@ -427,7 +435,7 @@ class Subsonic:
         return {"license": {"valid": True, "email": "", "licenseExpires": "2100-01-01T00:00:00.000Z"}}
 
     def m_getOpenSubsonicExtensions(self, p, user):
-        return {"openSubsonicExtensions": [{"name": "formPost", "versions": [1]}, {"name": "songLyrics", "versions": [1]}]}
+        return {"openSubsonicExtensions": [{"name": n, "versions": [v]} for n, v in EXTENSIONS]}
 
     def m_getMusicFolders(self, p, user):
         return {"musicFolders": {"musicFolder": [{"id": 1, "name": "Music"}]}}
@@ -452,8 +460,13 @@ class Subsonic:
         admin = bool(row["is_admin"])
         return {"username": row["username"], "email": "", "scrobblingEnabled": True, "adminRole": admin,
                 "settingsRole": True, "downloadRole": True, "uploadRole": admin, "playlistRole": True,
-                "coverArtRole": admin, "commentRole": False, "podcastRole": False, "streamRole": True,
-                "jukeboxRole": False, "shareRole": False, "videoConversionRole": False, "folder": [1]}
+                "coverArtRole": admin, "commentRole": False, "podcastRole": True, "streamRole": True,
+                "jukeboxRole": False, "shareRole": self._sharing(), "videoConversionRole": False, "folder": [1]}
+
+    def _sharing(self) -> bool:
+        from . import shares
+        with self.db() as conn:
+            return shares.enabled(conn)
 
     def m_getScanStatus(self, p, user):
         with self.db() as conn:
@@ -603,7 +616,8 @@ class Subsonic:
                                                      p.int("count", 10, 1, 500), p.int("offset", 0))}}
 
     def m_getTopSongs(self, p, user):
-        name = p.need("artist")
+        name = artist_name(p.get("id")) if p.get("id") else None
+        name = name or p.need("artist")
         count = p.int("count", 50, 1, 500)
         with self.db() as conn:
             rows = conn.execute(f"""{TRACKS} LEFT JOIN (SELECT track_id, COUNT(*) AS n FROM plays GROUP BY track_id) pl
@@ -622,10 +636,15 @@ class Subsonic:
                 seed = conn.execute(f"{TRACKS} WHERE a.id = ? LIMIT 1", (self._album_row(conn, sid)["id"],)).fetchone()
             else:
                 seed = self._track_row(conn, sid)
-            rows = conn.execute(
-                f"""{TRACKS} WHERE t.id != ? AND (a.artist = ? COLLATE NOCASE OR (t.genre IS NOT NULL AND t.genre != '' AND t.genre = ? COLLATE NOCASE))
-                ORDER BY (t.album_key = ?), RANDOM() LIMIT ?""",
-                (seed["id"], seed["album_artist_name"], seed["genre"], seed["album_key"], count)).fetchall()
+            alike = self.sonic_similar(conn, seed["id"], count, seed["album_key"]) if not sid.startswith("ar-") else None
+            if alike:  # the songs that sound most like it
+                found = {r["id"]: r for r in conn.execute(f"{TRACKS} WHERE t.id IN ({','.join('?' * len(alike))})", alike)}
+                rows = [found[i] for i in alike if i in found]
+            else:  # not measured yet: the same artist or genre
+                rows = conn.execute(
+                    f"""{TRACKS} WHERE t.id != ? AND (a.artist = ? COLLATE NOCASE OR (t.genre IS NOT NULL AND t.genre != '' AND t.genre = ? COLLATE NOCASE))
+                    ORDER BY (t.album_key = ?), RANDOM() LIMIT ?""",
+                    (seed["id"], seed["album_artist_name"], seed["genre"], seed["album_key"], count)).fetchall()
             ctx = self._ctx(conn, user.id)
         return [self.song(r, ctx) for r in rows]
 
@@ -638,10 +657,20 @@ class Subsonic:
     def _info(self, p, user) -> dict:
         with self.db() as conn:
             a = self._find_artist(conn, p.need("id"))
+            names = self.similar_artists(conn, a["name"], p.int("count", 20, 0, 100))
+            everyone, stars = self._artists(conn), self._stars(conn, user.id, "artist")
+            mbid = ""
+            for r in conn.execute("SELECT artist, extra FROM tracks WHERE album_key IN (%s) AND extra LIKE '%%artist_mbid%%' LIMIT 50"
+                                  % ",".join("?" * len(a["albums"])), [r["key"] for r in a["albums"]]):
+                got = tag_extras(r)  # the id is the song's first artist's
+                if got.get("artist_mbid") and videos.fold((credits.names(r["artist"]) or [""])[0]) == videos.fold(a["name"]):
+                    mbid = got["artist_mbid"]
+                    break
         about = None
         if getattr(self.cfg, "artist_info", False):
             _, about = artist_info.cached(self.cfg.db_path, videos.fold(a["name"]), "about")
-        return {"biography": (about or {}).get("extract") or None}
+        similar = [self.artist(everyone[videos.fold(n)], stars) for n in names if videos.fold(n) in everyone]
+        return {"biography": (about or {}).get("extract") or "", "musicBrainzId": mbid, "similarArtist": similar}
 
     def m_getArtistInfo2(self, p, user):
         return {"artistInfo2": self._info(p, user)}
@@ -650,9 +679,16 @@ class Subsonic:
         return {"artistInfo": self._info(p, user)}
 
     def m_getAlbumInfo(self, p, user):
-        return {"albumInfo": {}}
+        sid = p.need("id")
+        with self.db() as conn:
+            if sid.isdigit():  # a song's album
+                row = self._album_row(conn, f"al-{self._track_row(conn, sid)['album_id']}")
+            else:
+                row = self._album_row(conn, sid)
+        return {"albumInfo": {"notes": "", "musicBrainzId": tag_extras(row).get("album_mbid", "")}}
 
-    m_getAlbumInfo2 = m_getAlbumInfo
+    def m_getAlbumInfo2(self, p, user):
+        return self.m_getAlbumInfo(p, user)
 
     # searching
 
@@ -685,6 +721,26 @@ class Subsonic:
                                  (*args, p.int("songCount", 20, 0, 50000), p.int("songOffset", 0))).fetchall()
             ctx = self._ctx(conn, user.id)
         return artists, [self.album(r, actx) for r in albums], [self.song(r, ctx) for r in songs]
+
+    def m_search(self, p, user):
+        """The first search: songs matching any of artist, album, title or anything."""
+        clauses, args = [], []
+        for name, cols in (("artist", ["t.artist", "a.artist"]), ("album", ["a.title"]), ("title", ["t.title"]),
+                           ("any", ["t.title", "t.artist", "a.title"])):
+            v = (p.get(name) or "").strip()
+            if v:
+                pat = "%" + v.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+                clauses.append("(" + " OR ".join(f"{c} LIKE ? ESCAPE '\\'" for c in cols) + ")")
+                args += [pat] * len(cols)
+        if p.get("newerThan"):
+            clauses.append("t.added_at > ?")
+            args.append(p.int("newerThan", 0, 0, 10**14) / 1000)
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        count, offset = p.int("count", 20, 1, 500), p.int("offset", 0)
+        with self.db() as conn:
+            total = conn.execute(f"SELECT COUNT(*) FROM tracks t JOIN albums a ON a.key = t.album_key {where}", args).fetchone()[0]
+        songs = self._songs(user, where, tuple(args), "t.title COLLATE NOCASE, t.id", count, offset)
+        return {"searchResult": {"offset": offset, "totalHits": total, "match": songs}}
 
     def m_search3(self, p, user):
         artists, albums, songs = self._search(p, user)
@@ -864,6 +920,13 @@ class Subsonic:
         now = time.time()
         with self.db() as conn:
             for i, sid in enumerate(ids):
+                if self.episode_num(sid) is not None:  # a podcast episode: never a play
+                    e = self._episode_row(conn, sid)
+                    if submission:
+                        podcasts.mark(conn, user.id, e["id"], True)
+                    else:
+                        self.now_playing[user.id] = {"track": podcasts.EP_BASE + e["id"], "at": now, "player": p.get("c") or "app"}
+                    continue
                 row = self._track_row(conn, sid)
                 if not submission:
                     self.now_playing[user.id] = {"track": row["id"], "at": now, "player": p.get("c") or "app"}
@@ -889,11 +952,18 @@ class Subsonic:
                 if now - np["at"] > NOW_PLAYING_FOR:
                     self.now_playing.pop(uid, None)
                     continue
-                row = conn.execute(f"{TRACKS} WHERE t.id = ?", (np["track"],)).fetchone()
                 who = conn.execute("SELECT username, share_activity FROM users WHERE id = ?", (uid,)).fetchone()
-                if row and who and (uid == user.id or who["share_activity"]):
-                    entries.append({**self.song(row, ctx), "username": who["username"],
-                                    "minutesAgo": int((now - np["at"]) // 60), "playerId": 1, "playerName": np["player"]})
+                if not who or not (uid == user.id or who["share_activity"]):
+                    continue
+                if podcasts.is_episode(np["track"]):
+                    found = podcasts.episode(conn, np["track"])
+                    item = self.episode(found[0], found[1]) if found else None
+                else:
+                    row = conn.execute(f"{TRACKS} WHERE t.id = ?", (np["track"],)).fetchone()
+                    item = self.song(row, ctx) if row else None
+                if item:
+                    entries.append({**item, "username": who["username"], "minutesAgo": int((now - np["at"]) // 60),
+                                    "playerId": 1, "playerName": np["player"], **self.now_playing_extra(np, now)})
         return {"nowPlaying": {"entry": entries}}
 
     def m_getPlayQueue(self, p, user):
@@ -910,9 +980,11 @@ class Subsonic:
 
     def m_savePlayQueue(self, p, user):
         with self.db() as conn:
+            ids = p.all("id")[:2000]
+            current = p.get("current")
             set_meta(conn, f"subsonic_queue:{user.id}", json.dumps({
-                "ids": p.all("id")[:2000], "current": p.get("current"), "position": p.int("position", 0),
-                "at": time.time(), "by": p.get("c") or "app"}))
+                "ids": ids, "current": current, "index": ids.index(current) if current in ids else None,
+                "position": p.int("position", 0), "at": time.time(), "by": p.get("c") or "app"}))
         return {}
 
     def m_getLyrics(self, p, user):
@@ -941,15 +1013,6 @@ class Subsonic:
 
     # things Shelf doesn't have: empty answers, so apps carry on
 
-    def m_getInternetRadioStations(self, p, user):
-        return {"internetRadioStations": {}}
-
-    def m_getPodcasts(self, p, user):
-        return {"podcasts": {}}
-
-    def m_getNewestPodcasts(self, p, user):
-        return {"newestPodcasts": {}}
-
     def m_getBookmarks(self, p, user):
         """Bookmarks are Shelf's places in long tracks (resume.py), in milliseconds."""
         with self.db() as conn:
@@ -974,35 +1037,47 @@ class Subsonic:
             resume.forget(conn, user.id, self._track_row(conn, p.need("id"))["id"])
         return {}
 
-    def m_getShares(self, p, user):
-        return {"shares": {}}
-
     def m_getVideos(self, p, user):
         return {"videos": {}}
-
-    def m_getChatMessages(self, p, user):
-        return {"chatMessages": {}}
 
 
     # files (these answer with the file itself)
 
     def file_for(self, tid: str):
         with self.db() as conn:
-            row = conn.execute("SELECT path, mtime, mime, bitrate FROM tracks WHERE id = ?",
+            row = conn.execute("SELECT path, mtime, mime, bitrate, codec FROM tracks WHERE id = ?",
                                (int(tid),)).fetchone() if tid.isdigit() else None
         if not row or not Path(row["path"]).is_file():
             raise not_found("Song not found")
         return row
 
-    async def stream(self, p: Params, download: bool = False) -> Response:
-        row = self.file_for(p.need("id"))
+    async def stream(self, p: Params, download: bool = False, range_header: str | None = None) -> Response:
+        """The file itself, or a conversion: to the format the app asks for (mp3, opus, aac, flac),
+        down to its maxBitRate, from timeOffset seconds in. Podcast episodes come from their host."""
+        sid = p.need("id")
+        if self.episode_num(sid) is not None:
+            return await self.episode_stream(sid, range_header)
+        row = self.file_for(sid)
         path = Path(row["path"])
         mime = row["mime"] or mimetypes.guess_type(path.name)[0] or "application/octet-stream"
         limit = p.int("maxBitRate", 0)
         kbps = (row["bitrate"] or 0) // 1000
-        if download or (p.get("format") or "").lower() == "raw" or not limit or (kbps and kbps <= limit):
+        fmt = (p.get("format") or "").lower()
+        want = transcode.live_codec(fmt) if fmt and fmt != "raw" else None
+        own = transcode.live_codec(row["codec"] or path.suffix.lstrip("."))
+        same = want is None or want == own
+        try:
+            offset = max(0.0, float(p.get("timeOffset") or 0))
+        except ValueError:
+            offset = 0.0
+        if download or fmt == "raw" or (not offset and same and (not limit or not kbps or kbps <= limit or want == "flac")):
             return FileResponse(path, media_type=mime, headers={**CORS, "Cache-Control": "private, max-age=86400"},
                                 filename=path.name if download else None)
+        codec = (want or own or "aac") if offset and same else (want or "aac")  # starting later: the same format, from there
+        if codec != "aac" or offset:  # made as it's sent
+            rate = min(limit, 320) if limit else transcode.LIVE[codec][3]
+            return await self.live_response(path, codec, rate, offset)
+        limit = limit or transcode.QUALITIES["high"]
         tier = max((q for q in transcode.QUALITIES.values() if q <= limit), default=min(transcode.QUALITIES.values()))
         out = transcode.cached(self.cfg.transcode_dir, path, row["mtime"], tier)
         if out:
@@ -1026,6 +1101,11 @@ class Subsonic:
     def cover(self, p: Params) -> Response:
         cid = p.need("id")
         size = p.int("size", 600, 32, 2000)
+        if cid.startswith("pc-") or self.episode_num(cid) is not None:
+            path = self.show_cover_path(cid, size)
+            if not path:
+                raise not_found("No cover")
+            return FileResponse(path, media_type="image/webp", headers={**CORS, "Cache-Control": "private, max-age=2592000"})
         with self.db() as conn:
             if cid.startswith("ar-"):
                 name = artist_name(cid)
@@ -1047,7 +1127,7 @@ class Subsonic:
         return FileResponse(path, media_type="image/webp", headers={**CORS, "Cache-Control": "private, max-age=2592000"})
 
 
-FILE_METHODS = {"stream", "download", "getCoverArt"}
+FILE_METHODS = {"stream", "download", "getCoverArt", "getAvatar", "getTranscodeStream"}
 OPEN_METHODS = {"getOpenSubsonicExtensions"}
 
 
@@ -1058,19 +1138,33 @@ def mount(app, api: Subsonic) -> None:
             return Response(status_code=204, headers=CORS)
         method = method.removesuffix(".view")
         items = list(request.query_params.multi_items())
-        if request.method == "POST" and "x-www-form-urlencoded" in (request.headers.get("content-type") or ""):
+        kind = request.headers.get("content-type") or ""
+        body_json = None
+        if request.method == "POST" and "x-www-form-urlencoded" in kind:
             body = await request.body()
             items += urllib.parse.parse_qsl(body[:1_000_000].decode("utf-8", "replace"), keep_blank_values=True)
+        elif request.method == "POST" and method == "getTranscodeDecision":  # the app's abilities, as JSON
+            try:
+                body_json = json.loads((await request.body())[:1_000_000] or b"null")
+            except ValueError:
+                body_json = None
         p = Params(items)
+        p.body = body_json
+        BASE_URL.set(str(request.base_url).rstrip("/"))
         try:
             user = None
             if method not in OPEN_METHODS:
-                user = api.sign_in(p, request.client.host if request.client else "?")
+                user = await asyncio.to_thread(api.sign_in, p, request.client.host if request.client else "?")
                 api.set_user(user)
             if method in ("stream", "download"):
-                return await api.stream(p, download=method == "download")
+                return await api.stream(p, download=method == "download", range_header=request.headers.get("range"))
             if method == "getCoverArt":
-                return api.cover(p)
-            return answer(p, api.call(method, p, user, request))
+                return await asyncio.to_thread(api.cover, p)
+            if method == "getTranscodeStream":
+                return await api.transcode_stream(p)
+            if method == "getAvatar":
+                return await asyncio.to_thread(api.m_getAvatar, p, user)
+            # Off the event loop: some calls read a lot, and a few wait on the internet (podcasts).
+            return answer(p, await asyncio.to_thread(api.call, method, p, user, request))
         except Fail as f:
             return answer(p, fail=f)

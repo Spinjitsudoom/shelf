@@ -2392,6 +2392,9 @@ input.range.balance::-moz-range-progress { background: transparent; }
 .share-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 50vh; overflow: auto; }
 .share-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid var(--rule); }
 .share-list li:first-child { border-top: 0; }
+.key-made { display: grid; gap: 8px; justify-items: start; margin-bottom: 8px; }
+.key-made .field { width: 100%; }
+.key-made:empty { display: none; }
 .share-list li div { min-width: 0; }
 .share-list b, .share-list span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .share-list span { color: var(--ink-2); font-size: 13px; }

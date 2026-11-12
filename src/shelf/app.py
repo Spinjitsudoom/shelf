@@ -27,6 +27,7 @@ from typing import Literal
 from . import procs
 from . import analysis, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, home as home_rows, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, podcasts, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
+from . import subsonic_more
 from .connect import Hub, same_origin
 from . import __version__
 from .auth import COOKIE, MAX_AGE, Auth, User, check_username, token_from
@@ -329,6 +330,10 @@ class ResumeBody(BaseModel):
 
 class BackupFolderBody(BaseModel):
     folder: str = Field(max_length=1000)
+
+
+class ApiKeyBody(BaseModel):
+    name: str = Field("App", max_length=80)
 
 
 class LastfmKeysBody(BaseModel):
@@ -903,7 +908,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         return _smart_rows(conn, row["id"], rules, user_id) if rules else None
 
     sub_api = subsonic.Subsonic(cfg, auth, scrobbler=scrobbler, scanner=scanner, set_user=CURRENT.set,
-                                smart_rows=lambda conn, row, user_id: _smart_for(conn, row, user_id), on_played=_tell_played)
+                                smart_rows=lambda conn, row, user_id: _smart_for(conn, row, user_id), on_played=_tell_played,
+                                remove_user=lambda user_id: _remove_account(user_id))
     subsonic.mount(app, sub_api)
 
     @app.get("/api/me/subsonic")
@@ -922,6 +928,31 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     def remove_app_password():
         sub_api.set_app_password(uid(), None)
         return {"username": me().username, "password": None}
+
+    @app.get("/api/me/apikeys")
+    def my_api_keys():
+        """API keys: what apps that support them sign in with, instead of a username and password."""
+        with db() as conn:
+            rows = conn.execute("SELECT id, name, hint, created_at, used_at FROM api_keys WHERE user_id = ? ORDER BY created_at DESC",
+                                (uid(),)).fetchall()
+        return {"keys": [{"id": r["id"], "name": r["name"], "hint": r["hint"], "createdAt": r["created_at"],
+                          "usedAt": r["used_at"]} for r in rows]}
+
+    @app.post("/api/me/apikeys")
+    def new_api_key(body: ApiKeyBody):
+        """A new key, shown this once: Shelf keeps only a fingerprint of it."""
+        with db() as conn:
+            if conn.execute("SELECT COUNT(*) FROM api_keys WHERE user_id = ?", (uid(),)).fetchone()[0] >= 50:
+                raise HTTPException(409, "That’s 50 keys already. Remove some you don’t use first.")
+            key = subsonic_more.new_api_key(conn, uid(), body.name)
+        return {"key": key, **my_api_keys()}
+
+    @app.delete("/api/me/apikeys/{key_id}")
+    def remove_api_key(key_id: int):
+        with db() as conn:
+            if not conn.execute("DELETE FROM api_keys WHERE id = ? AND user_id = ?", (key_id, uid())).rowcount:
+                raise HTTPException(404, "No such key")
+        return my_api_keys()
 
     # ---------- Last.fm ----------
 
@@ -1085,6 +1116,14 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         auth.sign_out_everywhere(user_id)
         return {"ok": True}
 
+    def _remove_account(user_id: int) -> None:
+        with db() as conn:
+            conn.execute("DELETE FROM likes WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM plays WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM playlists WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        auth.forget(user_id)
+
     @app.delete("/api/users/{user_id}")
     async def delete_user(user_id: int):
         admin = admin_only()
@@ -1095,12 +1134,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             raise HTTPException(404, "No such account")
         if target.admin and auth.admins() <= 1:
             raise HTTPException(409, "Shelf needs at least one admin")
-        with db() as conn:
-            conn.execute("DELETE FROM likes WHERE user_id = ?", (user_id,))
-            conn.execute("DELETE FROM plays WHERE user_id = ?", (user_id,))
-            conn.execute("DELETE FROM playlists WHERE user_id = ?", (user_id,))
-            conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        auth.forget(user_id)
+        _remove_account(user_id)
         hub = hubs.pop(user_id, None)
         if hub:
             for d in list(hub.devices.values()):
@@ -2428,26 +2462,11 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             found = podcasts.episode(conn, track_id)
         if not found:
             raise HTTPException(404, "Episode not found")
-        ep = found[0]
-        ask = {"Range": request.headers["range"]} if request.headers.get("range") else {}
         try:
-            upstream = await asyncio.to_thread(podcasts.open_url, ep["audio_url"], ask, 30)
-        except urllib.error.HTTPError as e:
-            raise HTTPException(502 if e.code != 416 else 416, f"The podcast’s host said no ({e.code})")
-        except (OSError, ValueError, podcasts.FeedError):
-            raise HTTPException(502, "The podcast’s host didn’t answer")
-        keep = {k: upstream.headers[k] for k in ("Content-Length", "Content-Range", "Accept-Ranges") if upstream.headers.get(k)}
-        kind = upstream.headers.get_content_type()
-        mime = kind if kind.startswith("audio/") else (ep["mime"] or "audio/mpeg")
-
-        def body():
-            try:
-                while chunk := upstream.read(64 * 1024):
-                    yield chunk
-            finally:
-                upstream.close()
-
-        return StreamingResponse(body(), status_code=upstream.status, media_type=mime,
+            upstream, keep, mime = await asyncio.to_thread(podcasts.open_episode, found[0], request.headers.get("range"))
+        except podcasts.HostError as e:
+            raise HTTPException(e.status, str(e))
+        return StreamingResponse(podcasts.body(upstream), status_code=upstream.status, media_type=mime,
                                  headers={**keep, "Cache-Control": "no-store"})
 
     def _show_cover(pid: int, size: int):

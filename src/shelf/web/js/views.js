@@ -970,6 +970,8 @@ export async function settingsView(el, player, { user, version }) {
           ? `<button class="btn btn-small" type="button" data-action="subsonic-off">Turn off</button>
              <button class="btn" type="button" data-action="subsonic-show">Show details</button>`
           : `<button class="btn" type="button" data-action="subsonic-on">Set up</button>`)}
+      ${row("API keys", "Some newer apps sign in with a key instead of a username and password. Make one for each app, and remove it to sign that app out.",
+        `<button class="btn" type="button" data-action="api-keys">Manage keys</button>`)}
       ${user?.shareLinks ? row("Share links", "Links you’ve made to songs, albums and playlists, which anyone with the link can listen to. See them, copy them or stop them.",
         `<button class="btn" type="button" data-action="share-links">Manage links</button>`) : ""}
       ${row("Server", `Connected to <b>${esc(server)}</b>.`, `<button class="btn" type="button" data-action="change-server">Change server</button>`)}

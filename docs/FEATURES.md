@@ -156,7 +156,22 @@ Last updated: 2026-11-12, after v0.7.8 shipped.
   playing / paused / played / library events; optional HMAC-SHA256 signature
   (`X-Shelf-Signature`); listening events only for the admin's own account. Built for Home
   Assistant.
-- **Subsonic API** (`subsonic.py`): `/rest`, so Symfonium, Feishin, Substreamer, DSub work.
+- **Subsonic API** (`subsonic.py`, `subsonic_more.py`): `/rest`, so Symfonium, Feishin, Substreamer,
+  DSub work. Every Subsonic/OpenSubsonic call is answered (checked against the spec repo
+  opensubsonic/open-subsonic-api, 2026-11): podcasts are Shelf's own (channel `pc-<id>`, episode
+  `pe-<id>`, streamId = EP_BASE + id; "download" = keep in Your Episodes), shares are share links
+  (with a description; one item per link), accounts, internet radio (`radio_stations`, admins add),
+  chat (`chat_messages`), generated avatars, `search` v1. OpenSubsonic extensions: formPost,
+  songLyrics, apiKeyAuthentication (`api_keys`, sha256 only; Settings → API keys), indexBasedQueue,
+  playbackReport (counts a play once at half / 4 min of real listening), sonicSimilarity (sound.py
+  fingerprints; findSonicPath walks from one song's sound to the other's), transcodeOffset,
+  transcoding (getTranscodeDecision/getTranscodeStream; params `<codec>-<kbps>`),
+  getPodcastEpisode, topSongsByArtistId. `stream` converts live to mp3/opus/aac/flac
+  (`transcode.live`) and honours timeOffset; plain AAC without an offset still uses the cached
+  copies. getSimilarSongs and artist info's similar artists use the sound fingerprints when
+  measured. Songs/albums carry the OpenSubsonic fields; the less common tags (MusicBrainz ids,
+  composers, ISRC, labels, release type, original year, explicit, moods) are read into
+  `tracks.extra` / `albums.extra` (scan v4). Jukebox and videos say no (Connect is Shelf's way).
 - **What's new** (`whatsnew.json`, web `whatsnew.js`, Android `whatsnew/`): shown once after an
   update; every release needs a top entry matching `__version__` (a test enforces it).
 
@@ -208,4 +223,4 @@ Redmi 9.
   were checked on the Redmi on 2026-11-12.)
 - **Waiting on the owner:** Last.fm API key and secret; whether AcoustID auto-tagging is wanted
   and how far it may go; whether admins should be told when a request comes in.
-- **Unreleased on main:** nothing yet. 1.0.0 (2026-11-12) shipped Your Episodes, episode downloads, Request music on Home, tabs going back to their first page and a Back button that never goes missing.
+- **Unreleased on main:** complete Subsonic/OpenSubsonic support (see Admin and operations), API keys in Settings. 1.0.0 (2026-11-12) shipped Your Episodes, episode downloads, Request music on Home, tabs going back to their first page and a Back button that never goes missing.
