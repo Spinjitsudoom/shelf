@@ -1292,9 +1292,10 @@ export async function peopleView(el) {
 const RELEASE_TYPE = { Album: "Album", EP: "EP", Single: "Single" };
 
 /** An album or EP by one of your artists that isn't on the shelf: its cover links to MusicBrainz. */
-function releaseCard(r) {
+function releaseCard(r, asked) {
   const year = r.date.slice(0, 4);
   const url = `https://musicbrainz.org/release-group/${r.mbid}`;
+  const ask = { artist: r.artist, album: r.title, artistId: r.artistId || null, albumId: r.mbid, year: Number(year) || null, type: r.type };
   return `
     <div class="album-card release-card">
       <div class="card-art">
@@ -1305,12 +1306,15 @@ function releaseCard(r) {
       </div>
       <div class="card-title"><a href="${url}" target="_blank" rel="noopener">${esc(r.title)}</a></div>
       <div class="card-sub"><a href="${artistHref(r.artist)}">${esc(r.artist)}</a>, ${year}${r.type !== "Album" ? `, ${RELEASE_TYPE[r.type] ?? r.type}` : ""}</div>
+      ${asked ? `<span class="release-ask asked">Requested</span>`
+    : `<button class="release-ask" type="button" data-action="request-release" data-ask="${esc(JSON.stringify(ask))}">Request</button>`}
     </div>`;
 }
 
 /** Everything your artists have out that isn't on the shelf, newest first, by artist. */
 export async function releasesView(el, { admin = false } = {}) {
-  const r = await api.releases();
+  const [r, wanted] = await Promise.all([api.releases(), api.requests().catch(() => null)]);
+  const asked = new Set((wanted?.requests ?? []).filter((q) => q.status === "open" && q.albumId).map((q) => q.albumId));
   setTracks([], null);
   const byArtist = new Map();
   for (const x of r.releases) {
@@ -1331,7 +1335,7 @@ export async function releasesView(el, { admin = false } = {}) {
       ${[...byArtist].map(([artist, list]) => `
         <section class="row-section">
           <div class="row-head"><h2 class="section-title"><a href="${artistHref(artist)}">${esc(artist)}</a></h2><span class="page-sub">${plural(list.length, "release")}</span></div>
-          <div class="row-shelf">${list.map(releaseCard).join("")}</div>
+          <div class="row-shelf">${list.map((x) => releaseCard(x, asked.has(x.mbid))).join("")}</div>
         </section>`).join("") || (when ? `<div class="empty"><strong>You have it all</strong>Every album and EP your artists have out is on your shelf.</div>` : "")}
     </div>`;
 }

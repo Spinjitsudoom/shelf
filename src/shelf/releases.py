@@ -46,6 +46,30 @@ def _get(url: str, timeout: float = 20) -> bytes:
         return r.read()
 
 
+_mb_lock = threading.Lock()
+_mb_last = 0.0
+
+
+def mb(path: str, retries: int = 4, **params) -> dict:
+    """One MusicBrainz call. Everything in Shelf goes through here, so together it keeps to
+    MusicBrainz's limit of one request a second."""
+    global _mb_last
+    q = urllib.parse.urlencode({**params, "fmt": "json"})
+    for attempt in range(retries):
+        with _mb_lock:
+            wait = 1.1 - (time.monotonic() - _mb_last)
+            if wait > 0:
+                time.sleep(wait)
+            _mb_last = time.monotonic()
+        try:
+            return json.loads(_get(f"{MB}/{path}?{q}"))
+        except urllib.error.HTTPError as e:
+            if e.code not in (429, 503) or attempt == retries - 1:
+                raise
+            time.sleep(2 + attempt * 3)  # MusicBrainz is busy: back off and try again
+    raise OSError("MusicBrainz is busy")
+
+
 def base_title(title: str) -> str:
     """"Paranoid (2009 Remaster) [Deluxe]" -> "paranoid", for matching what's on the shelf."""
     t = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]", "", title or "")
@@ -67,7 +91,6 @@ class Releases:
         self.state = {"running": False, "checked": 0, "total": 0}
         self._wake = threading.Event()
         self._stop = threading.Event()
-        self._last_call = 0.0
 
     def start(self) -> None:
         if self.enabled:
@@ -94,20 +117,7 @@ class Releases:
             self._wake.wait(3600)
 
     def _mb(self, path: str, **params) -> dict:
-        # MusicBrainz's limit: one request a second.
-        wait = 1.1 - (time.monotonic() - self._last_call)
-        if wait > 0:
-            time.sleep(wait)
-        q = urllib.parse.urlencode({**params, "fmt": "json"})
-        for attempt in range(4):
-            self._last_call = time.monotonic()
-            try:
-                return json.loads(_get(f"{MB}/{path}?{q}"))
-            except urllib.error.HTTPError as e:
-                if e.code not in (429, 503) or attempt == 3:
-                    raise
-                time.sleep(2 + attempt * 3)  # MusicBrainz is busy: back off and try again
-        raise OSError("MusicBrainz is busy")
+        return mb(path, **params)
 
     def _artist_id(self, name: str, cache: dict) -> str | None:
         key = fold(name)

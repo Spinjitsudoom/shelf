@@ -742,6 +742,17 @@ async function runAction(action, el) {
       toast(on ? "People on this server can see what you play" : "What you play is private now");
       break;
     }
+    case "request-release": {
+      try {
+        await api.addRequest(JSON.parse(el.dataset.ask));
+        toast("Requested. It’ll tick itself off when the music arrives.");
+      } catch (e) {
+        if (e.status !== 409) throw e;
+        toast(e.message);
+      }
+      el.outerHTML = `<span class="release-ask asked">Requested</span>`;
+      break;
+    }
     case "releases-check":
       await api.checkReleases();
       toast("Checking MusicBrainz for your artists’ releases. This takes a minute or two.");

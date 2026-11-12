@@ -199,6 +199,7 @@ export const api = {
   releases: () => cached("releases", 300_000),
   requests: () => request("GET", "requests"),
   addRequest: (body) => request("POST", "requests", body),
+  requestLookup: (params) => request("GET", `requests/lookup?${new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== ""))}`),
   removeRequest: (id) => request("DELETE", `requests/${id}`),
   resolveRequest: (id, status) => request("PATCH", `requests/${id}`, { status }),
   checkReleases: () => { invalidate("releases"); return request("POST", "releases/check"); },

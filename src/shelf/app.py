@@ -280,10 +280,18 @@ class SharingBody(BaseModel):
     enabled: bool
 
 
+MBID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+
+
 class RequestBody(BaseModel):
     artist: str = Field(max_length=300)
     album: str | None = Field(None, max_length=300)
     note: str | None = Field(None, max_length=1000)
+    # Picked from MusicBrainz's suggestions:
+    artistId: str | None = Field(None, pattern=MBID_PATTERN)
+    albumId: str | None = Field(None, pattern=MBID_PATTERN)
+    year: int | None = Field(None, ge=1000, le=3000)
+    type: str | None = Field(None, max_length=40)
 
 
 class RequestStatusBody(BaseModel):
@@ -3347,13 +3355,42 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     def _request_json(row, me: int) -> dict:
         return {"id": row["id"], "artist": row["artist"], "album": row["album"], "note": row["note"],
                 "status": row["status"], "requestedBy": row["username"], "mine": row["user_id"] == me,
-                "createdAt": row["created_at"], "resolvedAt": row["resolved_at"]}
+                "createdAt": row["created_at"], "resolvedAt": row["resolved_at"],
+                "artistId": row["artist_mbid"], "albumId": row["album_mbid"], "year": row["year"], "type": row["kind"]}
 
     @app.get("/api/requests")
     def list_requests():
         me = uid()
         with db() as conn:
-            return {"requests": [_request_json(r, me) for r in wishlist.listed(conn)]}
+            return {"requests": [_request_json(r, me) for r in wishlist.listed(conn)],
+                    "lookup": cfg.artist_info}
+
+    @app.get("/api/requests/lookup")
+    async def lookup_for_request(kind: Literal["artist", "album"], q: str = Query("", max_length=200),
+                                 artist: str = Query("", max_length=300),
+                                 artistId: str | None = Query(None, pattern=MBID_PATTERN)):
+        """What MusicBrainz knows that matches what's being typed: artists, or albums (all of a
+        picked artist's, narrowed by what's typed). Each says whether it's on the shelf already."""
+        if not cfg.artist_info:
+            return {"results": [], "off": True}
+        q = q.strip()
+        try:
+            if kind == "artist":
+                found = await asyncio.to_thread(wishlist.find_artists, q) if len(q) >= 2 else []
+            elif artistId:
+                found = await asyncio.to_thread(wishlist.artist_albums, artistId)
+                want = videos.fold(q)
+                found = [a for a in found if want in videos.fold(a["title"])] if want else found
+            else:
+                found = await asyncio.to_thread(wishlist.find_albums, q, artist) if len(q) >= 2 else []
+        except (OSError, ValueError) as e:  # URLError is an OSError
+            log.warning("MusicBrainz lookup failed: %s", e)
+            return {"results": [], "error": "MusicBrainz didn’t answer. You can still type it in yourself."}
+        with db() as conn:
+            shelf = wishlist.Shelf(conn)
+            for x in found:
+                x["onShelf"] = shelf.has(x["name"], None) if kind == "artist" else shelf.has(x.get("artist") or artist, x["title"])
+        return {"results": found[:60]}
 
     @app.post("/api/requests")
     def create_request(body: RequestBody):
@@ -3365,11 +3402,13 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         with db() as conn:
             if wishlist.on_shelf(conn, artist, album):
                 raise HTTPException(409, "Good news: that’s already on the shelf.")
-            earlier = wishlist.open_duplicate(conn, artist, album)
+            earlier = wishlist.open_duplicate(conn, artist, album, body.albumId if album else None)
             if earlier is not None:
                 who = "You" if earlier["user_id"] == user.id else earlier["username"]
                 raise HTTPException(409, f"{who} already asked for this. An admin will get to it.")
-            rid = wishlist.create(conn, user.id, artist, album, (body.note or "").strip())
+            rid = wishlist.create(conn, user.id, artist, album, (body.note or "").strip(), artist_id=body.artistId,
+                                  album_id=body.albumId if album else None, year=body.year if album else None,
+                                  kind=(body.type or "").strip() or None if album else None)
             return _request_json(wishlist.find(conn, rid), user.id)
 
     @app.patch("/api/requests/{rid}")

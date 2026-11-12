@@ -93,7 +93,12 @@ Last updated: 2026-11-12, after v0.7.7 shipped.
   list. Refused when it's already on the shelf or someone already asked. Admins mark requests done,
   declined or open again; a scan that brings the music marks matching requests done by itself.
   You withdraw your own; admins can withdraw anyone's. Reached from the top bar, the account menu,
-  an empty search and the "Not on your shelf" page.
+  an empty search and the "Not on your shelf" page (each album there has a one-tap Request).
+  **Linked to MusicBrainz:** while typing, the form suggests artists, then the picked artist's
+  official albums/EPs (`release-group-status=website-default`, no bootlegs) or albums by title;
+  a picked one stores its MusicBrainz ids, year and type, shows its cover and links to it.
+  Lookups go through `releases.mb()`, the one shared, rate-limited MusicBrainz caller; they're off
+  with `artist_info`, and typing a name MusicBrainz doesn't know still makes a request.
 - **Artist pages** (`artists.py`): Wikipedia biography + photo (name only is sent out).
 
 ## Admin and operations

@@ -218,7 +218,11 @@ CREATE TABLE IF NOT EXISTS requests (
     note        TEXT NOT NULL DEFAULT '',
     status      TEXT NOT NULL DEFAULT 'open',  -- open, done, declined
     created_at  REAL NOT NULL,
-    resolved_at REAL
+    resolved_at REAL,
+    artist_mbid TEXT,             -- the artist on MusicBrainz, when it was picked from there
+    album_mbid  TEXT,             -- the album (release group) on MusicBrainz
+    year        INTEGER,
+    kind        TEXT              -- Album, EP, Single (MusicBrainz's word)
 );
 
 CREATE TABLE IF NOT EXISTS meta (
@@ -298,6 +302,9 @@ def init_db(db_path: Path) -> None:
             CREATE INDEX IF NOT EXISTS plays_user ON plays(user_id, played_at);
             CREATE INDEX IF NOT EXISTS playlists_user ON playlists(user_id, updated_at);
         """)
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(requests)")}
+        for name, decl in (("artist_mbid", "TEXT"), ("album_mbid", "TEXT"), ("year", "INTEGER"), ("kind", "TEXT")):
+            _add_column(conn, "requests", cols, name, decl)
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(playlist_tracks)")}
         # How this song hands over to the next one in Mix: auto, blend, swap, rise, fade or cut.
         _add_column(conn, "playlist_tracks", cols, "transition", "TEXT")
