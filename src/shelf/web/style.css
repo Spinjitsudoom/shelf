@@ -469,6 +469,7 @@ body.q-dragging .track-row[data-queue-index]:not(.q-lifted) { transition: transf
 .mb-cover { width: 40px; height: 40px; border-radius: 4px; }
 .req-cover img, .mb-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s; }
 .req-cover img.ld, .mb-cover img.ld { opacity: 1; }
+.req-cover.req-artist { border-radius: 50%; }
 /* MusicBrainz suggestions under a field */
 .mb-wrap { position: relative; display: flex; flex-direction: column; }
 .mb-list {

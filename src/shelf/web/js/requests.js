@@ -14,10 +14,12 @@ function when(ts) {
   return new Date(ts * 1000).toLocaleDateString(undefined, { day: "numeric", month: "long" });
 }
 
-/** A small cover from the Cover Art Archive (through the server), or the title's colour. */
-function thumb(albumId, title, cls = "req-cover") {
-  return `<span class="${cls}" style="--case-bg:${fallbackColor(title || "?")}" aria-hidden="true">${albumId
-    ? `<img src="api/releases/${albumId}/cover" alt="" loading="lazy" onerror="this.remove()" onload="this.classList.add('ld')">` : ""}</span>`;
+/** A small cover from the Cover Art Archive (through the server), the artist's photo when it's
+ * the artist that's asked for, or the title's colour. */
+function thumb(albumId, title, cls = "req-cover", artist = null) {
+  const src = albumId ? `api/releases/${albumId}/cover` : artist ? `api/artist/image?find=1&name=${encodeURIComponent(artist)}` : null;
+  return `<span class="${cls}${albumId ? "" : " req-artist"}" style="--case-bg:${fallbackColor(title || "?")}" aria-hidden="true">${src
+    ? `<img src="${src}" alt="" loading="lazy" onerror="this.remove()" onload="this.classList.add('ld')">` : ""}</span>`;
 }
 
 const details = (x) => [x.year, x.type && x.type !== "Album" ? x.type : null, x.extra].filter(Boolean).join(" · ");
@@ -29,7 +31,7 @@ function row(r, admin) {
   const mb = r.albumId ? `${MB_SITE}/release-group/${r.albumId}` : r.artistId ? `${MB_SITE}/artist/${r.artistId}` : null;
   return `
     <li class="hook request-row${r.status !== "open" ? " settled" : ""}">
-      ${thumb(r.albumId, r.album || r.artist)}
+      ${thumb(r.albumId, r.album || r.artist, "req-cover", r.album ? null : r.artist)}
       <div class="hook-main">
         <span class="hook-url">${name}${more ? ` <span class="req-more">${esc(more)}</span>` : ""}</span>
         ${r.note ? `<span class="hook-events">“${esc(r.note)}”</span>` : ""}

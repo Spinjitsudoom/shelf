@@ -2809,8 +2809,12 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         return {"found": False}
 
     @app.get("/api/artist/image")
-    def artist_image(name: str = Query(..., min_length=1, max_length=200)):
+    def artist_image(name: str = Query(..., min_length=1, max_length=200), find: bool = False):
+        """An artist's photo. `find`: look it up on Wikipedia if it isn't here yet (the requests
+        page, for artists not on the shelf), when online lookups are on."""
         path = artist_info.image_path(cfg.data_dir, name)
+        if not path.is_file() and find and cfg.artist_info:
+            artist_info.about(cfg.db_path, cfg.data_dir, name)
         if not path.is_file():
             raise HTTPException(404, "No photo")
         return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "private, max-age=604800"})

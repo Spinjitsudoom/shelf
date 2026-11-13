@@ -206,13 +206,22 @@ def cover(cache_dir: Path, mbid: str) -> bytes | None:
     miss = cache_dir / f"{mbid}.none"
     if path.exists():
         return path.read_bytes()
-    if miss.exists() and time.time() - miss.stat().st_mtime < 7 * DAY:
-        return None
+    if miss.exists():
+        # "None": the archive has no cover for it (asked again in a week). Anything else, an
+        # earlier try that failed (slow, busy): asked again after a few minutes. Markers from
+        # before 1.0.3 are empty and were often only a slow answer, so they count as that.
+        sure = miss.read_bytes() == b"404"
+        if time.time() - miss.stat().st_mtime < (7 * DAY if sure else 600):
+            return None
     try:
-        data = _get(f"https://coverartarchive.org/release-group/{mbid}/front-250", timeout=20)
-    except (urllib.error.URLError, OSError):
-        miss.touch()
+        data = _get(f"https://coverartarchive.org/release-group/{mbid}/front-250", timeout=30)
+    except urllib.error.HTTPError as e:
+        miss.write_bytes(b"404" if e.code == 404 else b"failed")
         return None
+    except (urllib.error.URLError, OSError):
+        miss.write_bytes(b"failed")
+        return None
+    miss.unlink(missing_ok=True)
     with _covers_lock:
         path.write_bytes(data)
     return data

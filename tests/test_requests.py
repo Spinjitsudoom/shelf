@@ -206,3 +206,35 @@ def test_lookups_off_or_unreachable(client, monkeypatch):
     client.app.state.cfg.artist_info = True
     r = client.get("/api/requests/lookup", params={"kind": "artist", "q": "daft"}).json()
     assert r["results"] == [] and "type it in yourself" in r["error"]
+
+
+def test_request_covers_retry_after_a_slow_answer(tmp_path, monkeypatch):
+    import os
+    import time
+    import urllib.error
+
+    from shelf import releases
+
+    mbid = "9162580e-5df4-32de-80cc-f45a8d8a9b1d"
+    answers = [OSError("timed out"), b"JPEG"]
+
+    def get(url, timeout=20):
+        a = answers.pop(0)
+        if isinstance(a, Exception):
+            raise a
+        return a
+    monkeypatch.setattr(releases, "_get", get)
+    assert releases.cover(tmp_path, mbid) is None  # slow: no cover yet...
+    marker = tmp_path / f"{mbid}.none"
+    os.utime(marker, (time.time() - 700, time.time() - 700))
+    assert releases.cover(tmp_path, mbid) == b"JPEG"  # ...asked again minutes later
+    assert not marker.exists()
+
+    other = "1a1cd7f3-e5df-4eca-bae2-2757c9e656b5"
+    monkeypatch.setattr(releases, "_get", lambda url, timeout=20: (_ for _ in ()).throw(
+        urllib.error.HTTPError(url, 404, "Not Found", {}, None)))
+    assert releases.cover(tmp_path, other) is None
+    old = time.time() - 3 * 3600
+    os.utime(tmp_path / f"{other}.none", (old, old))
+    monkeypatch.setattr(releases, "_get", lambda url, timeout=20: b"never asked")
+    assert releases.cover(tmp_path, other) is None  # the archive has none: not asked again for a week
