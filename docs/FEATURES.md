@@ -10,7 +10,7 @@ Last updated: 2026-11-12, after v0.7.8 shipped.
 
 - **What:** a self-hosted music server for the owner's CD rips, with the features of a big
   streaming app, for a household of accounts. Public repo: github.com/Spinjitsudoom/shelf,
-  AGPL-3.0-or-later. Latest release: **v1.0.1** (2026-11-13).
+  AGPL-3.0-or-later. Latest release: **v1.0.2** (2026-11-13).
 - **Server:** Python 3 + FastAPI + SQLite, in `src/shelf/`. Runs on Windows (installer,
   PyInstaller + Inno Setup) and Linux (`install.sh`: uv + systemd user service). ffmpeg does all
   audio work; Essentia analyses where available (not on Windows — `dsp.py` is the numpy fallback).
@@ -223,7 +223,7 @@ Redmi 9.
   were checked on the Redmi on 2026-11-12.)
 - **Waiting on the owner:** Last.fm API key and secret; whether AcoustID auto-tagging is wanted
   and how far it may go; whether admins should be told when a request comes in.
-- **Unreleased on main:** nothing yet. **1.0.1** (2026-11-13) shipped complete Subsonic/OpenSubsonic support (see Admin and operations), API keys in Settings,
+- **Unreleased on main:** nothing yet. **1.0.2** (2026-11-13) fixed what a code review found (measuring held up scans, ffmpeg stalls, proxy sign-in for Connect and email names). **1.0.1** (2026-11-13) shipped complete Subsonic/OpenSubsonic support (see Admin and operations), API keys in Settings,
   big-library speed and memory work, a Docker image (`Dockerfile`, `compose.yaml`, `docker/config.toml`,
   `.github/workflows/docker.yml` publishes amd64+arm64 to ghcr.io/spinjitsudoom/shelf on release tags; guide in
   docs/docker.md; ARM builds skip Essentia and use the dsp engine; ~1.2 GB, mostly Debian's ffmpeg),

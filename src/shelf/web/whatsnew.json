@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.0.2",
+    "date": "2026-11-13",
+    "new": [
+      {"title": "Measuring makes way for new music", "text": "While Shelf measures songs in the background, a rescan or newly added music no longer has to wait for it to finish: measuring steps aside and carries on afterwards.", "admin": true}
+    ],
+    "fixed": [
+      "With measuring set to “Only at night”, new music is picked up during the day again.",
+      "A damaged song can no longer stall partway through when it’s converted for streaming.",
+      "People signed in through a reverse proxy can use Connect, and names like alice@example.com get an account.",
+      "Removing someone from a Subsonic app also disconnects their devices from Connect.",
+      "Similar artists and songs that sound alike answer faster in Subsonic apps on big libraries."
+    ]
+  },
+  {
     "version": "1.0.1",
     "date": "2026-11-13",
     "new": [
