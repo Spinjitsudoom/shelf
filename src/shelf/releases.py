@@ -216,9 +216,12 @@ def cover(cache_dir: Path, mbid: str) -> bytes | None:
     try:
         data = _get(f"https://coverartarchive.org/release-group/{mbid}/front-250", timeout=30)
     except urllib.error.HTTPError as e:
+        if e.code != 404:
+            log.info("Cover Art Archive answered %s for %s", e.code, mbid)
         miss.write_bytes(b"404" if e.code == 404 else b"failed")
         return None
-    except (urllib.error.URLError, OSError):
+    except (urllib.error.URLError, OSError) as e:
+        log.warning("Couldn't fetch the cover of %s: %s", mbid, getattr(e, "reason", e))
         miss.write_bytes(b"failed")
         return None
     miss.unlink(missing_ok=True)

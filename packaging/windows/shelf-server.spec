@@ -10,7 +10,7 @@ ROOT = SPECPATH + "/../.."
 server = Analysis(
     [ROOT + "/packaging/windows/server_entry.py"],
     pathex=[ROOT + "/src"],
-    datas=collect_data_files("shelf"),  # the web app (shelf/web)
+    datas=collect_data_files("shelf") + collect_data_files("certifi"),  # the web app; Mozilla's authorities (trust.py)
     hiddenimports=collect_submodules("shelf") + collect_submodules("uvicorn"),
     excludes=["tkinter", "essentia"],
 )

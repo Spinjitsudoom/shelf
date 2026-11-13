@@ -20,6 +20,10 @@ def main() -> None:
 
     import uvicorn
 
+    from . import trust
+
+    trust.install()  # https everywhere trusts Mozilla's authorities too (Windows lacks newer ones)
+
     from .app import create_app
     from .config import load_config
 

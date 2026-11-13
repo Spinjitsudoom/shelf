@@ -7,6 +7,8 @@ license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
+    # Mozilla's certificate authorities, besides the computer's own (see trust.py).
+    "certifi>=2024.2.2",
     # Tempo, key and "sounds like" analysis. It has no Windows version; Shelf runs without it.
     "essentia>=2.1b6.dev1438; sys_platform != 'win32'",
     "fastapi>=0.162.1",
