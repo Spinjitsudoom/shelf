@@ -1,7 +1,7 @@
 {
   "name": "shelf-desktop",
   "productName": "Shelf",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "The Shelf music player for Windows and Linux. Connects to your Shelf server.",
   "homepage": "https://github.com/Spinjitsudoom/shelf",
   "author": "Spinjitsudoom <229893545+Spinjitsudoom@users.noreply.github.com>",

@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.0.4",
+    "date": "2026-11-13",
+    "new": [],
+    "fixed": [
+      "Album covers on the Requests page show up on Windows servers: the server couldn’t check the cover archive’s security certificate, so every cover quietly failed."
+    ]
+  },
+  {
     "version": "1.0.3",
     "date": "2026-11-13",
     "new": [
