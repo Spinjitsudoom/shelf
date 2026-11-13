@@ -1,6 +1,6 @@
 [project]
 name = "shelf"
-version = "1.0.2"
+version = "1.0.3"
 description = "A self-hosted music server and player for your own CD rips"
 readme = "README.md"
 license = "AGPL-3.0-or-later"

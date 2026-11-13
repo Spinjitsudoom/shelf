@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.0.3",
+    "date": "2026-11-13",
+    "new": [
+      {"title": "Artist photos on requests", "text": "When you ask for an artist rather than one album, the request shows their photo."}
+    ],
+    "fixed": [
+      "Album covers on the Requests page show up again: a slow answer from the cover archive no longer leaves them blank for a week."
+    ]
+  },
+  {
     "version": "1.0.2",
     "date": "2026-11-13",
     "new": [
