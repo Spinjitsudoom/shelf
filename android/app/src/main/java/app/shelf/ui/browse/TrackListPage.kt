@@ -62,6 +62,8 @@ fun TrackListPage(
     actions: (@Composable () -> Unit)? = null,
     /** Shown between song i and the next (a Mix playlist's transitions). */
     between: (@Composable (Int) -> Unit)? = null,
+    /** Shown before song i (and with i = the song count, at the end): an imported playlist's missing songs. */
+    gaps: (@Composable (Int) -> Unit)? = null,
 ) {
     val discs = numbered && tracks.map { it.discNo ?: 1 }.distinct().size > 1
     Box(Modifier.fillMaxSize()) {
@@ -89,10 +91,12 @@ fun TrackListPage(
                     }
                 }
             }
-            if (tracks.isEmpty()) item {
+            if (tracks.isEmpty() && gaps != null) item { gaps(0) }
+            else if (tracks.isEmpty()) item {
                 Text("No songs here yet.", style = MaterialTheme.typography.bodyMedium, color = Shelf.colors.ink2, modifier = Modifier.padding(20.dp))
             }
             itemsIndexed(tracks, key = { i, t -> "$i-${t.id}" }) { i, t ->
+                if (i == 0) gaps?.invoke(0)
                 if (discs && (i == 0 || (tracks[i - 1].discNo ?: 1) != (t.discNo ?: 1))) {
                     Text("Disc ${t.discNo ?: 1}", style = MaterialTheme.typography.labelLarge, color = Shelf.colors.ink2,
                         modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 4.dp))
@@ -108,6 +112,7 @@ fun TrackListPage(
                     track = t, removeFromPlaylist = onRemove?.let { { it(i) } },
                 )
                 if (between != null && i < tracks.lastIndex) between(i)
+                gaps?.invoke(i + 1)
             }
             item { Spacer(Modifier.height(24.dp)) }
         }

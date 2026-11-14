@@ -63,6 +63,14 @@ data class ArtistPage(
 data class PlaylistSummary(
     val id: Int, val name: String, val description: String? = null, val trackCount: Int = 0,
     val duration: Double = 0.0, val covers: List<CoverRef> = emptyList(), val canEdit: Boolean = false,
+    val missing: Int = 0, // imported songs not in the library yet
+)
+
+/** An imported song the library doesn't have yet: shown in its place (after [after] real songs), never played. */
+@Serializable
+data class MissingSong(
+    val id: Int, val after: Int = 0, val title: String = "", val artist: String = "", val album: String? = null,
+    val duration: Double? = null, val request: String? = null, // its album's request: open, done, declined
 )
 
 @Serializable
@@ -71,6 +79,7 @@ data class PlaylistDetail(
     val duration: Double = 0.0, val covers: List<CoverRef> = emptyList(), val canEdit: Boolean = false,
     val tracks: List<Track> = emptyList(), val mix: Boolean = false, // Mix: songs hand over like a DJ set
     val rulesText: String? = null, // a smart playlist: its rules in words (its songs come from them)
+    val missingSongs: List<MissingSong> = emptyList(),
 )
 
 @Serializable
@@ -157,7 +166,12 @@ data class VideoInfo(val found: Boolean = false, val videoId: String? = null, va
 data class MadePlaylist(val name: String, val understood: List<String> = emptyList(), val trackIds: List<Int> = emptyList())
 
 /** A playlist from elsewhere (POST /api/playlists/import): each song, with the library's song for it if there is one. */
-@Serializable data class ImportedSong(val want: String, val track: Track? = null)
+/** What an imported song asked for; one the library doesn't have is kept in the playlist, marked missing. */
+@Serializable data class WantedSong(
+    val artist: String = "", val title: String = "", val album: String = "", val duration: Double? = null,
+    val text: String = "", val path: String = "",
+)
+@Serializable data class ImportedSong(val want: String, val track: Track? = null, val song: WantedSong? = null)
 @Serializable data class ImportedPlaylist(val name: String, val found: Int = 0, val songs: List<ImportedSong> = emptyList())
 @Serializable data class ImportResult(val playlists: List<ImportedPlaylist> = emptyList(), val linked: Boolean = false)
 

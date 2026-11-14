@@ -158,7 +158,7 @@ fun AppNav(container: AppContainer, signedOut: SignedOutHandler, player: PlayerC
     importing?.let { start -> api?.let { a -> androidx.compose.runtime.key(start) {
         app.shelf.ui.common.ImportPlaylistDialog(start, { id, v -> source.coverUrl(id, v, 160) },
             onFind = { t, f -> a.importPlaylists(t, f) },
-            onMake = { name, description, ids -> a.createPlaylist(name, ids, description).id },
+            onMake = { name, description, songs -> a.createImported(name, description, songs).id },
             onDone = { made ->
                 importing = null
                 if (made.size == 1) { say("Made “${made[0].second}”"); nav.navigate(Routes.playlist(made[0].first)) }

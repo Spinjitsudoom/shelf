@@ -206,6 +206,7 @@ export const api = {
   resumeAt: (id) => request("GET", `tracks/${id}/resume`),
   keepPlace: (id, position) => request("PUT", `tracks/${id}/resume`, { position: Math.max(0, position) }).catch(() => {}),
   removeFromPlaylist: (id, entryId) => changed(request("DELETE", `playlists/${id}/tracks/${entryId}`)),
+  removeMissing: (id, missingId) => changed(request("DELETE", `playlists/${id}/missing/${missingId}`)),
   reorderPlaylist: (id, entryIds) => changed(request("PUT", `playlists/${id}/order`, { entryIds })),
   similar: (id) => request("GET", `tracks/${id}/similar?limit=40`),
   setTransition: (pid, entryId, setting) => {

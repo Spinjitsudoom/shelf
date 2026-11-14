@@ -37,6 +37,18 @@ Last updated: 2026-11-12, after v0.7.8 shipped.
   dropped music by its tags (`watch.py`), CD ripping on the server's drive (`ripper.py`),
   **playlist import** (`imports.py`): Spotify/YouTube playlist links (public pages, first 100
   songs), M3U/PLS/XSPF/CSV/Spotify-data-JSON/pasted text, fuzzy-matched against the library.
+  **Songs the library doesn't have stay in the playlist, marked missing** (`missing.py`, table
+  `playlist_missing`, positions interleaved with `playlist_tracks`; detail JSON `missingSongs`
+  with `after` = real songs before it; web + Android show them greyed in place, removable; never
+  played, invisible to Subsonic). Each asks for its album in Requests as the importer (note "For
+  the playlist ‘X’"): the album the import named (CSV/files), else the one MusicBrainz says the
+  song first came out on (`missing.album_of`: studio album > EP > single > compilations, official
+  first; background thread, needs `artist_info`; "A - B" text tried both ways round), else the
+  artist alone (only when artist and title came apart, never from a video title). On the shelf
+  already → no request; asked already → linked to that request. A scan swaps a missing song for
+  the real one in the same place (`missing.fill`, before `requests.fulfil`). Reordering keeps
+  missing songs after the song they followed. Clients send `songs` (in order, `trackId` or the
+  import's `song`) to POST /api/playlists; old apps sending `trackIds` still work.
 - **Library health** (`health.py`, admin): same artist+title duplicates; fake lossless
   (`lossy.py`, spectral cutoff < 19 kHz); **the same recording under another name**
   (`fingerprint.py`, Chromaprint via ffmpeg, bit-error threshold 0.07) — report only, never
@@ -223,7 +235,9 @@ Redmi 9.
   were checked on the Redmi on 2026-11-12.)
 - **Waiting on the owner:** Last.fm API key and secret; whether AcoustID auto-tagging is wanted
   and how far it may go; whether admins should be told when a request comes in.
-- **Unreleased on main:** nothing yet. **1.0.4** (2026-11-13, hotfix): https trusts certifi's authorities as well as the system's (`trust.py`, installed in `shelf.main`; Windows lacked ISRG Root X2, so Cover Art Archive covers failed). **1.0.3** (2026-11-13): request covers retried after slow answers (only a real 404 is remembered a week), artist photos on artist requests. **1.0.2** (2026-11-13) fixed what a code review found (measuring held up scans, ffmpeg stalls, proxy sign-in for Connect and email names). **1.0.1** (2026-11-13) shipped complete Subsonic/OpenSubsonic support (see Admin and operations), API keys in Settings,
+- **Unreleased on main:** imported playlists keep missing songs (marked missing, filled in by a
+  scan) and request their albums (2026-11-14; web checked in headless Chromium, Android compiles +
+  unit tests, not tried on the Redmi). Needs a whatsnew entry at the next release. **1.0.4** (2026-11-13, hotfix): https trusts certifi's authorities as well as the system's (`trust.py`, installed in `shelf.main`; Windows lacked ISRG Root X2, so Cover Art Archive covers failed). **1.0.3** (2026-11-13): request covers retried after slow answers (only a real 404 is remembered a week), artist photos on artist requests. **1.0.2** (2026-11-13) fixed what a code review found (measuring held up scans, ffmpeg stalls, proxy sign-in for Connect and email names). **1.0.1** (2026-11-13) shipped complete Subsonic/OpenSubsonic support (see Admin and operations), API keys in Settings,
   big-library speed and memory work, a Docker image (`Dockerfile`, `compose.yaml`, `docker/config.toml`,
   `.github/workflows/docker.yml` publishes amd64+arm64 to ghcr.io/spinjitsudoom/shelf on release tags; guide in
   docs/docker.md; ARM builds skip Essentia and use the dsp engine; ~1.2 GB, mostly Debian's ffmpeg),

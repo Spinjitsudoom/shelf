@@ -1,6 +1,12 @@
 package app.shelf.ui.browse
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -83,11 +89,17 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
             color = color, kind = "Playlist", title = p.name,
             cover = { MosaicCover(p.covers.mapNotNull { source.coverUrl(it.albumId, it.cover, 320) }, p.name, color) },
             byline = playlistByline(p.description, p.rulesText)?.let { { Text(it, style = MaterialTheme.typography.bodyMedium, color = Shelf.colors.ink2) } },
-            facts = facts(plural(p.tracks.size, "song"), fmtLength(p.tracks.sumOf { it.duration }), if (p.mix) "Mix on" else null),
+            facts = facts(plural(p.tracks.size, "song"), fmtLength(p.tracks.sumOf { it.duration }),
+                if (p.missingSongs.isNotEmpty()) "${p.missingSongs.size} missing" else null, if (p.mix) "Mix on" else null),
             tracks = p.tracks, numbered = false, coverUrl = { source.cover(it) },
             onTrack = { onPlay(p.tracks, it, ctx) }, onShuffle = { onPlay(p.tracks.shuffled(), 0, ctx) }, onBack = onBack,
             between = if (p.mix) { i -> TransitionPill(p.tracks[i], p.tracks[i + 1]) { picking = i } } else null,
             onRemove = if (editable) { i -> p.tracks[i].entryId?.let { e -> change("Removed from ${p.name}") { api!!.removeFromPlaylist(p.id, e) } } } else null,
+            gaps = if (p.missingSongs.isEmpty()) null else { after ->
+                p.missingSongs.filter { it.after == after }.forEach { m ->
+                    MissingRow(m, if (editable) { { change("Removed from ${p.name}") { api!!.removeMissing(p.id, m.id) } } } else null)
+                }
+            },
             actions = {
                 app.shelf.ui.common.DownloadButton(app.shelf.downloads.Downloadable("playlist", p.id, p.name, p.description ?: "", null, p.covers, p.tracks))
                 app.shelf.ui.common.ShareLinkButton("playlist", p.id, p.name, null)
@@ -129,6 +141,29 @@ fun PlaylistScreen(id: Int, source: LibrarySource, onPlay: OnPlay, onBack: () ->
         if (deleting) app.shelf.ui.common.ConfirmDialog("Delete “${p.name}”?", "The playlist goes from every device. The songs stay on your shelf.", "Delete",
             { scope.launch { try { api!!.deletePlaylist(p.id); say("Deleted ${p.name}"); onBack() } catch (e: app.shelf.data.ShelfError) { say("Couldn’t delete it. Check the connection and try again.") } } },
             { deleting = false })
+    }
+}
+
+/** An imported song the library doesn't have yet, in its place. It fills in when the music arrives. */
+@Composable
+private fun MissingRow(m: app.shelf.data.MissingSong, onRemove: (() -> Unit)?) {
+    androidx.compose.foundation.layout.Row(
+        androidx.compose.ui.Modifier.fillMaxWidth().padding(start = 16.dp, end = if (onRemove != null) 2.dp else 16.dp, top = 9.dp, bottom = 9.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.size(46.dp)
+            .border(1.5.dp, Shelf.colors.ink2.copy(alpha = .35f), androidx.compose.foundation.shape.RoundedCornerShape(4.dp)))
+        androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.width(12.dp))
+        androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.weight(1f)) {
+            Text(m.title, style = MaterialTheme.typography.bodyLarge, color = Shelf.colors.ink2, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            val asked = when (m.request) { "open" -> "asked for"; "declined" -> "request declined"; else -> null }
+            Text(listOfNotNull("Missing", m.artist.ifBlank { null }, asked).joinToString(" · "), style = MaterialTheme.typography.bodySmall,
+                color = Shelf.colors.ink2, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        }
+        if (onRemove != null) androidx.compose.material3.IconButton(onClick = onRemove) {
+            androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(app.shelf.R.drawable.ic_close), "Remove ${m.title}", tint = Shelf.colors.ink2)
+        }
     }
 }
 

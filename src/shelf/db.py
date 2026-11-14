@@ -318,6 +318,25 @@ CREATE TABLE IF NOT EXISTS requests (
     kind        TEXT              -- Album, EP, Single (MusicBrainz's word)
 );
 
+-- Songs an imported playlist asked for that aren't in the library yet (missing.py). `position`
+-- shares playlist_tracks' numbering, so they keep their place; a scan that brings one in swaps
+-- it for the real song.
+CREATE TABLE IF NOT EXISTS playlist_missing (
+    id          INTEGER PRIMARY KEY,
+    playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+    position    REAL NOT NULL,
+    artist      TEXT NOT NULL DEFAULT '',
+    title       TEXT NOT NULL DEFAULT '',
+    album       TEXT NOT NULL DEFAULT '',
+    duration    REAL,
+    text        TEXT NOT NULL DEFAULT '',  -- a line of free text (a video title), when artist and title aren't known apart
+    path        TEXT NOT NULL DEFAULT '',  -- a file path from another player
+    added_at    REAL NOT NULL,
+    added_by    INTEGER,
+    request_id  INTEGER REFERENCES requests(id) ON DELETE SET NULL  -- the request asking for its album
+);
+CREATE INDEX IF NOT EXISTS playlist_missing_order ON playlist_missing(playlist_id, position);
+
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT

@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from . import procs
-from . import analysis, background, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, home as home_rows, lossy, lyrics, imports, webhooks, mixes, moods, party, peaks, playlist_maker, podcasts, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, background, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, home as home_rows, lossy, lyrics, imports, missing, webhooks, mixes, moods, party, peaks, playlist_maker, podcasts, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from . import subsonic_more
 from .proxyauth import ProxyAuth
@@ -213,10 +213,23 @@ ALBUM_SORTS = {
 }
 
 
+class ImportedSong(BaseModel):
+    """One song of an imported playlist, as /api/playlists/import gave it: the library's song,
+    or what it asked for (kept in the playlist, marked missing)."""
+    trackId: int | None = None
+    artist: str = Field("", max_length=500)
+    title: str = Field("", max_length=500)
+    album: str = Field("", max_length=500)
+    duration: float | None = Field(None, ge=0, le=86400)
+    text: str = Field("", max_length=1000)
+    path: str = Field("", max_length=2000)
+
+
 class PlaylistBody(BaseModel):
     name: str | None = Field(None, max_length=200)
     description: str | None = Field(None, max_length=2000)
     trackIds: list[int] = Field(default_factory=list, max_length=5000)
+    songs: list[ImportedSong] | None = Field(None, max_length=5000)  # an import: songs and missing ones, in order
     mix: bool | None = None
     shared: int | None = Field(None, ge=0, le=2)  # 0 private, 1 public, 2 collaborative
     rules: dict | None = None  # a smart playlist's rules (smart.py)
@@ -560,6 +573,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     def _tell_library(result, started: float) -> None:
         with session(cfg.db_path) as conn:
+            missing.fill(conn)  # imported playlists' missing songs that came in take their places
             wishlist.fulfil(conn)  # requests the new music answers are done now
             new = conn.execute("SELECT title, artist FROM albums WHERE added_at >= ? ORDER BY artist, title LIMIT 20",
                                (started,)).fetchall()
@@ -2872,6 +2886,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             "canEdit": not rules and (p["user_id"] == uid() or p["shared"] == 2),
             "owner": {"id": p["user_id"], "username": p["owner_name"] or "Someone"},
             "following": bool(p["following"]), "followers": p["followers"],
+            "missing": 0 if rules else missing.count(conn, pid),  # imported songs not in the library yet
         }
 
     def _rules_of(p) -> dict | None:
@@ -2921,7 +2936,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     def _append(conn, pid: int, track_ids: list[int], suggested: bool = False) -> int:
         known = {r["id"] for r in conn.execute(
             f"SELECT id FROM tracks WHERE id IN ({','.join('?' * len(track_ids))})", track_ids)} if track_ids else set()
-        start = conn.execute("SELECT COALESCE(MAX(position), 0) FROM playlist_tracks WHERE playlist_id = ?", (pid,)).fetchone()[0]
+        start = missing.end(conn, pid)
         now = time.time()
         me_id = uid()
         rows = [(pid, tid, start + i + 1, now, me_id, int(suggested)) for i, tid in enumerate(t for t in track_ids if t in known)]
@@ -2953,9 +2968,38 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             ).lastrowid
             if body.rules is not None:
                 _set_rules(conn, pid, body.rules)
+            elif body.songs is not None:
+                _add_imported(conn, pid, name, body.songs)
             else:
                 _append(conn, pid, body.trackIds)
             return _playlist_summary(conn, pid)
+
+    def _add_imported(conn, pid: int, name: str, songs: list[ImportedSong]) -> None:
+        """An imported playlist's songs in their order: the library's own, and the missing ones
+        as placeholders that ask for their albums in Requests (missing.py)."""
+        ids = [s.trackId for s in songs if s.trackId is not None]
+        known = {r["id"] for r in conn.execute(
+            f"SELECT id FROM tracks WHERE id IN ({','.join('?' * len(ids))})", ids)} if ids else set()
+        now, me_id = time.time(), uid()
+        seen, entries, wanted, positions = set(), [], [], []
+        for s in songs:
+            if s.trackId is not None:
+                if s.trackId in known and s.trackId not in seen:
+                    seen.add(s.trackId)
+                    entries.append((pid, s.trackId, len(entries) + len(wanted) + 1, now, me_id))
+                continue
+            w = imports.want(artist=s.artist, title=s.title, album=s.album, duration=s.duration, text=s.text, path=s.path)
+            if w["artist"] or w["title"] or w["text"] or w["path"]:
+                wanted.append(w)
+                positions.append(len(entries) + len(wanted))
+        conn.executemany("INSERT INTO playlist_tracks(playlist_id, track_id, position, added_at, added_by) "
+                         "VALUES(?, ?, ?, ?, ?)", entries)
+        mids = missing.add(conn, pid, me_id, wanted, positions, now)
+        later = missing.request_now(conn, me_id, name, list(zip(mids, wanted)), cfg.artist_info)
+        if later:
+            conn.commit()  # the lookups write from another connection
+            threading.Thread(target=missing.request_looked_up, args=(lambda: session(cfg.db_path), me_id, name, later),
+                             name="shelf-missing-requests", daemon=True).start()
 
     @app.post("/api/playlists/import")
     def import_playlists(body: ImportBody):
@@ -2980,7 +3024,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 rows = {r["id"]: r for r in conn.execute(
                     f"{TRACK_SELECT} WHERE t.id IN ({','.join('?' * len(set(ids) - {None}))})",
                     [i for i in set(ids) if i is not None])} if any(ids) else {}
-                songs = [{"want": imports.label(w), "track": track_json(rows[i]) if i in rows else None}
+                songs = [{"want": imports.label(w), "track": track_json(rows[i]) if i in rows else None,
+                          **({} if i in rows else {"song": w})}  # what to keep, marked missing
                          for w, i in zip(p["songs"], ids)]
                 out.append({"name": p["name"][:200], "found": sum(1 for s in songs if s["track"]), "songs": songs})
         return {"playlists": out, "linked": bool(imports.link(text))}
@@ -3007,15 +3052,18 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             if summary["smart"]:
                 return {**summary, "tracks": [track_json(r) for r in _smart_rows(conn, pid, summary["smart"], uid())]}
             rows = conn.execute(
-                f"""SELECT e.id AS entry_id, e.added_at AS entry_added, e.transition, u.username AS added_by_name, q.*
+                f"""SELECT e.id AS entry_id, e.added_at AS entry_added, e.position AS entry_position, e.transition,
+                           u.username AS added_by_name, q.*
                     FROM playlist_tracks e JOIN ({TRACK_SELECT}) q ON q.id = e.track_id
                     LEFT JOIN users u ON u.id = e.added_by
                     WHERE e.playlist_id = ? ORDER BY e.position""",
                 (pid,),
             ).fetchall()
+            gaps = missing.as_json(missing.listed(conn, pid), [r["entry_position"] for r in rows])
         tracks = [{**track_json(r), "entryId": r["entry_id"], "addedAt": r["entry_added"],
                    "addedBy": r["added_by_name"], "transition": transition_json(r["transition"])} for r in rows]
-        return {**summary, "tracks": tracks}
+        # Imported songs the library doesn't have: shown in place (`after` real songs), never played.
+        return {**summary, "tracks": tracks, "missingSongs": gaps}
 
     @app.get("/api/playlists/{pid}/recommendations")
     def recommendations(pid: int, seed: int = 0, limit: int = Query(10, ge=1, le=50)):
@@ -3472,6 +3520,16 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             _touch(conn, pid)
             return _playlist_summary(conn, pid)
 
+    @app.delete("/api/playlists/{pid}/missing/{mid}")
+    def remove_missing(pid: int, mid: int):
+        """An imported song that isn't in the library, out of the playlist (its request stays)."""
+        with db() as conn:
+            _require_playlist(conn, pid, "tracks")
+            if not missing.remove(conn, pid, mid):
+                raise HTTPException(404, "That song isn’t in this playlist")
+            _touch(conn, pid)
+            return _playlist_summary(conn, pid)
+
     @app.put("/api/playlists/{pid}/tracks/{entry_id}/transition")
     def set_transition(pid: int, entry_id: int, body: TransitionBody):
         """How a song hands over to the next one when the playlist is played as a Mix."""
@@ -3550,8 +3608,10 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             current = {r["id"] for r in conn.execute("SELECT id FROM playlist_tracks WHERE playlist_id = ?", (pid,))}
             if set(body.entryIds) != current or len(body.entryIds) != len(current):
                 raise HTTPException(409, "The playlist changed; reload it and try again")
+            kept = missing.anchors(conn, pid)  # missing songs move with the song before them
             conn.executemany("UPDATE playlist_tracks SET position = ? WHERE id = ?",
                              [(i + 1, eid) for i, eid in enumerate(body.entryIds)])
+            missing.reanchor(conn, pid, kept)
             _touch(conn, pid)
         return {"ok": True}
 

@@ -38,6 +38,7 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 
 from . import __version__, covers, credits, lyrics, podcasts, resume, transcode, videos
 from . import artists as artist_info
+from . import missing as missing_songs
 from .subsonic_more import BASE_URL, EXTENSIONS, More
 from .auth import verify_password
 from .db import T_COLUMNS, get_meta, session, set_meta
@@ -899,7 +900,7 @@ class Subsonic(More):
     def _add_songs(conn, pid: int, ids: list[str], uid: int) -> None:
         nums = [int(i) for i in ids if i.isdigit()]
         known = {r[0] for r in conn.execute(f"SELECT id FROM tracks WHERE id IN ({','.join('?' * len(nums))})", nums)} if nums else set()
-        start = conn.execute("SELECT COALESCE(MAX(position), 0) FROM playlist_tracks WHERE playlist_id = ?", (pid,)).fetchone()[0]
+        start = missing_songs.end(conn, pid)  # after an imported playlist's missing songs too
         now = time.time()
         conn.executemany("INSERT INTO playlist_tracks(playlist_id, track_id, position, added_at, added_by) VALUES(?, ?, ?, ?, ?)",
                          [(pid, t, start + i + 1, now, uid) for i, t in enumerate(n for n in nums if n in known)])

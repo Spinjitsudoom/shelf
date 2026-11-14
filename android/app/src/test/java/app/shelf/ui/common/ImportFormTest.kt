@@ -54,13 +54,15 @@ class ImportFormTest {
         val form = ImportForm()
         form.type("x")
         form.find { _, _ -> two }
-        assertEquals(setOf(0, 2), form.picked) // the ones with songs found
+        // Every playlist with songs: ones the library doesn't have go in too, marked missing.
+        assertEquals(setOf(0, 1, 2), form.picked)
+        form.toggle(1)
         form.rename(2, "  Workout ")
-        val made = mutableListOf<Triple<String, String, List<Int>>>()
-        val ids = form.make { name, description, trackIds -> made += Triple(name, description, trackIds); made.size }
+        val made = mutableListOf<Triple<String, String, List<ImportedSong>>>()
+        val ids = form.make { name, description, songs -> made += Triple(name, description, songs); made.size }
         assertEquals(listOf(1, 2), ids)
-        assertEquals(Triple("Road trip", "Imported. 1 song wasn’t in the library.", listOf(1, 2)), made[0])
-        assertEquals(Triple("Workout", "Imported.", listOf(3)), made[1])
+        assertEquals(Triple("Road trip", "Imported.", two.playlists[0].songs), made[0]) // in order, missing ones and all
+        assertEquals(Triple("Workout", "Imported.", two.playlists[2].songs), made[1])
     }
 
     @Test fun pickingNothingSaysSo() = runTest {

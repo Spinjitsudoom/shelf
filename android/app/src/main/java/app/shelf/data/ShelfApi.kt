@@ -100,6 +100,18 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
         call("api/playlists", PlaylistSummary.serializer(), body {
             put("name", name); putJsonArray("trackIds") { trackIds.forEach { add(it) } }; description?.let { put("description", it) }
         })
+    /** An imported playlist: its songs in order, the library's and the missing ones (kept, and their albums asked for). */
+    suspend fun createImported(name: String, description: String, songs: List<ImportedSong>): PlaylistSummary =
+        call("api/playlists", PlaylistSummary.serializer(), body {
+            put("name", name); put("description", description)
+            putJsonArray("songs") {
+                songs.forEach { s ->
+                    val t = s.track
+                    if (t != null) add(buildJsonObject { put("trackId", t.id) })
+                    else s.song?.let { add(json.encodeToJsonElement(WantedSong.serializer(), it)) }
+                }
+            }
+        })
     /** Songs for a playlist from a few words ("metal, high energy"); a ShelfError.Server says why not. */
     suspend fun makePlaylist(prompt: String, size: Int = 30): MadePlaylist =
         call("api/playlists/make", MadePlaylist.serializer(), body { put("prompt", prompt); put("size", size) })
@@ -115,6 +127,7 @@ class ShelfApi(private val base: HttpUrl, private val tokenProvider: () -> Strin
     suspend fun addToPlaylist(id: Int, trackIds: List<Int>): PlaylistSummary =
         call("api/playlists/$id/tracks", PlaylistSummary.serializer(), body { putJsonArray("trackIds") { trackIds.forEach { add(it) } } })
     suspend fun removeFromPlaylist(id: Int, entryId: Int) = send("DELETE", "api/playlists/$id/tracks/$entryId")
+    suspend fun removeMissing(id: Int, missingId: Int) = send("DELETE", "api/playlists/$id/missing/$missingId")
     suspend fun reorderPlaylist(id: Int, entryIds: List<Int>) =
         send("PUT", "api/playlists/$id/order", buildJsonObject { putJsonArray("entryIds") { entryIds.forEach { add(it) } } }.toString())
 

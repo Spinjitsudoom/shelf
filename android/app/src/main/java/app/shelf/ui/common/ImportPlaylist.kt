@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.shelf.R
 import app.shelf.data.ImportResult
+import app.shelf.data.ImportedSong
 import app.shelf.ui.covers.CaseCover
 import app.shelf.ui.covers.albumColor
 import app.shelf.ui.theme.Shelf
@@ -53,7 +54,8 @@ import kotlinx.coroutines.withContext
 /*
  * Importing playlists from elsewhere (see src/shelf/imports.py): a Spotify or YouTube link (typed,
  * or shared to Shelf from those apps), a playlist file, a CSV export or a list of songs. The server
- * finds the songs in the library; this shows what it found, then makes the playlists.
+ * finds the songs in the library; this shows what it found, then makes the playlists. Songs the
+ * library doesn't have go in too, marked missing, and their albums are asked for in Requests.
  */
 
 private val PLAYLIST_LINK = Regex(
@@ -83,7 +85,7 @@ class ImportForm(initial: String = "") {
     fun name(i: Int): String = names[i] ?: result?.playlists?.getOrNull(i)?.name.orEmpty()
     fun rename(i: Int, value: String) { names[i] = value }
     fun toggle(i: Int) { picked = if (i in picked) picked - i else picked + i }
-    fun trackIds(i: Int): List<Int> = result?.playlists?.getOrNull(i)?.songs.orEmpty().mapNotNull { it.track?.id }.distinct()
+    fun songs(i: Int): List<ImportedSong> = result?.playlists?.getOrNull(i)?.songs.orEmpty()
 
     /** Look the songs up. True when found (the results show); otherwise [error] says why. */
     suspend fun find(onFind: suspend (text: String, filename: String) -> ImportResult): Boolean {
@@ -94,8 +96,8 @@ class ImportForm(initial: String = "") {
             val found = onFind(what, filename)
             result = found
             names.clear()
-            picked = found.playlists.indices.filter { trackIds(it).isNotEmpty() }.toSet()
-            error = if (picked.isEmpty()) "None of these songs are in your library." else null
+            picked = found.playlists.indices.filter { songs(it).isNotEmpty() }.toSet()
+            error = null
             return true
         } catch (e: Exception) {
             error = e.message ?: "Shelf couldn’t import that."
@@ -106,18 +108,16 @@ class ImportForm(initial: String = "") {
     }
 
     /** Make the picked playlists. The new playlists' ids (empty, with [error] set, if none). */
-    suspend fun make(onMake: suspend (name: String, description: String, trackIds: List<Int>) -> Int): List<Int> {
+    suspend fun make(onMake: suspend (name: String, description: String, songs: List<ImportedSong>) -> Int): List<Int> {
         val found = result ?: return emptyList()
-        val chosen = picked.sorted().filter { trackIds(it).isNotEmpty() }
+        val chosen = picked.sorted().filter { songs(it).isNotEmpty() }
         if (chosen.isEmpty()) { error = "Pick at least one playlist."; return emptyList() }
         working = true
         try {
             return chosen.map { i ->
                 val p = found.playlists[i]
-                val missing = p.songs.count { it.track == null }
-                val description = "Imported${if (found.linked) " from a link" else ""}." +
-                    if (missing > 0) " ${plural(missing, "song")} ${if (missing == 1) "wasn’t" else "weren’t"} in the library." else ""
-                onMake(name(i).trim().ifEmpty { p.name }, description, trackIds(i))
+                val description = "Imported${if (found.linked) " from a link" else ""}."
+                onMake(name(i).trim().ifEmpty { p.name }, description, p.songs)
             }
         } catch (e: Exception) {
             error = e.message ?: "Shelf couldn’t make the playlist."
@@ -154,7 +154,7 @@ fun ImportPlaylistDialog(
     initial: String,
     coverUrl: (Int, String?) -> String?,
     onFind: suspend (String, String) -> ImportResult,
-    onMake: suspend (String, String, List<Int>) -> Int,
+    onMake: suspend (String, String, List<ImportedSong>) -> Int,
     onDone: (List<Pair<Int, String>>) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -173,7 +173,8 @@ fun ImportPlaylistDialog(
         title = { Text("Import a playlist", color = Shelf.colors.ink) },
         text = {
             if (found == null) Column {
-                Text("From Spotify or YouTube, another music player, or a list of songs. Shelf finds them in your library.",
+                Text("From Spotify or YouTube, another music player, or a list of songs. Shelf finds them in your library; " +
+                    "songs it doesn’t have stay in, marked missing, and their albums are asked for in Requests.",
                     color = Shelf.colors.ink2, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(form.text, form::type, label = { Text("Link or list of songs") }, minLines = 3, maxLines = 6,
@@ -196,7 +197,7 @@ fun ImportPlaylistDialog(
                         item(key = "head$i") {
                             Column(Modifier.padding(top = if (i > 0) 14.dp else 0.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (many) Checkbox(i in form.picked, { form.toggle(i) }, enabled = form.trackIds(i).isNotEmpty(),
+                                    if (many) Checkbox(i in form.picked, { form.toggle(i) }, enabled = form.songs(i).isNotEmpty(),
                                         colors = CheckboxDefaults.colors(checkedColor = Shelf.colors.cobalt))
                                     OutlinedTextField(form.name(i), { form.rename(i, it) }, label = { Text("Name") }, singleLine = true,
                                         modifier = Modifier.weight(1f))
@@ -205,6 +206,10 @@ fun ImportPlaylistDialog(
                                 val missing = p.songs.count { it.track == null }
                                 Text("${p.songs.size - missing} of ${plural(p.songs.size, "song")} ${if (p.songs.size - missing == 1) "is" else "are"} in your library.",
                                     color = Shelf.colors.ink, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                                if (missing > 0) Text(
+                                    "The ${if (missing == 1) "other one goes" else "other $missing go"} in marked missing, and Shelf asks for " +
+                                        "${if (missing == 1) "its album" else "their albums"} in Requests.",
+                                    color = Shelf.colors.ink2, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         if (!many) itemsIndexed(p.songs, key = { j, _ -> "s$i-$j" }) { _, s -> ImportedRow(s, coverUrl) }
@@ -222,7 +227,7 @@ fun ImportPlaylistDialog(
             } else TextButton(enabled = !form.working && form.picked.isNotEmpty(), onClick = {
                 scope.launch {
                     val ids = form.make(onMake)
-                    if (ids.isNotEmpty()) onDone(ids.zip(form.picked.sorted().filter { form.trackIds(it).isNotEmpty() }.map { form.name(it) }))
+                    if (ids.isNotEmpty()) onDone(ids.zip(form.picked.sorted().filter { form.songs(it).isNotEmpty() }.map { form.name(it) }))
                 }
             }) { Text(if (form.working) "Making…" else if (found.playlists.size > 1) "Import" else "Make the playlist", color = Shelf.colors.cobalt) }
         },
@@ -244,7 +249,7 @@ private fun ImportedRow(s: app.shelf.data.ImportedSong, coverUrl: (Int, String?)
         Column(Modifier.weight(1f)) {
             Text(t?.title ?: s.want, color = if (t != null) Shelf.colors.ink else Shelf.colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyLarge)
-            Text(t?.artist ?: "Not in your library", color = Shelf.colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            Text(t?.artist ?: "Not in your library: kept as missing", color = Shelf.colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall)
         }
     }

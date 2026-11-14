@@ -502,7 +502,9 @@ async function runAction(action, el) {
     case "pl-import": {
       const made = await importPlaylists();
       if (!made?.length) break;
-      toast(made.length === 1 ? `Made “${made[0].name}” with ${plural(made[0].count, "song")}` : `Imported ${plural(made.length, "playlist")}`);
+      const gaps = made.reduce((n, p) => n + (p.missing || 0), 0);
+      toast((made.length === 1 ? `Made “${made[0].name}” with ${plural(made[0].count, "song")}` : `Imported ${plural(made.length, "playlist")}`)
+        + (gaps ? `. ${gaps} missing, asked for in Requests` : ""));
       location.hash = made.length === 1 ? `#/playlist/${made[0].id}` : "#/playlists";
       break;
     }
@@ -578,6 +580,12 @@ async function runAction(action, el) {
       break;
     }
     case "pl-transition": transitionMenu(Number(el.dataset.index)); break;
+    case "pl-missing-remove": {
+      await api.removeMissing(parseRoute().id, Number(el.dataset.missing));
+      toast(`Removed “${el.dataset.title}”`);
+      await redrawPlaylist();
+      break;
+    }
     case "eq-reset":
       settings.set({ eqGains: [0, 0, 0, 0, 0, 0], eqPreset: "Flat" });
       break;

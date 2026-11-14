@@ -11,7 +11,7 @@ const MAX_FILE = 8 * 1024 * 1024;
 function songRow(s) {
   if (!s.track) {
     return `<li class="imp-song imp-missing"><span class="imp-dot" aria-hidden="true"></span>
-      <span class="t-main"><span class="t-title">${esc(s.want)}</span><span class="t-sub">Not in your library</span></span></li>`;
+      <span class="t-main"><span class="t-title">${esc(s.want)}</span><span class="t-sub">Not in your library: kept as missing, and asked for</span></span></li>`;
   }
   const t = s.track;
   return `<li class="imp-song">${caseHtml(t, { size: 160, cls: "case-sm", sizes: "36px" })}
@@ -20,16 +20,15 @@ function songRow(s) {
 
 function resultHtml(found, many) {
   return found.playlists.map((p, i) => {
-    const ids = [...new Set(p.songs.filter((s) => s.track).map((s) => s.track.id))];
     const missing = p.songs.length - p.found;
     return `
       <section class="imp-list" data-i="${i}">
         <div class="imp-head">
-          ${many ? `<input type="checkbox" name="pick" value="${i}"${ids.length ? " checked" : " disabled"} aria-label="Import ${esc(p.name)}">` : ""}
+          ${many ? `<input type="checkbox" name="pick" value="${i}"${p.songs.length ? " checked" : " disabled"} aria-label="Import ${esc(p.name)}">` : ""}
           <label class="field imp-name"><span>${many ? "Playlist" : "Name"}</span>
             <input name="name-${i}" value="${esc(p.name)}" maxlength="200"></label>
         </div>
-        <p class="imp-count"><b>${p.found} of ${plural(p.songs.length, "song")}</b> ${p.found === 1 ? "is" : "are"} in your library.${missing ? ` ${missing} ${missing === 1 ? "isn’t" : "aren’t"}.` : ""}</p>
+        <p class="imp-count"><b>${p.found} of ${plural(p.songs.length, "song")}</b> ${p.found === 1 ? "is" : "are"} in your library.${missing ? ` The ${missing === 1 ? "other one goes" : `other ${missing} go`} in marked missing, and Shelf asks for ${missing === 1 ? "its album" : "their albums"} in Requests. ${missing === 1 ? "It fills" : "They fill"} in when the music arrives.` : ""}</p>
         <details${many ? "" : " open"}><summary>Show the songs</summary>
           <ol class="imp-songs">${p.songs.map(songRow).join("")}</ol>
           ${missing ? `<button class="text-btn" type="button" data-imp="copy" data-i="${i}">Copy the missing songs</button>` : ""}
@@ -61,7 +60,7 @@ export function importPlaylists() {
   const ask = () => {
     found = null;
     step.innerHTML = `
-      <p>From Spotify or YouTube, another music player, or a list of songs. Shelf finds them in your library and makes a playlist of what it has.</p>
+      <p>From Spotify or YouTube, another music player, or a list of songs. Shelf finds them in your library. Songs it doesn’t have stay in the playlist, marked missing, and their albums are asked for in Requests.</p>
       <label class="field"><span>Link or list of songs</span>
         <textarea name="text" rows="5" spellcheck="false" placeholder="https://open.spotify.com/playlist/…&#10;or one song per line, like “Queen - Bohemian Rhapsody”">${esc(pasted)}</textarea></label>
       <div class="imp-file">
@@ -88,10 +87,9 @@ export function importPlaylists() {
     const many = found.playlists.length > 1;
     step.innerHTML = (many ? `<p>${plural(found.playlists.length, "playlist")} found. Pick the ones to import.</p>` : "")
       + `<div class="imp-results">${resultHtml(found, many)}</div>`;
-    const total = found.playlists.reduce((n, p) => n + p.found, 0);
+    const total = found.playlists.reduce((n, p) => n + p.songs.length, 0);
     actions.innerHTML = `<button class="btn" type="button" data-imp="back">Back</button>
       <button class="btn btn-primary" type="submit"${total ? "" : " disabled"}>${many ? "Import" : "Make the playlist"}</button>`;
-    if (!total) err.textContent = "None of these songs are in your library.";
   };
 
   const make = async () => {
@@ -102,13 +100,13 @@ export function importPlaylists() {
     const made = [];
     for (const i of picked) {
       const p = found.playlists[i];
-      const trackIds = [...new Set(p.songs.filter((s) => s.track).map((s) => s.track.id))];
-      if (!trackIds.length) continue;
-      const missing = p.songs.length - p.found;
+      if (!p.songs.length) continue;
+      // Every song in order: the library's, and the missing ones (kept, and asked for).
+      const songs = p.songs.map((s) => (s.track ? { trackId: s.track.id } : s.song)).filter(Boolean);
       const name = form.elements[`name-${i}`].value.trim() || p.name;
-      const description = `Imported${found.linked ? " from a link" : ""}.${missing ? ` ${plural(missing, "song")} ${missing === 1 ? "wasn’t" : "weren’t"} in the library.` : ""}`;
-      const pl = await api.createPlaylist({ name, description, trackIds });
-      made.push({ id: pl.id, name: pl.name, count: trackIds.length });
+      const description = `Imported${found.linked ? " from a link" : ""}.`;
+      const pl = await api.createPlaylist({ name, description, songs });
+      made.push({ id: pl.id, name: pl.name, count: pl.trackCount, missing: pl.missing });
     }
     return made;
   };

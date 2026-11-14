@@ -324,6 +324,24 @@ function playlistRow(t, i) {
     </div>`;
 }
 
+/** An imported song the library doesn't have (yet): in its place, never played. */
+function missingRow(m, canEdit) {
+  const asked = m.request === "open" ? `<a class="pl-miss-req" href="#/requests">Asked for</a>`
+    : m.request === "declined" ? "Request declined" : "";
+  return `
+    <div class="track-row pl-row pl-missing" data-missing="${m.id}" title="Not in the library yet. It fills in when the music arrives.">
+      <span class="num" aria-hidden="true">–</span>
+      <span class="pl-main"><span class="pl-miss-case" aria-hidden="true"></span>
+        <span class="t-main"><span class="t-title">${esc(m.title)}</span><span class="t-sub"><span class="pl-miss-tag">Missing</span>${esc(m.artist || "")}${asked ? ` • ${asked}` : ""}</span></span></span>
+      <span class="pl-bpm"></span>
+      <span class="pl-key"></span>
+      <span class="pl-album">${esc(m.album || "")}</span>
+      <span class="pl-added">${fmtAdded(m.addedAt)}</span>
+      <span class="row-actions">${canEdit ? `<button class="icon-btn" type="button" data-action="pl-missing-remove" data-missing="${m.id}" data-title="${esc(m.title)}" aria-label="Remove ${esc(m.title)} from this playlist" title="Remove"><svg><use href="#i-close"/></svg></button>` : ""}</span>
+      <span class="dur">${m.duration ? fmtTime(m.duration) : ""}</span>
+    </div>`;
+}
+
 /** Mix: the pill under a song saying how it hands over to the next one. */
 function transitionPill(t, nxt, i) {
   const setting = normalizeTransition(t.transition);
@@ -339,10 +357,13 @@ function transitionPill(t, nxt, i) {
 export async function playlistView(el, id, { find = "" } = {}) {
   const p = await api.playlist(id);
   const tracks = p.tracks;
+  const gaps = p.missingSongs || [];
+  const gapsAt = (k) => gaps.filter((m) => m.after === k).map((m) => missingRow(m, p.canEdit)).join("");
   setTracks(tracks, { label: p.name, href: `#/playlist/${p.id}`, mix: p.mix, playlistId: p.id, canEdit: p.canEdit, shared: p.shared });
   const facts = [
     p.mine ? "" : `By ${esc(p.owner.username)}`,
     tracks.length ? `${plural(tracks.length, "song")}, ${fmtLength(p.duration)}` : p.smart ? "No songs fit these rules right now" : "No songs yet",
+    gaps.length ? `${gaps.length} missing` : "",
     p.mine && p.shared && p.followers ? plural(p.followers, "follower") : "",
   ].filter(Boolean).join(", ");
   const kind = p.smart ? (p.shared ? "Public smart playlist" : "Smart playlist")
@@ -377,9 +398,9 @@ export async function playlistView(el, id, { find = "" } = {}) {
         </div>
       </section>
       <div class="tracklist pl-tracks${tempoCls(tracks)}" data-playlist="${p.id}">
-        ${tracks.length ? `
+        ${tracks.length || gaps.length ? `
           <div class="track-head pl-head" aria-hidden="true"><span>#</span><span>Title</span><span class="pl-bpm">BPM</span><span class="pl-key">Key</span><span class="pl-album">Album</span><span class="pl-added">Date added</span><span></span><span><svg><use href="#i-clock"/></svg></span></div>
-          ${tracks.map((t, i) => playlistRow(t, i) + (p.mix && i < tracks.length - 1 ? transitionPill(t, tracks[i + 1], i) : "")).join("")}` : ""}
+          ${gapsAt(0)}${tracks.map((t, i) => playlistRow(t, i) + (p.mix && i < tracks.length - 1 ? transitionPill(t, tracks[i + 1], i) : "") + gapsAt(i + 1)).join("")}` : ""}
       </div>
       ${tracks.length && p.canEdit ? `<div class="pl-findmore"><button class="text-btn" type="button" data-action="pl-findmore" aria-expanded="${find ? "true" : "false"}">Find more</button></div>` : ""}
       <section class="pl-find"${(tracks.length && !find) || !p.canEdit ? " hidden" : ""}>
