@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.0.5",
+    "date": "2026-11-14",
+    "new": [
+      {"title": "Imported playlists keep every song", "text": "When you import a playlist, songs that aren’t on your shelf stay in it, in their place and marked Missing. They fill themselves in once the music arrives."},
+      {"title": "Missing songs ask for their albums", "text": "Each missing song asks for its album in Requests for you, so whoever looks after the shelf knows what to add. Albums already asked for aren’t asked for twice."}
+    ],
+    "fixed": []
+  },
+  {
     "version": "1.0.4",
     "date": "2026-11-13",
     "new": [],
