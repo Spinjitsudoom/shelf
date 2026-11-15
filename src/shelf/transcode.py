@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import struct
 from pathlib import Path
 from . import procs
 
@@ -52,7 +53,63 @@ async def transcode(cache_dir: Path, src: Path, mtime: float, kbps: int, cache_l
     return target
 
 
-async def stream_transcode(cache_dir: Path, src: Path, mtime: float, kbps: int, cache_limit_mb: int):
+def _moov_end(head) -> int | None:
+    """Where the MP4's header (its moov box) ends, once that much has arrived; None until then."""
+    i = 0
+    while i + 8 <= len(head):
+        size, kind = struct.unpack(">I4s", head[i:i + 8])
+        if size < 8:
+            return None
+        if kind == b"moov":
+            return i + size if i + size <= len(head) else None
+        i += size
+    return None
+
+
+def set_duration(head: bytearray, seconds: float | None) -> bool:
+    """Write the song's length into an MP4 header whose length says 0, in place (the same bytes
+    long, so a copy cached part way still lines up). ffmpeg can't know it while it streams, and a
+    player that's told neither the length nor the size shows 0:00, and treats the song as a live
+    broadcast: after a moment without signal it can't carry on where it was. True if changed."""
+    end = _moov_end(head)
+    if end is None or not seconds or seconds <= 0:
+        return False
+    changed = False
+
+    def put(at: int, wide: bool, value: int) -> None:
+        nonlocal changed
+        fmt = ">Q" if wide else ">I"
+        value = min(value, (1 << (64 if wide else 32)) - 2)
+        if struct.unpack(fmt, head[at:at + (8 if wide else 4)])[0] == 0:
+            struct.pack_into(fmt, head, at, value)
+            changed = True
+
+    def walk(i: int, stop: int, movie_scale: int) -> int:
+        while i + 8 <= stop:
+            size, kind = struct.unpack(">I4s", head[i:i + 8])
+            if size < 8:
+                break
+            wide = head[i + 8] == 1
+            if kind in (b"moov", b"trak", b"mdia"):
+                movie_scale = walk(i + 8, i + size, movie_scale)
+            elif kind in (b"mvhd", b"mdhd"):  # version, flags, two times, then timescale and duration
+                at = i + (28 if wide else 20)
+                scale = struct.unpack(">I", head[at:at + 4])[0]
+                if scale:
+                    put(at + 4, wide, round(seconds * scale))
+                    if kind == b"mvhd":
+                        movie_scale = scale
+            elif kind == b"tkhd" and movie_scale:  # its duration is in the movie's timescale
+                put(i + (36 if wide else 28), wide, round(seconds * movie_scale))
+            i += size
+        return movie_scale
+
+    walk(0, end, 0)
+    return changed
+
+
+async def stream_transcode(cache_dir: Path, src: Path, mtime: float, kbps: int, cache_limit_mb: int,
+                           duration: float | None = None):
     """Convert a song while sending it: yields the MP4 as ffmpeg writes it, so playback starts
     within a moment instead of after the whole song is converted. The bytes are kept too, and
     become the cached copy (served with seeking from then on) only if the conversion finishes.
@@ -76,11 +133,22 @@ async def stream_transcode(cache_dir: Path, src: Path, mtime: float, kbps: int, 
     )
     out = open(tmp, "wb") if tmp else None
     ok = False
+    head: bytearray | None = bytearray()  # held back until the header is whole, to put the length in
     try:
         while chunk := await proc.stdout.read(64 * 1024):
+            if head is not None:
+                head += chunk
+                if _moov_end(head) is None and len(head) < 1024 * 1024:
+                    continue
+                set_duration(head, duration)
+                chunk, head = bytes(head), None
             if out:
                 out.write(chunk)
             yield chunk
+        if head:  # ended before a whole header: send what there is
+            if out:
+                out.write(head)
+            yield bytes(head)
         await proc.wait()
         if proc.returncode != 0:
             raise RuntimeError(f"ffmpeg couldn’t convert {src} (exit {proc.returncode})")
@@ -102,13 +170,27 @@ async def stream_transcode(cache_dir: Path, src: Path, mtime: float, kbps: int, 
         _prune(cache_dir, cache_limit_mb)
 
 
-def cached(cache_dir: Path, src: Path, mtime: float, kbps: int) -> Path | None:
-    """The finished conversion of a song, if there is one."""
+def cached(cache_dir: Path, src: Path, mtime: float, kbps: int, duration: float | None = None) -> Path | None:
+    """The finished conversion of a song, if there is one (given its length, if it was kept
+    without it)."""
     target = _target(cache_dir, src, mtime, kbps)
     if target.exists():
+        if duration:
+            _fix_length(target, duration)
         target.touch()
         return target
     return None
+
+
+def _fix_length(path: Path, duration: float) -> None:
+    try:
+        with open(path, "r+b") as f:
+            head = bytearray(f.read(64 * 1024))
+            if set_duration(head, duration):
+                f.seek(0)
+                f.write(head[:_moov_end(head)])
+    except OSError:
+        pass
 
 
 def cache_size(cache_dir: Path) -> int:

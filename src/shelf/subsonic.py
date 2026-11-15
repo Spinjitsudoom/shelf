@@ -1090,7 +1090,7 @@ class Subsonic(More):
 
     def file_for(self, tid: str):
         with self.db() as conn:
-            row = conn.execute("SELECT path, mtime, mime, bitrate, codec FROM tracks WHERE id = ?",
+            row = conn.execute("SELECT path, mtime, mime, bitrate, codec, duration FROM tracks WHERE id = ?",
                                (int(tid),)).fetchone() if tid.isdigit() else None
         if not row or not Path(row["path"]).is_file():
             raise not_found("Song not found")
@@ -1124,10 +1124,10 @@ class Subsonic(More):
             return await self.live_response(path, codec, rate, offset)
         limit = limit or transcode.QUALITIES["high"]
         tier = max((q for q in transcode.QUALITIES.values() if q <= limit), default=min(transcode.QUALITIES.values()))
-        out = transcode.cached(self.cfg.transcode_dir, path, row["mtime"], tier)
+        out = transcode.cached(self.cfg.transcode_dir, path, row["mtime"], tier, row["duration"])
         if out:
             return FileResponse(out, media_type="audio/mp4", headers={**CORS, "Cache-Control": "private, max-age=86400"})
-        gen = transcode.stream_transcode(self.cfg.transcode_dir, path, row["mtime"], tier, self.cfg.transcode_cache_mb)
+        gen = transcode.stream_transcode(self.cfg.transcode_dir, path, row["mtime"], tier, self.cfg.transcode_cache_mb, row["duration"])
         try:
             first = await gen.__anext__()
         except (RuntimeError, StopAsyncIteration):

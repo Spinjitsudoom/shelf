@@ -21,7 +21,17 @@ data class PlayerUi(
     val shuffle: Boolean = false, val repeat: Int = Player.REPEAT_MODE_OFF,
     /** Another device is playing; this queue is that device's (in its playing order, even shuffled). */
     val remote: Boolean = false,
+    /** The scrubber can move within the song (not in a stream that can only be played through). */
+    val seekable: Boolean = true,
 )
+
+/**
+ * How long the playing song is: what the player found in the stream, or else what the library
+ * says (a song converted while it's sent can't say how long it is, so the player may not know).
+ */
+fun shownDuration(playerMs: Long, track: Track?): Long =
+    if (playerMs != androidx.media3.common.C.TIME_UNSET && playerMs > 0) playerMs
+    else ((track?.duration ?: 0.0) * 1000).toLong().coerceAtLeast(0)
 
 /** The screens' line to the player service: its state as a flow, and the buttons. */
 class PlayerConnection(context: Context, private val source: () -> LibrarySource?) {
@@ -37,7 +47,7 @@ class PlayerConnection(context: Context, private val source: () -> LibrarySource
     /** While playing, the position moves on; this keeps the scrubber and mini player's line current. */
     private val tick = object : Runnable {
         override fun run() {
-            controller?.let { if (it.isPlaying) _state.value = _state.value.copy(positionMs = it.currentPosition, durationMs = it.duration.coerceAtLeast(0)) }
+            controller?.let { if (it.isPlaying) _state.value = _state.value.copy(positionMs = it.currentPosition, durationMs = shownDuration(it.duration, _state.value.current)) }
             main.postDelayed(this, 500)
         }
     }
@@ -64,10 +74,12 @@ class PlayerConnection(context: Context, private val source: () -> LibrarySource
             previous = if (c.hasPreviousMediaItem()) c.getMediaItemAt(c.previousMediaItemIndex).track() else null,
             next = if (c.hasNextMediaItem()) c.getMediaItemAt(c.nextMediaItemIndex).track() else null,
             playing = c.playWhenReady && c.playbackState != Player.STATE_ENDED,
-            positionMs = c.currentPosition, durationMs = c.duration.coerceAtLeast(0),
+            positionMs = c.currentPosition, durationMs = shownDuration(c.duration, c.currentMediaItem?.track()),
             queue = queue, index = i, context = c.currentMediaItem?.playContext(),
             shuffle = c.shuffleModeEnabled, repeat = c.repeatMode,
             remote = c.deviceInfo.playbackType == androidx.media3.common.DeviceInfo.PLAYBACK_TYPE_REMOTE,
+            // Another device seeks its own copy; here, only once the stream says it can.
+            seekable = c.deviceInfo.playbackType == androidx.media3.common.DeviceInfo.PLAYBACK_TYPE_REMOTE || c.isCurrentMediaItemSeekable,
         )
     }
 
@@ -125,7 +137,8 @@ class PlayerConnection(context: Context, private val source: () -> LibrarySource
     fun next() { controller?.seekToNextMediaItem() }
     /** Back to the start of the song, or the song before when near its start (like every player). */
     fun previous() { controller?.seekToPrevious() }
-    fun seekTo(ms: Long) { controller?.seekTo(ms) }
+    /** Within the song (a stream that can't be moved within would start again, so it's left alone). */
+    fun seekTo(ms: Long) { if (_state.value.seekable) controller?.seekTo(ms) }
     /** Move a song still to come (see [queueMove]); on another device, Connect carries it there. */
     fun moveItem(from: Int, to: Int) { controller?.let { c -> queueMove(c.mediaItemCount, c.currentMediaItemIndex, from, to)?.let { (f, t) -> c.moveMediaItem(f, t) } } }
     fun skipTo(index: Int) { controller?.let { it.seekTo(index, 0); it.play() } }

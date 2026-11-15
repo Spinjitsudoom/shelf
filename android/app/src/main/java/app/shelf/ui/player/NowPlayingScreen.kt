@@ -194,8 +194,9 @@ private fun Scrubber(state: PlayerUi, player: PlayerConnection) {
     val value = dragging ?: (state.positionMs.toFloat() / dur).coerceIn(0f, 1f)
     val ink = Shelf.colors.ink
     // A thin line with a round handle that grows while it's held.
+    // A song the server sends as a converted stream plays through: it can't be moved within.
     Slider(value = value, onValueChange = { dragging = it }, onValueChangeFinished = { dragging?.let { player.seekTo((it * dur).toLong()) }; dragging = null },
-        modifier = Modifier.height(28.dp),
+        enabled = state.seekable, modifier = Modifier.height(28.dp),
         thumb = {
             Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(if (dragging != null) 18.dp else 12.dp).background(ink, CircleShape))

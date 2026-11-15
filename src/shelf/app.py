@@ -2463,28 +2463,28 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     def _track_file(track_id: int):
         with db() as conn:
-            row = conn.execute("SELECT path, mtime, mime FROM tracks WHERE id = ?", (track_id,)).fetchone()
+            row = conn.execute("SELECT path, mtime, mime, duration FROM tracks WHERE id = ?", (track_id,)).fetchone()
         if not row:
             raise HTTPException(404, "Track not found")
         path = Path(row["path"])
         if not path.is_file():
             raise HTTPException(410, "File is missing; try rescanning the library")
-        return path, row["mtime"], row["mime"]
+        return path, row["mtime"], row["mime"], row["duration"]
 
     @app.get("/api/tracks/{track_id}/stream")
     async def stream(request: Request, track_id: int, q: str = "original"):
         if podcasts.is_episode(track_id):
             return await _episode_stream(request, track_id)
-        path, mtime, mime = _track_file(track_id)
+        path, mtime, mime, length = _track_file(track_id)
         if q == "original" and mime in NATIVE_MIMES:
             return FileResponse(path, media_type=mime, headers={"Cache-Control": "private, max-age=86400"})
         # Formats a browser can't play are sent as the best AAC tier instead.
         kbps = transcode.QUALITIES.get(q, transcode.QUALITIES["veryhigh"])
-        out = transcode.cached(cfg.transcode_dir, path, mtime, kbps)
+        out = transcode.cached(cfg.transcode_dir, path, mtime, kbps, length)
         if out:  # converted before: served whole, with seeking
             return FileResponse(out, media_type="audio/mp4", headers={"Cache-Control": "private, max-age=86400"})
         # The first time: sent while it's converted, so it starts at once.
-        gen = transcode.stream_transcode(cfg.transcode_dir, path, mtime, kbps, cfg.transcode_cache_mb)
+        gen = transcode.stream_transcode(cfg.transcode_dir, path, mtime, kbps, cfg.transcode_cache_mb, length)
         try:
             first = await gen.__anext__()
         except (RuntimeError, StopAsyncIteration) as e:

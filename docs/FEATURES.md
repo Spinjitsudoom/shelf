@@ -61,6 +61,11 @@ Last updated: 2026-11-12, after v0.7.8 shipped.
 
 - **Streaming:** original quality by default; transcodes (AAC 96/128/192/320) picked at load
   time (`transcode.py`); Android falls back to 320k AAC when the phone lacks a FLAC/ALAC decoder.
+  A first-time transcode is sent as it's made (fragmented MP4); the server writes the song's length
+  into its header in place (`set_duration`; same byte count, also fixed in older cached copies), so
+  players show the length and resume after a dropped connection instead of treating it as live
+  radio. Android falls back to the library's length, and its scrubber stays put on such streams
+  (they can only be played through).
 - **Queue:** add/next, Smart Shuffle suggestions, clear-up-next, autoplay of similar songs when
   it runs out; reorder by dragging on Android (`QueueMove.kt`) and on the web
   (`queuedrag.js`, since 0.7.7) — moves relay over Connect when another device plays.
@@ -235,7 +240,8 @@ Redmi 9.
   were checked on the Redmi on 2026-11-12.)
 - **Waiting on the owner:** Last.fm API key and secret; whether AcoustID auto-tagging is wanted
   and how far it may go; whether admins should be told when a request comes in.
-- **Unreleased on main:** nothing yet. **1.0.5** (2026-11-14): imported playlists keep missing
+- **Unreleased on main:** converted streams carry the song's length (Android's bar no longer sits
+  at 0:00 on mobile data, and a dropped connection no longer stalls or restarts the song). **1.0.5** (2026-11-14): imported playlists keep missing
   songs (marked missing, filled in by a scan) and request their albums (web checked in headless
   Chromium, Android compiles + unit tests, not tried on the Redmi). **1.0.4** (2026-11-13, hotfix): https trusts certifi's authorities as well as the system's (`trust.py`, installed in `shelf.main`; Windows lacked ISRG Root X2, so Cover Art Archive covers failed). **1.0.3** (2026-11-13): request covers retried after slow answers (only a real 404 is remembered a week), artist photos on artist requests. **1.0.2** (2026-11-13) fixed what a code review found (measuring held up scans, ffmpeg stalls, proxy sign-in for Connect and email names). **1.0.1** (2026-11-13) shipped complete Subsonic/OpenSubsonic support (see Admin and operations), API keys in Settings,
   big-library speed and memory work, a Docker image (`Dockerfile`, `compose.yaml`, `docker/config.toml`,
