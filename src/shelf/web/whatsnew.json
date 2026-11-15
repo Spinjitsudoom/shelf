@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.0.6",
+    "date": "2026-11-15",
+    "new": [],
+    "fixed": [
+      "On Android, the progress bar no longer sits at 0:00 for songs played over mobile data.",
+      "When mobile data drops for a moment, the song carries on from where it was instead of stalling or starting over."
+    ]
+  },
+  {
     "version": "1.0.5",
     "date": "2026-11-14",
     "new": [

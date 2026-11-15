@@ -240,8 +240,9 @@ Redmi 9.
   were checked on the Redmi on 2026-11-12.)
 - **Waiting on the owner:** Last.fm API key and secret; whether AcoustID auto-tagging is wanted
   and how far it may go; whether admins should be told when a request comes in.
-- **Unreleased on main:** converted streams carry the song's length (Android's bar no longer sits
-  at 0:00 on mobile data, and a dropped connection no longer stalls or restarts the song). **1.0.5** (2026-11-14): imported playlists keep missing
+- **Unreleased on main:** nothing yet. **1.0.6** (2026-11-15): converted streams carry the song's
+  length (Android's bar no longer sits at 0:00 on mobile data, and a dropped connection no longer
+  stalls or restarts the song; the bar's fallback checked on the Redmi). **1.0.5** (2026-11-14): imported playlists keep missing
   songs (marked missing, filled in by a scan) and request their albums (web checked in headless
   Chromium, Android compiles + unit tests, not tried on the Redmi). **1.0.4** (2026-11-13, hotfix): https trusts certifi's authorities as well as the system's (`trust.py`, installed in `shelf.main`; Windows lacked ISRG Root X2, so Cover Art Archive covers failed). **1.0.3** (2026-11-13): request covers retried after slow answers (only a real 404 is remembered a week), artist photos on artist requests. **1.0.2** (2026-11-13) fixed what a code review found (measuring held up scans, ffmpeg stalls, proxy sign-in for Connect and email names). **1.0.1** (2026-11-13) shipped complete Subsonic/OpenSubsonic support (see Admin and operations), API keys in Settings,
   big-library speed and memory work, a Docker image (`Dockerfile`, `compose.yaml`, `docker/config.toml`,
