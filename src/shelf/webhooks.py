@@ -14,6 +14,9 @@ to everyone. The listening events are the admin's own (whoever added the hook); 
 listening leaves the server this way. With a secret, each message is signed (X-Shelf-Signature:
 sha256=HMAC of the body), so the receiver can tell it's from this Shelf.
 
+Discord and Slack webhooks only take messages written their way, so for their addresses the
+message is written as a chat message instead (a Discord embed, or Slack text).
+
 Messages go out one at a time from a background thread, so nothing waits on a slow receiver.
 """
 
@@ -24,6 +27,7 @@ import hmac
 import json
 import logging
 import queue
+import re
 import threading
 import time
 import urllib.error
@@ -63,6 +67,62 @@ def check_events(events) -> list[str]:
 def payload(event: str, data: dict) -> bytes:
     return json.dumps({"event": event, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **data},
                       ensure_ascii=False).encode()
+
+
+def style(url: str) -> str:
+    """How the receiver wants its messages: "discord", "slack" or "json" (everything else)."""
+    u = urlsplit(url)
+    host = (u.hostname or "").lower()
+    if (host in ("discord.com", "discordapp.com") or host.endswith((".discord.com", ".discordapp.com"))) \
+            and u.path.startswith("/api/webhooks/"):
+        return "discord"
+    if host == "hooks.slack.com":
+        return "slack"
+    return "json"
+
+
+def _plain(s) -> str:
+    """Text that Discord and Slack won't read as formatting."""
+    return re.sub(r"([\\*_~`|>\[\]<])", r"\\\1", str(s or ""))
+
+
+def _song(t: dict) -> str:
+    bits = [_plain(t.get("artist")), _plain(t.get("album"))]
+    return f"**{_plain(t.get('title'))}**" + (f"\n{' · '.join(b for b in bits if b)}" if any(bits) else "")
+
+
+def _chat(event: str, data: dict) -> tuple[str, str, str]:
+    """(heading, body, footer) of a chat message about the event."""
+    who = data.get("user")
+    t = data.get("track") or {}
+    if event in ("playing", "paused", "played"):
+        heading = {"playing": "▶️ Now playing", "paused": "⏸️ Paused", "played": "🎧 Listened to"}[event]
+        where = " on ".join(_plain(x) for x in (who, data.get("device")) if x)
+        return heading, _song(t), where
+    if event == "library":
+        counts = ", ".join(f"{n} {label}" for n, label in ((data.get("added"), "added"), (data.get("updated"), "changed"),
+                                                           (data.get("removed"), "removed")) if n)
+        albums = data.get("albums") or []
+        lines = [f"**{_plain(a.get('title'))}** · {_plain(a.get('artist'))}" for a in albums]
+        return "💿 New music on the shelf" if albums else "💿 The library changed", "\n".join(lines) or counts, \
+            f"Songs: {counts}" if albums and counts else ""
+    return "Shelf", _plain(data.get("text") or event), ""
+
+
+def message(url: str, event: str, data: dict) -> bytes:
+    """The message for this receiver: Shelf's own JSON, or a chat message for Discord and Slack."""
+    kind = style(url)
+    if kind == "json":
+        return payload(event, data)
+    heading, body, footer = _chat(event, data)
+    if kind == "discord":
+        embed = {"title": heading, "description": body[:4000], "color": 0x6C7BFF}
+        if footer:
+            embed["footer"] = {"text": footer.replace("\\", "")[:2000]}
+        return json.dumps({"username": "Shelf", "embeds": [embed], "allowed_mentions": {"parse": []}},
+                          ensure_ascii=False).encode()
+    text = "\n".join(x for x in (f"*{heading}*", body.replace("**", "*"), f"_{footer}_" if footer else "") if x)
+    return json.dumps({"text": text}, ensure_ascii=False).encode()
 
 
 def deliver(url: str, body: bytes, event: str, secret: str = "") -> str:
@@ -111,7 +171,6 @@ class Sender:
             name = conn.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone() if user_id else None
         if name:
             data = {"user": name["username"], **data}
-        body = payload(event, data)
         n = 0
         for r in rows:
             if event not in json.loads(r["events"]):
@@ -120,7 +179,7 @@ class Sender:
                 continue
             with self._lock:
                 self._busy += 1
-            self._q.put((r["id"], r["url"], r["secret"], event, body))
+            self._q.put((r["id"], r["url"], r["secret"], event, message(r["url"], event, data)))
             n += 1
         return n
 
@@ -128,7 +187,7 @@ class Sender:
         """A test message to one hook, sent straight away. Its status."""
         with self.db() as conn:
             r = conn.execute("SELECT url, secret FROM webhooks WHERE id = ?", (hook_id,)).fetchone()
-        status = deliver(r["url"], payload("test", {"text": "Shelf can reach this webhook."}), "test", r["secret"])
+        status = deliver(r["url"], message(r["url"], "test", {"text": "Shelf can reach this webhook."}), "test", r["secret"])
         self._record(hook_id, status)
         return status
 

@@ -88,6 +88,11 @@ def main() -> None:
         tracks = call(f"/api/albums/{albums[0]['id']}")["tracks"]
         assert tracks[0]["title"] == "Smoke Song", tracks
         print("scanned:", tracks[0]["artist"], "-", tracks[0]["title"])
+        for q in ("Smok", "The", "smoek", "TA"):  # plain, a short word, a misspelling, initials (fuzzy.py)
+            found = call(f"/api/search?q={q}")
+            assert [t["title"] for t in found["tracks"]] in (["Smoke Song"], []), (q, found)
+        assert [t["title"] for t in call("/api/search?q=smoek")["tracks"]] == ["Smoke Song"]
+        print("search answers, and forgives a misspelling")
         original = call(f"/api/tracks/{tracks[0]['id']}/stream", raw=True)
         assert original[:4] == b"fLaC", original[:16]
         converted = call(f"/api/tracks/{tracks[0]['id']}/stream?q=low", raw=True)

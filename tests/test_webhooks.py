@@ -168,3 +168,36 @@ def test_new_music_is_announced(client, catcher, library):
     client.app.state.scanner.run_once()
     drain(client)
     assert len([g for g in catcher.got if g["json"]["event"] == "library"]) == 1
+
+
+# ---------- chat apps ----------
+
+def test_discord_and_slack_get_chat_messages():
+    assert webhooks.style("https://discord.com/api/webhooks/1/abc") == "discord"
+    assert webhooks.style("https://ptb.discordapp.com/api/webhooks/1/abc") == "discord"
+    assert webhooks.style("https://hooks.slack.com/services/T/B/x") == "slack"
+    assert webhooks.style("http://homeassistant.local:8123/api/webhook/shelf") == "json"
+    assert webhooks.style("https://discord.com.example.org/api/webhooks/1") == "json"
+
+    song = {"user": "admin", "device": "Kitchen", "track": {"title": "Opening *live*", "artist": "Band", "album": "First"}}
+    d = json.loads(webhooks.message("https://discord.com/api/webhooks/1/abc", "playing", song))
+    [embed] = d["embeds"]
+    assert embed["title"] == "▶️ Now playing"
+    assert embed["description"] == "**Opening \\*live\\***\nBand · First"  # their stars aren't bold
+    assert embed["footer"]["text"] == "admin on Kitchen"
+    assert d["allowed_mentions"] == {"parse": []}  # a song called "@everyone" pings nobody
+    news = json.loads(webhooks.message("https://discord.com/api/webhooks/1/abc", "library",
+                                       {"added": 2, "updated": 0, "removed": 0, "albums": [{"title": "Debut", "artist": "Newcomer"}]}))
+    assert news["embeds"][0]["description"] == "**Debut** · Newcomer"
+    slack = json.loads(webhooks.message("https://hooks.slack.com/services/T/B/x", "paused", song))
+    assert slack == {"text": "*⏸️ Paused*\n*Opening \\*live\\**\nBand · First\n_admin on Kitchen_"}
+    # Everything else still gets Shelf's own JSON.
+    assert json.loads(webhooks.message("http://ha.local/x", "playing", song))["track"]["title"] == "Opening *live*"
+
+
+def test_each_hook_gets_its_own_kind_of_message(client, catcher, monkeypatch):
+    login(client)
+    monkeypatch.setattr(webhooks, "style", lambda url: "discord")  # the catcher stands in for Discord
+    hid = client.post("/api/admin/webhooks", json={"url": catcher.url, "events": ["played"]}).json()["id"]
+    assert client.post(f"/api/admin/webhooks/{hid}/test").json()["status"] == "200"
+    assert catcher.got[-1]["json"]["embeds"][0]["description"] == "Shelf can reach this webhook."
