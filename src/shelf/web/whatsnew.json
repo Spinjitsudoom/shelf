@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.0.9",
+    "date": "2026-11-16",
+    "new": [],
+    "fixed": [
+      "Bands like Bob Marley & The Wailers and Mumford & Sons are one artist again, not split into two or three, even on songs featuring someone else."
+    ]
+  },
+  {
     "version": "1.0.8",
     "date": "2026-11-16",
     "new": [
