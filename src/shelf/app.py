@@ -538,6 +538,14 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     llm = local_llm.LocalLLM(cfg.data_dir / "llm")
     dj.local_writer = llm
 
+    def _warm_search() -> None:
+        """Build search's index now, so the first search doesn't wait for it (fuzzy.py)."""
+        try:
+            with session(cfg.db_path) as conn:
+                fuzzy.index(conn, wait=True)
+        except Exception:
+            log.exception("Building the search index failed")
+
     @asynccontextmanager
     async def lifespan(_app):
         app.state.loop = asyncio.get_running_loop()  # for work started from other threads
@@ -554,6 +562,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             new_version.start()
             podcast_checker.start()
             threading.Thread(target=_warm_mixes, name="shelf-mixes", daemon=True).start()
+            threading.Thread(target=_warm_search, name="shelf-search-index", daemon=True).start()
         yield
         warm_stop.set()
         new_version.stop()

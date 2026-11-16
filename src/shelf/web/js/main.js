@@ -291,9 +291,12 @@ async function render() {
     }
   }
 
-  // Otherwise draw directly, with a placeholder if loading takes a moment.
+  // Otherwise draw directly, with a placeholder if loading takes a moment. Not over a page that
+  // has drawn itself already and is waiting for part of it (search, waiting for results): what
+  // arrives would go into the page the placeholder replaced, and the placeholder would stay.
+  const shown = view.firstElementChild;
   const placeholder = setTimeout(() => {
-    view.innerHTML = skeleton(route.name === "album" ? "album" : "grid");
+    if (view.firstElementChild === shown) view.innerHTML = skeleton(route.name === "album" ? "album" : "grid");
   }, 140);
   await drawRoute(route, key);
   clearTimeout(placeholder);
