@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.0.7",
+    "date": "2026-11-16",
+    "new": [
+      {"title": "Search forgives spelling mistakes", "text": "Type a name a letter or two wrong, like “avenged sevenfould”, and search still finds it."},
+      {"title": "Search knows bands by their nicknames", "text": "Search for MCR, A7X or ACDC and the band comes up: initials, names run together and the nicknames MusicBrainz knows all work."}
+    ],
+    "fixed": []
+  },
+  {
     "version": "1.0.6",
     "date": "2026-11-15",
     "new": [],
