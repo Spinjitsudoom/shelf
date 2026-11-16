@@ -33,6 +33,21 @@ def test_shared_credits_split_when_an_artist_is_known():
     assert not credits.credited("Aerosmith & Yungblud", "Halsey")
 
 
+def test_bands_named_after_their_leader_stay_whole():
+    _library("Bob Marley", "Taylor Swift", "Nick Cave", "The Weeknd", "Daft Punk", "Bob Marley & The Wailers")
+    assert credits.names("Bob Marley & The Wailers") == ["Bob Marley & The Wailers"]
+    assert credits.names("Mumford & Sons") == ["Mumford & Sons"]
+    assert credits.names("Nick Cave and the Bad Seeds") == ["Nick Cave and the Bad Seeds"]
+    # "feat." and commas come first, so the band stays one artist beside the other one.
+    assert credits.names("Mumford & Sons feat. Baaba Maal") == ["Mumford & Sons", "Baaba Maal"]
+    assert credits.names("Mumford & Sons, Taylor Swift") == ["Mumford & Sons", "Taylor Swift"]
+    assert credits.names("Bob Marley & The Wailers, Daft Punk") == ["Bob Marley & The Wailers", "Daft Punk"]
+    # A "The …" who's in the library on their own is still a second artist.
+    assert credits.names("Daft Punk & The Weeknd") == ["Daft Punk", "The Weeknd"]
+    assert credits.credited("Bob Marley & The Wailers", "Bob Marley & The Wailers")
+    assert not credits.credited("Bob Marley & The Wailers", "Bob Marley")
+
+
 def test_shared_album_shows_on_each_artists_page(tmp_path):
     root = tmp_path / "music"
     make_track(root / "Solo" / "Alone" / "01 One.mp3", title="One", artist="Solo", album="Alone", track=1)

@@ -4,7 +4,12 @@ shows on both artists' pages instead of making a third artist.
 A credit is split on "&", "and", "x", ",", ";", "/", "with", "vs." and "feat.", but only
 when it's clearly a collaboration: at least one of the names is an artist in the library on
 their own (or the credit says "feat."). So band names like "Earth, Wind & Fire" or
-"Simon & Garfunkel" stay whole. Each name takes the spelling the library uses most
+"Simon & Garfunkel" stay whole. A band named after its leader and its backing band, like
+"Bob Marley & The Wailers", "Mumford & Sons" or "Nick Cave & The Bad Seeds", is one artist
+even when the leader is in the library on their own: "& The …", "& Sons", "& Friends" and
+the like hold the name together (unless "The …" is in the library by itself). "feat." and
+commas are looked at first, so "Mumford & Sons feat. Baaba Maal" is Mumford & Sons and
+Baaba Maal, not three. Each name takes the spelling the library uses most
 ("Yungblud" in a shared credit becomes "YUNGBLUD"). Parts in brackets, like
 "ELVIS (Original Motion Picture Soundtrack)", are a release note rather than an artist,
 so they're left out.
@@ -20,9 +25,13 @@ from collections import Counter, defaultdict
 
 from .videos import fold
 
-_SPLIT = re.compile(
-    r"\s*[;,]\s*|\s+/\s+|\s+(?:&|and|x|×|vs\.?|with|feat\.?|ft\.?|featuring)\s+", re.I)
 _STRONG = re.compile(r"\s(?:feat\.?|ft\.?|featuring)\s", re.I)
+_LISTS = re.compile(r"(\s+(?:feat\.?|ft\.?|featuring)\s+|\s*[;,]\s*|\s+/\s+)", re.I)
+_PAIRS = re.compile(r"(\s+(?:&|and|x|×|vs\.?|with)\s+)", re.I)
+# What follows "&" or "and" in a band's name rather than a second artist's.
+_BAND_TAIL = re.compile(
+    r"(?:the|his|her|their)\s.+|(?:sons|daughters|friends|co\.?|company|family|brothers|sisters|"
+    r"crew|gang|orchestra)$", re.I)
 
 _state: dict = {"known": frozenset(), "canon": {}, "cache": {}}
 
@@ -36,7 +45,7 @@ def refresh(conn) -> None:
         counts[r["artist"]] += r["track_count"]
     spellings: dict[str, Counter] = defaultdict(Counter)
     for name, n in counts.items():
-        if name and not _SPLIT.search(name):
+        if name and not _LISTS.search(name) and len(_groups(name, frozenset())) == 1:
             spellings[fold(name)][name] += n
     _state.update(known=frozenset(spellings), cache={},
                   canon={f: c.most_common(1)[0][0] for f, c in spellings.items()})
@@ -50,18 +59,36 @@ def names(credit: str | None) -> list[str]:
     if credit in cache:
         return cache[credit]
     known, canon = _state["known"], _state["canon"]
-    parts = [p.strip() for p in _SPLIT.split(credit) if p and p.strip()]
     out: list[str] = []
-    if len(parts) > 1 and (_STRONG.search(f" {credit} ") or any(fold(p) in known for p in parts)):
+    for i, segment in enumerate(_LISTS.split(credit)[::2]):
+        groups = _groups(segment, known)
+        parts = groups if len(groups) > 1 and any(fold(g) in known for g in groups) else [segment.strip()]
         for p in parts:
             name = canon.get(fold(p), p)
-            if "(" not in p and "[" not in p and fold(name) not in {fold(o) for o in out}:
+            if p and "(" not in p and "[" not in p and fold(name) not in {fold(o) for o in out}:
                 out.append(name)
+    if len(out) > 1 and not _STRONG.search(f" {credit} ") and not any(fold(o) in known for o in out):
+        out = []  # a list of names nobody in the library goes by alone: one band's name
     if not out:
         out = [canon.get(fold(credit), credit)]
     if len(cache) < 20000:
         cache[credit] = out
     return out
+
+
+def _groups(segment: str, known: frozenset) -> list[str]:
+    """A credit's names around "&", "and", "x", "vs." and "with", with a band's own "& The …"
+    kept on its name: "Bob Marley & The Wailers" is one, "Aerosmith & Yungblud" two."""
+    bits = _PAIRS.split(segment.strip())
+    groups = [bits[0]]
+    for sep, part in zip(bits[1::2], bits[2::2]):
+        joined = sep.strip().lower() in ("&", "and") and _BAND_TAIL.fullmatch(part.strip()) \
+            and fold(part) not in known
+        if joined:
+            groups[-1] += sep + part
+        else:
+            groups.append(part)
+    return [g.strip() for g in groups if g.strip()]
 
 
 def credited(credit: str | None, artist: str) -> bool:

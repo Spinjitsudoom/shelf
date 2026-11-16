@@ -31,7 +31,9 @@ Last updated: 2026-11-12, after v0.7.8 shipped.
   for changes; incremental rescans. Folders are managed in Settings (`folders.py`).
 - **Covers** (`covers.py`): lookup, resizing, caching, per-album accent colour.
   **Cover finder** (`coverfix.py`): fills missing/small covers from MusicBrainz + Cover Art Archive.
-- **Shared credits** (`credits.py`): "A & B" tags split into both artists' pages.
+- **Shared credits** (`credits.py`): "A & B" tags split into both artists' pages. Bands named
+  after a leader ("Bob Marley & The Wailers", "Mumford & Sons") stay one artist; "feat." and
+  commas split first.
 - **Genres** (`genres.py`): the tag's genres plus the artist's from MusicBrainz.
 - **Search forgives** (`fuzzy.py`, used by `/api/search` and Subsonic search2/3): a word that's
   nowhere in the library also looks for the closest library words (Damerau–Levenshtein, 1 letter
@@ -247,7 +249,7 @@ Redmi 9.
   were checked on the Redmi on 2026-11-12.)
 - **Waiting on the owner:** Last.fm API key and secret; whether AcoustID auto-tagging is wanted
   and how far it may go; whether admins should be told when a request comes in.
-- **Unreleased on main:** nothing yet. **1.0.8** (2026-11-16): Discord/Slack webhooks get chat messages (`webhooks.style`/`message`; Discord answered 400 to plain JSON), search results no longer stuck behind the page placeholder when search is slow (main.js render; reproduced and checked in headless Chromium), search index built at startup. **1.0.7** (2026-11-16): fuzzy search, spelling mistakes and band nicknames (`fuzzy.py`; server tests, tried on the local library). **1.0.6** (2026-11-15): converted streams carry the song's
+- **Unreleased on main:** band names like "Bob Marley & The Wailers" and "Mumford & Sons" stay one artist (`credits._groups`). **1.0.8** (2026-11-16): Discord/Slack webhooks get chat messages (`webhooks.style`/`message`; Discord answered 400 to plain JSON), search results no longer stuck behind the page placeholder when search is slow (main.js render; reproduced and checked in headless Chromium), search index built at startup. **1.0.7** (2026-11-16): fuzzy search, spelling mistakes and band nicknames (`fuzzy.py`; server tests, tried on the local library). **1.0.6** (2026-11-15): converted streams carry the song's
   length (Android's bar no longer sits at 0:00 on mobile data, and a dropped connection no longer
   stalls or restarts the song; the bar's fallback checked on the Redmi). **1.0.5** (2026-11-14): imported playlists keep missing
   songs (marked missing, filled in by a scan) and request their albums (web checked in headless
