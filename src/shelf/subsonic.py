@@ -36,7 +36,7 @@ from typing import Callable
 from fastapi import Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
 
-from . import __version__, covers, credits, lyrics, podcasts, resume, transcode, videos
+from . import __version__, covers, credits, fuzzy, lyrics, podcasts, resume, transcode, videos
 from . import artists as artist_info
 from . import missing as missing_songs
 from .subsonic_more import BASE_URL, EXTENSIONS, More
@@ -733,15 +733,12 @@ class Subsonic(More):
     def _search(self, p, user) -> tuple[list, list, list]:
         q = (p.get("query") or "").strip().strip('"').strip()
         terms = [t for t in q.split() if t][:6]
-        folded = [videos.fold(t) for t in terms]
 
-        def like(cols):
-            clauses, args = [], []
-            for t in terms:
-                pat = "%" + t.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-                clauses.append("(" + " OR ".join(f"{c} LIKE ? ESCAPE '\\'" for c in cols) + ")")
-                args += [pat] * len(cols)
-            return ("WHERE " + " AND ".join(clauses)) if clauses else "", tuple(args)
+        def like(cols, artist_cols=None):
+            if not ms:
+                return "", ()
+            w, args = fuzzy.where(ms, cols, artist_cols)
+            return "WHERE " + w, tuple(args)
 
         folder = self._folder_like(p)
 
@@ -751,8 +748,10 @@ class Subsonic(More):
             return (f"{w} AND {cond}" if w else f"WHERE {cond}"), (*args, folder)
 
         with self.db() as conn:
+            # Each word with its likely spellings and the artists it's a nickname of (fuzzy.py).
+            ms = fuzzy.matches(conn, q) if terms else []
             stars = self._stars(conn, user.id, "artist")
-            artists = sorted((a for a in self._artists(conn, folder).values() if all(f in videos.fold(a["name"]) for f in folded)),
+            artists = sorted((a for a in self._artists(conn, folder).values() if all(m.found_in(videos.fold(a["name"])) for m in ms)),
                              key=lambda a: videos.fold(a["name"]))
             ao, ac = p.int("artistOffset", 0), p.int("artistCount", 20, 0, 5000)
             artists = [self.artist(a, stars) for a in artists[ao:ao + ac]]
@@ -760,8 +759,10 @@ class Subsonic(More):
             albums = conn.execute(f"SELECT a.* FROM albums a {w} ORDER BY a.artist COLLATE NOCASE, a.year, a.id LIMIT ? OFFSET ?",
                                   (*args, p.int("albumCount", 20, 0, 5000), p.int("albumOffset", 0))).fetchall()
             actx = self._album_ctx(conn, user.id)
-            w, args = within(*like(["t.title", "t.artist", "a.title"]), "t.path LIKE ? ESCAPE '\\'")
-            order = "t.title COLLATE NOCASE, t.id" if terms else "t.id"  # all of it: in a steady order, for syncing
+            w, args = within(*like(["t.title", "t.artist", "a.title"], ["t.artist", "a.artist"]), "t.path LIKE ? ESCAPE '\\'")
+            first, first_args = fuzzy.order(ms, ["t.title", "t.artist", "a.title"]) if ms else ("", [])
+            order = f"{first}t.title COLLATE NOCASE, t.id" if terms else "t.id"  # all of it: in a steady order, for syncing
+            args = (*args, *first_args)
             songs = conn.execute(f"{TRACKS} {w} ORDER BY {order} LIMIT ? OFFSET ?",
                                  (*args, p.int("songCount", 20, 0, 50000), p.int("songOffset", 0))).fetchall()
             ctx = self._ctx(conn, user.id)

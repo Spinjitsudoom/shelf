@@ -18,8 +18,8 @@ def fake_mb(calls):
         if path == "release-group":
             return {"release-groups": []}
         if path == "artist/mb-band":
-            assert params.get("inc") == "genres"
-            return {"genres": [{"name": "jazz", "count": 3}, {"name": "heavy metal", "count": 9},
+            assert params.get("inc") == "genres+aliases"
+            return {"aliases": [{"name": "BND"}, {"name": "Band"}], "genres": [{"name": "jazz", "count": 3}, {"name": "heavy metal", "count": 9},
                                {"name": "thrash metal", "count": 5}, {"name": "unloved", "count": 0}]}
         raise AssertionError(path)
     return mb
@@ -32,6 +32,8 @@ def test_daily_check_learns_artist_genres_once(client):
     r._mb = fake_mb(calls)
     r.refresh()
     assert releases.artist_genres(db)["band"] == ["heavy metal", "thrash metal", "jazz"]  # most votes first
+    with session(db) as conn:  # and the other names it goes by, for search (fuzzy.py)
+        assert json.loads(conn.execute("SELECT value FROM meta WHERE key = 'mb_artist_genres'").fetchone()[0])["band"]["aliases"] == ["BND", "Band"]
     calls.clear()
     r.refresh()
     assert "artist/mb-band" not in calls  # known for a month

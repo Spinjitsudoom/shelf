@@ -33,6 +33,13 @@ Last updated: 2026-11-12, after v0.7.8 shipped.
   **Cover finder** (`coverfix.py`): fills missing/small covers from MusicBrainz + Cover Art Archive.
 - **Shared credits** (`credits.py`): "A & B" tags split into both artists' pages.
 - **Genres** (`genres.py`): the tag's genres plus the artist's from MusicBrainz.
+- **Search forgives** (`fuzzy.py`, used by `/api/search` and Subsonic search2/3): a word that's
+  nowhere in the library also looks for the closest library words (Damerau–Levenshtein, 1 letter
+  off under 6 letters, 2 above; found by symmetric delete over two sorted numpy arrays), and a word
+  that's an artist's nickname finds that artist: initials of 3+ letters (MCR), the name run
+  together (ACDC), and MusicBrainz aliases (A7X), fetched with the genres (`releases.py`,
+  `inc=genres+aliases`). Plain matches sort first. The index is rebuilt in the background after
+  each scan or MusicBrainz check; searches meanwhile use the previous one.
 - **Getting music in:** browser uploads incl. ZIPs (`uploads.py`), a watch folder that files
   dropped music by its tags (`watch.py`), CD ripping on the server's drive (`ripper.py`),
   **playlist import** (`imports.py`): Spotify/YouTube playlist links (public pages, first 100
@@ -240,7 +247,7 @@ Redmi 9.
   were checked on the Redmi on 2026-11-12.)
 - **Waiting on the owner:** Last.fm API key and secret; whether AcoustID auto-tagging is wanted
   and how far it may go; whether admins should be told when a request comes in.
-- **Unreleased on main:** nothing yet. **1.0.6** (2026-11-15): converted streams carry the song's
+- **Unreleased on main:** fuzzy search: spelling mistakes and band nicknames (`fuzzy.py`, 2026-11-16; server tests only). **1.0.6** (2026-11-15): converted streams carry the song's
   length (Android's bar no longer sits at 0:00 on mobile data, and a dropped connection no longer
   stalls or restarts the song; the bar's fallback checked on the Redmi). **1.0.5** (2026-11-14): imported playlists keep missing
   songs (marked missing, filled in by a scan) and request their albums (web checked in headless

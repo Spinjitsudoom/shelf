@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from . import procs
-from . import analysis, background, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, home as home_rows, lossy, lyrics, imports, missing, webhooks, mixes, moods, party, peaks, playlist_maker, podcasts, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
+from . import analysis, background, fuzzy, backups, coverfix, covers, health, smart, subsonic, credits, feedback, genres, lastfm, updates, dj, folders, local_llm, loudness, fingerprint, follows, home as home_rows, lossy, lyrics, imports, missing, webhooks, mixes, moods, party, peaks, playlist_maker, podcasts, releases, requests as wishlist, resume, ripper, secure, shares, scrobble, sound, stats, together, transcode, uploads, videos, watch
 from . import artists as artist_info
 from . import subsonic_more
 from .proxyauth import ProxyAuth
@@ -2219,37 +2219,33 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     @app.get("/api/search")
     def search(q: str = Query("", max_length=200)):
-        terms = [t for t in q.split() if t][:6]
-        if not terms:
-            return {"artists": [], "albums": [], "tracks": []}
-
-        def where(cols):
-            clauses, params = [], []
-            for t in terms:
-                like = f"%{t.replace('%', r'\%').replace('_', r'\_')}%"
-                clauses.append("(" + " OR ".join(f"{c} LIKE ? ESCAPE '\\'" for c in cols) + ")")
-                params.extend([like] * len(cols))
-            return " AND ".join(clauses), params
-
         with db() as conn:
-            aw, ap = where(["artist"])
+            # Each word with its likely spellings and the artists it's a nickname of (fuzzy.py).
+            ms = fuzzy.matches(conn, q)
+            if not ms:
+                return {"artists": [], "albums": [], "tracks": []}
+            aw, ap = fuzzy.where(ms, ["artist"])
             matched = conn.execute(f"SELECT id, artist, year, track_count, cover_src FROM albums WHERE {aw}", ap).fetchall()
-            folded = [videos.fold(t) for t in terms]
-            artist_rows = sorted((a for a in _album_artists(matched) if all(f in videos.fold(a["name"]) for f in folded)),
-                                 key=lambda a: -a["albums"])[:8]
-            bw, bp = where(["title", "artist"])
+            def literal(name):  # every word as typed: these come first
+                return all(videos.fold(m.term) in videos.fold(name) for m in ms)
+            artist_rows = sorted((a for a in _album_artists(matched) if all(m.found_in(videos.fold(a["name"])) for m in ms)),
+                                 key=lambda a: (not literal(a["name"]), -a["albums"]))[:8]
+            bw, bp = fuzzy.where(ms, ["title", "artist"])
+            bo, bop = fuzzy.order(ms, ["title", "artist"])
             album_rows = conn.execute(
-                f"SELECT * FROM albums WHERE {bw} ORDER BY artist COLLATE NOCASE, year LIMIT 24", bp,
+                f"SELECT * FROM albums WHERE {bw} ORDER BY {bo}artist COLLATE NOCASE, year LIMIT 24", bp + bop,
             ).fetchall()
-            tw, tp = where(["t.title", "t.artist", "a.title"])
+            cols = ["t.title", "t.artist", "a.title"]
+            tw, tp = fuzzy.where(ms, cols, ["t.artist", "a.artist"])
+            to, top = fuzzy.order(ms, cols)
             track_rows = conn.execute(
-                f"{TRACK_SELECT} WHERE {tw} ORDER BY t.title COLLATE NOCASE LIMIT 50", tp,
+                f"{TRACK_SELECT} WHERE {tw} ORDER BY {to}t.title COLLATE NOCASE LIMIT 50", tp + top,
             ).fetchall()
             # The podcasts you follow, and their episodes, are searched along with the music.
             me_id = uid()
             shows = [sh for sh in _my_shows(conn, me_id)
-                     if all(f in videos.fold(f"{sh['title']} {sh['author']}") for f in folded)][:8]
-            ew, ep = where(["e.title"])
+                     if all(m.found_in(videos.fold(f"{sh['title']} {sh['author']}")) for m in ms)][:8]
+            ew, ep = fuzzy.where(ms, ["e.title"])
             episodes = _episode_rows(conn, me_id, f"e.podcast_id IN (SELECT podcast_id FROM podcast_subs WHERE user_id = ?) AND {ew}",
                                      (me_id, *ep), 12)
         return {

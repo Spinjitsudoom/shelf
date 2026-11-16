@@ -157,10 +157,13 @@ class Releases:
                     break
                 try:
                     mbid = self._artist_id(name, ids)
-                    if mbid and time.time() - genres.get(key, {}).get("at", 0) > GENRES_EVERY:
-                        a = self._mb(f"artist/{mbid}", inc="genres")
+                    had = genres.get(key, {})
+                    if mbid and (time.time() - had.get("at", 0) > GENRES_EVERY or "aliases" not in had):
+                        # With the other names the artist goes by, so search finds "A7X" (fuzzy.py).
+                        a = self._mb(f"artist/{mbid}", inc="genres+aliases")
                         voted = sorted((g for g in a.get("genres") or [] if g.get("count", 0) > 0), key=lambda g: -g["count"])
-                        genres[key] = {"genres": [g["name"] for g in voted[:6]], "at": time.time()}
+                        aliases = sorted({x["name"] for x in a.get("aliases") or [] if x.get("name")})
+                        genres[key] = {"genres": [g["name"] for g in voted[:6]], "aliases": aliases, "at": time.time()}
                     if mbid:
                         r = self._mb("release-group", artist=mbid, type="album|ep", limit=100)
                         for g in r.get("release-groups", []):
