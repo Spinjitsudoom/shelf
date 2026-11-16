@@ -1,5 +1,16 @@
 [
   {
+    "version": "1.0.8",
+    "date": "2026-11-16",
+    "new": [
+      {"title": "Webhooks to Discord and Slack", "text": "A Discord or Slack webhook now gets a proper chat message saying what’s playing, paused or new on the shelf.", "admin": true}
+    ],
+    "fixed": [
+      "Search results no longer get stuck behind grey placeholders when the server takes a moment to answer.",
+      "The first search after the server starts no longer waits while search gets ready."
+    ]
+  },
+  {
     "version": "1.0.7",
     "date": "2026-11-16",
     "new": [
