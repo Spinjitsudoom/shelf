@@ -13,9 +13,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import app.shelf.R
+import app.shelf.data.Album
 import app.shelf.data.LibrarySource
 import app.shelf.playback.PlayContext
 import app.shelf.ui.SignedOutHandler
@@ -47,6 +52,18 @@ import app.shelf.ui.covers.albumColor
 import app.shelf.ui.theme.ArchivoDisplay
 import app.shelf.ui.theme.Shelf as Theme
 
+/** The kinds of release the artist page can show on their own, as on the web's Discography. */
+private enum class Releases(val label: String, val keep: (Album) -> Boolean) {
+    Popular("Popular", { true }),
+    Albums("Albums", { it.kind == null || it.kind == "album" }),
+    Singles("Singles and EPs", { it.kind == "single" || it.kind == "ep" }),
+    Compilations("Compilations", { it.kind == "compilation" }),
+}
+
+private fun releaseSub(a: Album): String =
+    listOfNotNull(a.year?.toString(), when (a.kind) { "ep" -> "EP"; "single" -> "Single"; "compilation" -> "Compilation"; else -> "Album" })
+        .joinToString(", ")
+
 @Composable
 fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (Int) -> Unit, onBack: () -> Unit, signedOut: SignedOutHandler,
                  onRadio: (() -> Unit)? = null, onFollow: (suspend (Boolean) -> Unit)? = null) {
@@ -57,6 +74,13 @@ fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (
         val ctx = PlayContext(a.name, Routes.artist(a.name))
         val popular = a.popular.take(5)
         var following by androidx.compose.runtime.remember(a) { androidx.compose.runtime.mutableStateOf(a.following) }
+        // Only the kinds this artist has; with just one kind there's nothing to pick.
+        val kinds = Releases.entries.filter { it == Releases.Popular || a.albums.any(it.keep) }
+        var which by androidx.compose.runtime.saveable.rememberSaveable(a.name) { androidx.compose.runtime.mutableStateOf(Releases.Popular.name) }
+        val showing = Releases.valueOf(which).let { k ->
+            val list = a.albums.filter(k.keep)
+            if (k == Releases.Popular) list.sortedWith(compareByDescending<Album> { it.plays }.thenByDescending { it.year ?: 0 }) else list
+        }
         Box(Modifier.fillMaxSize()) {
             LazyColumn(Modifier.fillMaxSize()) {
                 item {
@@ -90,11 +114,19 @@ fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (
                 }
                 if (a.albums.isNotEmpty()) item {
                     SectionTitle("Releases")
-                    Shelf(a.albums) { al ->
-                        CoverCard(al.title, al.year?.toString(), onClick = { onAlbum(al.id) }) {
-                            CaseCover(source.coverUrl(al.id, al.cover, 320), al.title, albumColor(al.color, al.title))
+                    if (kinds.size > 2) LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+                        items(kinds) { k ->
+                            FilterChip(selected = which == k.name, onClick = { which = k.name }, label = { Text(k.label) },
+                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Theme.colors.cobalt,
+                                    selectedLabelColor = Theme.colors.cobaltInk, labelColor = Theme.colors.ink))
                         }
                     }
+                    androidx.compose.runtime.key(which) { Shelf(showing) { al ->
+                        CoverCard(al.title, releaseSub(al), onClick = { onAlbum(al.id) }) {
+                            CaseCover(source.coverUrl(al.id, al.cover, 320), al.title, albumColor(al.color, al.title))
+                        }
+                    } }
                 }
                 if (a.appearsOn.isNotEmpty()) item {
                     SectionTitle("Appears on")

@@ -22,6 +22,7 @@ data class Album(
     val year: Int? = null, val genre: String? = null, val trackCount: Int = 0, val duration: Double = 0.0,
     val color: String? = null, val cover: String? = null,
     val plays: Int = 0, // in stats: how often it was played
+    val kind: String? = null, // on an artist page: "album", "ep", "single" or "compilation"
 )
 
 @Serializable

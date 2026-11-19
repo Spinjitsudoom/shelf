@@ -91,6 +91,27 @@ class BrowseScreensTest {
         assertEquals(listOf("Aerosmith", "YUNGBLUD"), opened)
     }
 
+    @Test fun artistReleasesFilterByKind() {
+        val lib = object : LibrarySource by FakeLibrary() {
+            override suspend fun artist(name: String) = ArtistPage(name, listOf(
+                Album(1, "Big Album", name, year = 2020, kind = "album"),
+                Album(2, "Hit Single", name, year = 2026, kind = "single", plays = 9),
+                Album(3, "Greatest Hits", name, year = 2010, kind = "compilation")), emptyList())
+        }
+        rule.setContent { ShelfTheme { ArtistScreen("Band", lib, { _, _, _ -> }, {}, {}, noSignOut) } }
+        rule.waitUntil(5000) { rule.onAllNodes(hasText("Singles and EPs")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("2026, Single").assertExists()  // Popular: everything, most played first
+        rule.onNodeWithText("Singles and EPs").performClick()
+        rule.waitUntil(5000) { rule.onAllNodes(hasText("Big Album")).fetchSemanticsNodes().isEmpty() }
+        rule.onNodeWithText("Hit Single").assertExists()
+        rule.onNodeWithText("Greatest Hits").assertDoesNotExist()
+        rule.onNodeWithText("Compilations").performClick()
+        rule.waitUntil(5000) { rule.onAllNodes(hasText("Greatest Hits")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("Hit Single").assertDoesNotExist()
+        rule.onNodeWithText("Albums").performClick()
+        rule.waitUntil(5000) { rule.onAllNodes(hasText("Big Album")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
     @Test fun homeShowsMixTapes() {
         rule.setContent { ShelfTheme { HomeScreen(FakeLibrary(), "Listener", {}, {}, {}, noSignOut) } }
         rule.waitUntil(5000) { rule.onAllNodes(hasText("Shelf Mix 1")).fetchSemanticsNodes().isNotEmpty() }
