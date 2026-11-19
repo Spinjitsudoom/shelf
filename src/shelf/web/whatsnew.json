@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.0.10",
+    "date": "2026-11-19",
+    "new": [
+      {"title": "Pick which releases to see", "text": "On an artist’s page in the Android app, choose Albums, Singles and EPs, or Compilations instead of scrolling through all of them."}
+    ],
+    "fixed": [
+      "Imported playlists only pick up songs by the same artist: no more another band’s song of the same name.",
+      "Covers, karaoke and tribute videos from YouTube are no longer taken for the original song.",
+      "An artist’s own name no longer counts as their song of that name (“Green Day - She” is She)."
+    ]
+  },
+  {
     "version": "1.0.9",
     "date": "2026-11-16",
     "new": [],
