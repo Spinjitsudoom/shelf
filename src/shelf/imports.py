@@ -13,7 +13,10 @@ as a video title, when artist and title aren't known apart) and `path` (a file p
 player). Library.find() looks each one up: a file path that ends the same way as one in the
 library; then the same title by the same artist (spelling, accents, "feat." and "Remastered" set
 aside); then, for free text, an artist and one of their song titles both appearing in it as whole
-words. Songs that aren't in the library are reported, never guessed.
+words. When the song comes with its artist (Spotify, a CSV, a YouTube channel), only that
+artist's songs will do: a song of the same name by someone else isn't it. A video that says it's
+a cover, karaoke or tribute isn't the original either, unless it's on the artist's own channel.
+Songs that aren't in the library are reported, never guessed.
 """
 
 from __future__ import annotations
@@ -72,6 +75,17 @@ _NOISE_WORDS = {"official", "oficial", "video", "audio", "lyric", "lyrics", "mus
                 "hd", "hq", "4k", "remaster", "remastered", "by", "ft", "feat", "featuring", "topic", "vevo", "mv"}
 
 
+# A video of someone else playing the song: "(Cover)", "Karaoke Version", "in the style of Queen".
+_COVER = re.compile(r"\b(?:covers?|covered|karaoke|tribute|in the style of|originally (?:performed |sung )?by|"
+                    r"made famous by|as performed by)\b")
+
+
+def _squash(name: str) -> str:
+    """A name with its spaces and a leading "the" taken out, for channels like "TheChemicalBrothers"."""
+    s = fold(name).replace(" ", "")
+    return s[3:] if s.startswith("the") and len(s) > 3 else s
+
+
 def close(a: str, b: str) -> bool:
     """Folded titles that are the same song spelled a little differently: "basket case" and
     "basketcase", "hitchin a ride" and "hitching a ride"; not "nightmare" and "nightmare theme"."""
@@ -124,6 +138,7 @@ class Library:
         self.by_core: dict[str, list[int]] = defaultdict(list)
         self.by_artist: dict[str, list[int]] = defaultdict(list)
         self.by_first_word: dict[str, set[str]] = defaultdict(set)
+        self.by_squash: dict[str, set[str]] = defaultdict(set)
         tails: dict[int, dict[str, list[int]]] = {3: defaultdict(list), 2: defaultdict(list)}
         for r in rows:
             r = dict(r)
@@ -139,6 +154,7 @@ class Library:
             for n in names:
                 self.by_artist[n].append(tid)
                 self.by_first_word[n.split(" ", 1)[0]].add(n)
+                self.by_squash[_squash(n)].add(n)
             for n in (3, 2):
                 tail = _path_tail(r.get("path") or "", n)
                 if tail:
@@ -182,24 +198,44 @@ class Library:
         mine = {t for n in names for t in self.by_artist.get(n, [])}
         return self._best([t for t in mine if close(want_core, self.songs[t]["core"])], w)
 
+    def _performer(self, artist: str) -> set[str]:
+        """The library's artists a given artist (or YouTube channel) is."""
+        names = {n for n in artist_names(artist) if n in self.by_artist}
+        return names | self.by_squash.get(_squash(artist), set()) if artist else names
+
     def _by_text(self, w: dict) -> int | None:
         line = f" {fold(' '.join([w['text'], w['artist'], w['title']]))} "
         words = set(line.split())
+        performer = self._performer(w["artist"])
+
+        def covered(title: str) -> bool:
+            """Whether the text says it's someone else playing the song (a "cover" in the song's own
+            name doesn't count)."""
+            return bool(_COVER.search(line.replace(f" {title} ", " ") if title else line))
+
         # Each hit: how long the name that matched is, then whether it's the song's whole title (so
         # "Walk" is the song Walk, not "Walk (Live)", unless the text says "Live").
         found: list[tuple[tuple[int, int], int]] = []
-        named: set[str] = set()
+        named: set[str] = set(performer)
         for word in words:
             for name in self.by_first_word.get(word, ()):
-                if f" {name} " not in line:
-                    continue
-                named.add(name)
+                if f" {name} " in line:
+                    named.add(name)
+        said = f" {fold(' '.join([w['text'], w['title']]))} "
+        for name in named:
+            # The song's name in what's left once the artist's is taken out ("Green Day - She" is
+            # She, not their song "Green Day"), or else anywhere (a video called just "Green Day").
+            for text in (said.replace(f" {name} ", " ", 1), line):
+                hits = []
                 for tid in self.by_artist[name]:
                     s = self.songs[tid]
-                    hit = max(((len(t), int(t == s["title"])) for t in (s["title"], s["core"]) if t and f" {t} " in line),
+                    hit = max(((len(t), int(t == s["title"]), t) for t in (s["title"], s["core"]) if t and f" {t} " in text),
                               default=None)
-                    if hit:
-                        found.append((hit, tid))
+                    if hit and (name in performer or not covered(hit[2])):
+                        hits.append((hit[:2], tid))
+                if hits:
+                    found += hits
+                    break
         if found:
             best = max(h for h, _ in found)
             return self._best([t for h, t in found if h == best], w)
@@ -210,10 +246,14 @@ class Library:
             for name in sorted(named, key=len, reverse=True):
                 rest = rest.replace(f" {name} ", " ")
             rest = " ".join(x for x in rest.split() if x not in _NOISE_WORDS)
-            near = [t for name in named for t in self.by_artist[name] if close(rest, self.songs[t]["core"])]
+            near = [t for name in named for t in self.by_artist[name] if close(rest, self.songs[t]["core"])
+                    and (name in performer or not covered(""))]
             if near:
                 return self._best(near, w)
-        # No artist named: only a song whose whole name is the text, and only one such song.
+        # No artist named: only a song whose whole name is the text, and only one such song. Not
+        # when the import says who it's by (then it's someone else's song of the same name).
+        if w["artist"] or covered(""):
+            return None
         alone = fold(core(w["text"] or w["title"]))
         ids = set(self.by_title.get(alone, [])) | set(self.by_core.get(alone, []))
         if len(ids) == 1:
@@ -231,8 +271,8 @@ class Library:
                 return hit
         if w["title"]:
             hit = self._by_title(w)
-            if hit:
-                return hit
+            if hit or (w["artist"] and not w["text"]):
+                return hit  # the artist's known: no looking further among other artists' songs
         if w["text"] or w["artist"] or w["title"]:
             return self._by_text(w)
         if w["path"]:

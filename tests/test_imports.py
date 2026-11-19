@@ -58,6 +58,39 @@ def test_a_song_by_someone_else_is_not_a_match():
     assert LIB.find(want(artist="Queen", title="Under Pressure")) is None
 
 
+def test_same_name_by_another_artist_is_not_a_match():
+    # Spotify and CSV give the artist: a song of the same name by anyone else isn't it.
+    assert LIB.find(want(artist="Muse", title="Go")) is None
+    assert LIB.find(want(artist="Some Cover Band", title="Don't Stop Me Now")) is None
+    assert LIB.find(want(artist="Tori Amos", title="Bohemian Rhapsody", duration=355)) is None
+    # A YouTube channel that isn't the artist, and a title that doesn't name one either.
+    assert LIB.find(want(text="Don't Stop Me Now (Lyrics)", artist="Lyrics Hub")) is None
+    # The artist's own channel, however it's written.
+    assert LIB.find(want(text="Don't Stop Me Now", artist="Queen")) == 3
+    assert LIB.find(want(text="Go (Official Video)", artist="TheChemicalBrothers")) == 9
+
+
+def test_a_title_inside_the_artists_name():
+    gd = lib(("Green Day", "Green Day"), ("She", "Green Day"), ("Romance", "My Chemical Romance"),
+             ("Sing", "My Chemical Romance"))
+    assert gd.find(want(text="Green Day - She (Official Video)", artist="Green Day")) == 2
+    assert gd.find(want(text="She", artist="Green Day")) == 2
+    assert gd.find(want(text="My Chemical Romance - Sing [Official Music Video]")) == 4
+    assert gd.find(want(text="Green Day", artist="Green Day - Topic")) == 1
+    assert gd.find(want(text="Green Day - Green Day")) == 1
+
+
+def test_covers_are_not_the_original():
+    assert LIB.find(want(text="Queen - Don't Stop Me Now (Cover)", artist="Pomplamoose")) is None
+    assert LIB.find(want(text="Don't Stop Me Now - Queen | cover by Jane Doe", artist="Jane Doe")) is None
+    assert LIB.find(want(text="Bohemian Rhapsody (Karaoke Version) - Queen", artist="Sing King")) is None
+    assert LIB.find(want(text="Bohemian Rhapsody in the style of Queen", artist="Party Tyme")) is None
+    # "Cover" in the song's own name is fine, and so is the band covering on its own channel.
+    cover_me = lib(("Cover Me", "Bruce Springsteen"), ("Hurt", "Ed Sheeran"))
+    assert cover_me.find(want(text="Bruce Springsteen - Cover Me (Official Audio)", artist="Bruce Springsteen")) == 1
+    assert cover_me.find(want(text="Ed Sheeran - Hurt (Johnny Cash cover)", artist="Ed Sheeran")) == 2
+
+
 def test_a_line_of_text_in_either_order():
     assert LIB.find(want(text="Queen - Don't Stop Me Now")) == 3
     assert LIB.find(want(text="Don't Stop Me Now by Queen")) == 3
