@@ -112,6 +112,21 @@ class BrowseScreensTest {
         rule.waitUntil(5000) { rule.onAllNodes(hasText("Big Album")).fetchSemanticsNodes().isNotEmpty() }
     }
 
+    @Test fun artistReleasesShowAll() {
+        val lib = object : LibrarySource by FakeLibrary() {
+            override suspend fun artist(name: String) = ArtistPage(name, (1..7).map { Album(it, "Record $it", name, year = 2000 + it, kind = "album") }, emptyList())
+        }
+        rule.setContent { ShelfTheme { ArtistScreen("Band", lib, { _, _, _ -> }, {}, {}, noSignOut) } }
+        rule.waitUntil(5000) { rule.onAllNodes(hasText("Show all")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("Show all").performClick()
+        rule.onNodeWithText("Show less").assertExists()
+        // Every release, two to a line down the page: the last one is reached by scrolling down.
+        rule.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(hasText("Record 7"))
+        rule.onNodeWithText("Record 7").assertIsDisplayed()
+        rule.onNodeWithText("Show less").performClick()
+        rule.waitUntil(5000) { rule.onAllNodes(hasText("Show all")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
     @Test fun homeShowsMixTapes() {
         rule.setContent { ShelfTheme { HomeScreen(FakeLibrary(), "Listener", {}, {}, {}, noSignOut) } }
         rule.waitUntil(5000) { rule.onAllNodes(hasText("Shelf Mix 1")).fetchSemanticsNodes().isNotEmpty() }

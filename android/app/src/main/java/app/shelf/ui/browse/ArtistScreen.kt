@@ -77,6 +77,9 @@ fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (
         // Only the kinds this artist has; with just one kind there's nothing to pick.
         val kinds = Releases.entries.filter { it == Releases.Popular || a.albums.any(it.keep) }
         var which by androidx.compose.runtime.saveable.rememberSaveable(a.name) { androidx.compose.runtime.mutableStateOf(Releases.Popular.name) }
+        // "Show all": every release in a grid down the page, instead of one row to scroll sideways.
+        var all by androidx.compose.runtime.saveable.rememberSaveable(a.name) { androidx.compose.runtime.mutableStateOf(false) }
+        val cardWidth = ((androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 32 - 14) / 2).coerceIn(120, 240).dp
         val showing = Releases.valueOf(which).let { k ->
             val list = a.albums.filter(k.keep)
             if (k == Releases.Popular) list.sortedWith(compareByDescending<Album> { it.plays }.thenByDescending { it.year ?: 0 }) else list
@@ -113,7 +116,12 @@ fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (
                         coverUrl = source.coverUrl(t.albumId, t.cover, 160), coverColor = albumColor(null, t.album), track = t)
                 }
                 if (a.albums.isNotEmpty()) item {
-                    SectionTitle("Releases")
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(end = 8.dp)) {
+                        SectionTitle("Releases", Modifier.weight(1f))
+                        if (a.albums.size > 2) androidx.compose.material3.TextButton(onClick = { all = !all }) {
+                            Text(if (all) "Show less" else "Show all", color = Theme.colors.cobalt)
+                        }
+                    }
                     if (kinds.size > 2) LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
                         items(kinds) { k ->
@@ -122,11 +130,18 @@ fun ArtistScreen(name: String, source: LibrarySource, onPlay: OnPlay, onAlbum: (
                                     selectedLabelColor = Theme.colors.cobaltInk, labelColor = Theme.colors.ink))
                         }
                     }
-                    androidx.compose.runtime.key(which) { Shelf(showing) { al ->
+                    if (!all) androidx.compose.runtime.key(which) { Shelf(showing) { al ->
                         CoverCard(al.title, releaseSub(al), onClick = { onAlbum(al.id) }) {
                             CaseCover(source.coverUrl(al.id, al.cover, 320), al.title, albumColor(al.color, al.title))
                         }
                     } }
+                }
+                if (all) itemsIndexed(showing.chunked(2), key = { i, _ -> "releases-$which-$i" }) { _, pair ->
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        for (al in pair) CoverCard(al.title, releaseSub(al), width = cardWidth, onClick = { onAlbum(al.id) }) {
+                            CaseCover(source.coverUrl(al.id, al.cover, 480), al.title, albumColor(al.color, al.title))
+                        }
+                    }
                 }
                 if (a.appearsOn.isNotEmpty()) item {
                     SectionTitle("Appears on")
