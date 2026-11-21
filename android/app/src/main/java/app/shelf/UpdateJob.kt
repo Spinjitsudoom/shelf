@@ -15,7 +15,7 @@ class UpdateJob : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
         val app = application as ShelfApp
         job = CoroutineScope(Dispatchers.IO).launch {
-            Updater(applicationContext, app.container.plainHttp).check(force = false)
+            Updater(applicationContext, app.container.plainHttp).check(force = false, gap = Updater.JOB_GAP)
             jobFinished(params, false)
         }
         return true

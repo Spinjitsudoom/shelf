@@ -1,5 +1,6 @@
 package app.shelf
 
+import kotlinx.coroutines.launch
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -25,6 +26,16 @@ import app.shelf.ui.theme.ShelfTheme
 
 class MainActivity : ComponentActivity() {
     private var player: PlayerConnection? = null
+
+    override fun onStart() {
+        super.onStart()
+        // Also look when the app comes to the front: some phones (Xiaomi's) rarely let the
+        // background check run. At most every 6 hours; a newer version shows as a notification.
+        val http = (application as ShelfApp).container.plainHttp
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            app.shelf.update.Updater(applicationContext, http).check(force = false)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()

@@ -57,7 +57,9 @@ sealed interface UpdateResult {
 }
 
 /**
- * Updates from GitHub, as the WebView app did: every 6 hours (and from Settings) it asks for
+ * Updates from GitHub, as the WebView app did: every 6 hours in the background, each time the app
+ * is opened or comes back to the front (at most every 6 hours, since phones like Xiaomi's hold
+ * background jobs back), and from Settings, it asks for
  * Shelf's latest release. A newer APK is downloaded in the background and a notification says
  * it's ready; tapping it opens Android's installer, which always asks first. Android only takes
  * an update signed with the same key, so nothing else can replace Shelf this way.
@@ -66,6 +68,9 @@ class Updater(private val context: Context, private val http: OkHttpClient) {
     companion object {
         const val LATEST = "https://api.github.com/repos/Spinjitsudoom/shelf/releases/latest"
         private const val EVERY = 6 * 60 * 60 * 1000L
+        /** The background job's own gap: Android runs a periodic job anywhere in its window, often
+         *  a little under 6 hours after the last run, and those runs shouldn't be wasted. */
+        const val JOB_GAP = 60 * 60 * 1000L
         const val JOB = 41 // the WebView app's job id, so its scheduled check carries over
         private const val NOTIFICATION = 2
         private const val CHANNEL = "updates"
@@ -93,9 +98,10 @@ class Updater(private val context: Context, private val http: OkHttpClient) {
     @Suppress("DEPRECATION")
     private fun codeOf(info: PackageInfo?): Int? = info?.let { if (Build.VERSION.SDK_INT >= 28) it.longVersionCode.toInt() else it.versionCode }
 
-    suspend fun check(force: Boolean): UpdateResult = withContext(Dispatchers.IO) {
+    /** Asks GitHub for the latest release, unless `force` is off and the last check was under `gap` ago. */
+    suspend fun check(force: Boolean, gap: Long = EVERY): UpdateResult = withContext(Dispatchers.IO) {
         if (!enabled(context)) return@withContext UpdateResult.NotHere
-        if (!force && System.currentTimeMillis() - prefs.getLong("checkedAt", 0) < EVERY) return@withContext UpdateResult.UpToDate
+        if (!force && System.currentTimeMillis() - prefs.getLong("checkedAt", 0) < gap) return@withContext UpdateResult.UpToDate
         try {
             val rel = get(LATEST).use { r ->
                 if (!r.isSuccessful) return@withContext UpdateResult.Failed("GitHub answered ${r.code}.")
