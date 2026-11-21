@@ -80,22 +80,115 @@ def test_recommendations_reach_beyond_the_playlists_artists(client, library):
     assert len(only) == 3
 
 
+def fake_wikipedia(monkeypatch, pages, redirects=None, search=()):
+    """Wikipedia's query API over some pages: titles (with redirects), or a search. Counts the calls."""
+    from urllib.parse import parse_qs, urlsplit
+    calls = []
+
+    def get_json(url):
+        q = {k: v[0] for k, v in parse_qs(urlsplit(url).query).items()}
+        calls.append(q)
+        if q.get("generator") == "search":
+            return {"query": {"pages": [pages[t] | {"index": i} for i, t in enumerate(search) if t in pages]}}
+        titles = q["titles"].split("|")
+        hops = [{"from": t, "to": (redirects or {})[t]} for t in titles if t in (redirects or {})]
+        landed = {(redirects or {}).get(t, t) for t in titles}
+        return {"query": {"redirects": hops, "pages": [pages[t] if t in pages else {"title": t, "missing": True} for t in landed]}}
+    monkeypatch.setattr(artists, "_get_json", get_json)
+    return calls
+
+
 def test_artist_about_checks_it_is_a_musician(client, monkeypatch):
     login(client)
     client.app.state.cfg.artist_info = True
-    pages = {
-        "Slipknot": {"type": "standard", "title": "Slipknot", "description": "Type of knot", "extract": "A slipknot is a knot."},
-        "Slipknot (band)": {"type": "standard", "title": "Slipknot (band)", "description": "American heavy metal band",
-                            "extract": "Slipknot is an American heavy metal band.", "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Slipknot_(band)"}}},
-    }
-    monkeypatch.setattr(artists, "_summary", lambda title: pages.get(title))
-    monkeypatch.setattr(artists, "_get_json", lambda url: {"query": {"search": []}})
+    calls = fake_wikipedia(monkeypatch, {
+        "Slipknot": {"title": "Slipknot", "description": "Type of knot", "extract": "A slipknot is a knot."},
+        "Slipknot (band)": {"title": "Slipknot (band)", "description": "American heavy metal band",
+                            "extract": "Slipknot is an American heavy metal band.", "fullurl": "https://en.wikipedia.org/wiki/Slipknot_(band)"},
+    })
     r = client.get("/api/artist/about", params={"name": "Slipknot"}).json()
     assert r["found"] and r["title"] == "Slipknot (band)" and r["image"] is None
+    assert r["url"] == "https://en.wikipedia.org/wiki/Slipknot_(band)"
+    assert len(calls) == 1  # every guess in one request
     # A shared credit falls back to its first artist.
     r = client.get("/api/artist/about", params={"name": "Slipknot & Someone"}).json()
     assert r["found"] and r["title"] == "Slipknot (band)"
     assert client.get("/api/artist/about", params={"name": "Nobody Known"}).json() == {"found": False}
+
+
+def test_artist_about_follows_wikipedias_redirects(client, monkeypatch):
+    login(client)
+    client.app.state.cfg.artist_info = True
+    fake_wikipedia(monkeypatch, {
+        "Pink (singer)": {"title": "Pink (singer)", "description": "American singer and songwriter (born 1979)", "extract": "Pink is a singer."},
+        "Muses": {"title": "Muses", "description": "Inspirational goddesses", "extract": "The Muses are goddesses."},
+        "Muse (band)": {"title": "Muse (band)", "description": "English rock band", "extract": "Muse are an English rock band."},
+        "Disturbed": {"title": "Disturbed", "description": "Topics referred to by the same term", "extract": "Disturbed may refer to:",
+                      "pageprops": {"disambiguation": ""}},
+        "Disturbed (band)": {"title": "Disturbed (band)", "description": "American heavy metal band", "extract": "A band."},
+    }, redirects={"P!nk": "Pink (singer)", "Muse": "Muses"})
+    assert client.get("/api/artist/about", params={"name": "P!nk"}).json()["title"] == "Pink (singer)"
+    assert client.get("/api/artist/about", params={"name": "Muse"}).json()["title"] == "Muse (band)"  # not the goddesses
+    assert client.get("/api/artist/about", params={"name": "Disturbed"}).json()["title"] == "Disturbed (band)"
+
+
+def test_artist_photo_takes_the_thumbnail_when_the_original_is_a_logo(client, monkeypatch):
+    login(client)
+    client.app.state.cfg.artist_info = True
+    fake_wikipedia(monkeypatch, {"Band": {"title": "Band", "description": "American rock band", "extract": "A band.",
+                                          "thumbnail": {"source": "https://upload/thumb/logo.svg.png"},
+                                          "original": {"source": "https://upload/logo.svg"}}})
+    fetched = []
+
+    def save(url, dest):
+        fetched.append(url)
+        if url.endswith(".svg"):
+            raise OSError("cannot identify image file")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        from PIL import Image
+        Image.new("RGB", (8, 8), (200, 40, 40)).save(dest, "WEBP")
+        return True
+    monkeypatch.setattr(artists, "_save_image", save)
+    r = client.get("/api/artist/about", params={"name": "Band"}).json()
+    assert r["image"] and fetched == ["https://upload/thumb/logo.svg.png"]
+
+
+def test_old_misses_are_looked_up_again(client, monkeypatch):
+    login(client)
+    client.app.state.cfg.artist_info = True
+    db = client.app.state.cfg.db_path
+    artists.store(db, "kesha", "about", None)  # "not found", by the lookup before this one
+    fake_wikipedia(monkeypatch, {"Kesha": {"title": "Kesha", "description": "American singer and rapper", "extract": "Kesha is a singer."}},
+                   redirects={"Kesha": "Kesha"})
+    assert client.get("/api/artist/about", params={"name": "Kesha"}).json()["found"]
+    # A miss by this lookup is kept a while, and reads as nothing elsewhere.
+    calls = fake_wikipedia(monkeypatch, {})
+    assert client.get("/api/artist/about", params={"name": "Nobody"}).json() == {"found": False}
+    assert client.get("/api/artist/about", params={"name": "Nobody"}).json() == {"found": False}
+    assert len(calls) == 2  # titles and search, once
+    assert artists.cached(db, "nobody", "about")[1] is None
+    # An older answer with a photo stays, unless it isn't about a musician by today's check.
+    artists.store(db, "queen", "about", {"name": "Queen", "title": "Queen (band)", "description": "British rock band",
+                                         "extract": "", "url": None, "hasImage": True})
+    artists.store(db, "ghost", "about", {"name": "Ghost", "title": "Ghost", "description": "Supernatural being",
+                                         "extract": "A ghost is the soul of a dead person.", "url": None, "hasImage": True})
+    calls = fake_wikipedia(monkeypatch, {"Ghost (band)": {"title": "Ghost (band)", "description": "Swedish rock band", "extract": "A band."}})
+    assert client.get("/api/artist/about", params={"name": "Queen"}).json()["title"] == "Queen (band)" and calls == []
+    assert client.get("/api/artist/about", params={"name": "Ghost"}).json()["title"] == "Ghost (band)"
+
+
+def test_artist_photo_from_wikidata_when_the_page_has_none(client, monkeypatch):
+    login(client)
+    client.app.state.cfg.artist_info = True
+    fake_wikipedia(monkeypatch, {"Bryan Adams": {"title": "Bryan Adams", "description": "Canadian singer-songwriter", "extract": "A singer.",
+                                                 "pageprops": {"wikibase_item": "Q482907"}}})
+    real = artists._get_json
+    monkeypatch.setattr(artists, "_get_json", lambda url: {"claims": {"P18": [{"mainsnak": {"datavalue": {"value": "Bryan Adams 2022.jpg"}}}]}}
+                        if "wikidata.org" in url else real(url))
+    fetched = []
+    monkeypatch.setattr(artists, "_save_image", lambda url, dest: fetched.append(url) or True)
+    assert client.get("/api/artist/about", params={"name": "Bryan Adams"}).json()["found"]
+    assert fetched == ["https://commons.wikimedia.org/wiki/Special:FilePath/Bryan_Adams_2022.jpg?width=1200"]
 
 
 def test_artist_videos_keep_only_the_artists_own(client, monkeypatch):

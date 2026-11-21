@@ -2809,7 +2809,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     def _artist_names(name: str) -> list[str]:
         """The name, then each artist of a shared credit ("Aerosmith & Yungblud")."""
-        parts = [p.strip() for p in re.split(r"\s+(?:&|and|x|feat\.?|ft\.?|with)\s+|,\s*", name, flags=re.I) if p.strip()]
+        parts = [p.strip() for p in re.split(r"\s+(?:&|and|x|feat\.?|ft\.?|with)\s+|\s*[,/;]\s*", name, flags=re.I) if p.strip()]
         return [name] + [p for p in parts if p.casefold() != name.casefold()]
 
     @app.get("/api/artist/about")
