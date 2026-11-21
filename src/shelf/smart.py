@@ -209,10 +209,11 @@ def songs(rows, facts: Facts, rules: dict, now: float, seed: str = "") -> list[i
     return ids[:rules["limit"]] if rules["limit"] else ids
 
 
-def mood_sets(rows, energy: dict[int, float]) -> dict[int, set[str]]:
-    """Which moods each measured song fits (empty sets for measured songs that fit none)."""
+def mood_sets(rows, energy: dict[int, float], genres_of=None) -> dict[int, set[str]]:
+    """Which moods each measured song fits (empty sets for measured songs that fit none).
+    `genres_of(row)`: a song's genres, which lean its moods (see moods.py)."""
     out: dict[int, set[str]] = {}
-    for tid, s in moods.features(rows, energy).items():
+    for tid, s in moods.features(rows, energy, genres_of).items():
         out[tid] = {key for key, _n, _d, _c, fit in moods.MOODS if fit(s) is not None}
     return out
 

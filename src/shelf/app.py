@@ -2907,7 +2907,8 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
         for r in conn.execute("SELECT track_id, COUNT(*), MAX(played_at) FROM plays WHERE user_id = ? GROUP BY track_id", (user_id,)):
             facts.plays[r[0]], facts.last[r[0]] = r[1], r[2]
         if smart.uses_moods(rules):
-            facts.moods = smart.mood_sets(rows, sound.energy(rows))
+            known = releases.artist_genres(cfg.db_path)
+            facts.moods = smart.mood_sets(rows, sound.energy(rows), lambda r: genres.song_genres(r, known))
         now = time.time()
         ids = smart.songs(rows, facts, rules, now, seed=f"smart:{pid}:{int(now // 86400)}")
         by_id = {r["id"]: r for r in rows}
@@ -3411,7 +3412,9 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 out[key] = {"key": key, "kind": "list", "name": name, "description": desc, "color": color,
                             "tracks": tracks, "covers": _covers_of(tracks)}
         # Moods (Workout, Chill...), once enough of the library is measured. New every day.
-        for m in moods.mood_mixes(rows, sound.energy(rows), score, mixes.day_seed(me_id, now)):
+        known = releases.artist_genres(cfg.db_path)  # MusicBrainz's, per artist, besides the tags
+        for m in moods.mood_mixes(rows, sound.energy(rows), score, mixes.day_seed(me_id, now),
+                                  genres_of=lambda r: genres.song_genres(r, known)):
             tracks = [track_json(by_id[i]) for i in m["ids"] if i in by_id]
             out[m["key"]] = {"key": m["key"], "kind": "list", "name": m["name"], "description": m["description"],
                              "color": m["color"], "tracks": tracks, "covers": _covers_of(tracks)}

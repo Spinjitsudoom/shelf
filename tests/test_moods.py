@@ -1,4 +1,5 @@
-"""Mood mixes (Workout, Chill...) from how songs sound, ranked against the rest of the library."""
+"""Mood mixes (Workout, Chill...) from how songs sound, ranked against the rest of the library, and
+from their genres."""
 
 import json
 import random
@@ -8,13 +9,17 @@ from shelf import moods
 N = 60  # fingerprint numbers (only a few positions matter here)
 
 
-def song(i, *, energy, dance=0.5, bright=0.5, bpm=120, key="A minor", artist=None):
+def song(i, *, energy, dance=0.5, bright=0.5, bpm=120, key="A minor", artist=None, genre=None):
     vec = [0.0] * 52
     vec[moods._DANCE] = dance
     vec[moods._CENTROID] = bright * 4000
     vec[moods._FLATNESS] = 0.1
-    return {"id": i, "artist": artist or f"Artist {i % 20}", "album_artist_name": None, "album_id": i % 25,
-            "bpm": bpm, "musical_key": key, "sound": json.dumps(vec), "_energy": energy}
+    return {"id": i, "title": f"Song {i}", "artist": artist or f"Artist {i % 20}", "album_artist_name": None, "album_id": i % 25,
+            "bpm": bpm, "musical_key": key, "sound": json.dumps(vec), "_energy": energy, "genre": genre}
+
+
+def genres_of(r):
+    return {r["genre"].lower()} if r.get("genre") else set()
 
 
 def library(n=200, seed=1):
@@ -35,17 +40,19 @@ def test_workout_is_energetic_and_at_a_running_pace():
     picked = [by_id(rows)[i] for i in mixes["workout"]["ids"]]
     assert len(picked) >= 15
     assert all(r["_energy"] >= 0.6 for r in picked)
-    assert all(115 <= r["bpm"] <= 175 for r in picked)
+    # At a running pace, or read at half of one (a tempo of 70 is often 140).
+    assert all(115 <= r["bpm"] <= 175 or 115 <= 2 * r["bpm"] <= 175 for r in picked)
 
 
 def test_chill_is_calm_and_melancholy_is_minor():
-    rows, energy = library()
+    rows, energy = library(n=600)
     mixes = {m["key"]: m for m in moods.mood_mixes(rows, energy, {}, "day-1")}
     assert all(by_id(rows)[i]["_energy"] <= 0.4 for i in mixes["chill"]["ids"])
+    # Keys are often misread, so they lean a mix rather than decide it: mostly minor, mostly major.
     sad = [by_id(rows)[i] for i in mixes["melancholy"]["ids"]]
-    assert sad and all(r["musical_key"].endswith("minor") for r in sad)
+    assert sad and sum(r["musical_key"].endswith("minor") for r in sad) >= 0.7 * len(sad)
     happy = [by_id(rows)[i] for i in mixes["feel-good"]["ids"]]
-    assert happy and all(r["musical_key"].endswith("major") for r in happy)
+    assert happy and sum(r["musical_key"].endswith("major") for r in happy) >= 0.7 * len(happy)
 
 
 def test_no_artist_takes_over():
@@ -59,7 +66,9 @@ def test_no_artist_takes_over():
 
 def test_leans_towards_what_you_play_and_changes_daily():
     rows, energy = library()
-    fav = [r["id"] for r in rows if r["_energy"] >= 0.7 and 115 <= r["bpm"] <= 175][:3]
+    # Songs that fit well (not ones that only just pass) are the ones playing lifts in.
+    fav = [r["id"] for r in rows if r["_energy"] >= 0.85 and json.loads(r["sound"])[moods._DANCE] >= 0.5
+           and 115 <= r["bpm"] <= 175][:3]
     score = {i: 1.0 for i in fav}
     workout = next(m for m in moods.mood_mixes(rows, energy, score, "day-1") if m["key"] == "workout")
     assert set(fav) <= set(workout["ids"])
@@ -81,7 +90,7 @@ def test_moods_are_in_made_for_you(client, monkeypatch):
     ids = [t["id"] for t in client.get("/api/tracks/random?limit=4").json()]
     seen = {}
 
-    def fake(rows, energy, score, seed):
+    def fake(rows, energy, score, seed, **kw):
         seen["seed"] = seed
         return [{"key": "workout", "name": "Workout", "description": "High-energy songs at a running pace",
                  "color": "#e03131", "ids": ids}]
@@ -91,3 +100,52 @@ def test_moods_are_in_made_for_you(client, monkeypatch):
     assert listed["workout"]["name"] == "Workout" and listed["workout"]["trackCount"] == 4
     assert sorted(t["id"] for t in client.get("/api/mixes/workout").json()["tracks"]) == sorted(ids)
     assert seen["seed"]  # a seed for the day
+
+
+def test_genres_lean_the_moods():
+    rows, energy = library(n=1200, seed=3)
+    for r in rows:
+        r["genre"] = ["Thrash Metal", "Disco", "Folk", "Pop"][r["id"] % 4]
+        r["artist"], r["album_id"] = f"Artist {r['id']}", r["id"]  # no cap on artists in the way
+    mixes = {m["key"]: [by_id(rows)[i] for i in m["ids"]] for m in moods.mood_mixes(rows, energy, {}, "day-1", genres_of)}
+    # Metal is never Chill, however calm a recording measures; folk is never Heavy.
+    assert mixes["chill"] and not any(r["genre"] == "Thrash Metal" for r in mixes["chill"])
+    assert not any(r["genre"] == "Folk" for r in mixes.get("heavy", []))
+    # And a genre that belongs leans its songs in: more disco than thrash metal at the party.
+    party = [r["genre"] for r in mixes["party"]]
+    assert party.count("Disco") > party.count("Thrash Metal")
+
+
+def test_genre_words():
+    assert moods.genre_lean("heavy", {"melodic death metal"}) == 2
+    assert moods.genre_lean("chill", {"metal & hard rock"}) == -2
+    assert moods.genre_lean("heavy", {"pop punk"}) == 0  # pop punk isn't pop to Heavy
+    assert moods.genre_lean("feel-good", {"pop punk"}) == 2
+    assert moods.genre_lean("chill", {"jazz"}) == 1
+    assert moods.genre_lean("chill", set()) == 0
+
+
+def test_a_mix_hangs_together():
+    """Of songs that fit equally by the numbers, the ones that sound like the mix's best fits go in."""
+    rows, energy = library(n=600, seed=5)
+    for r in rows:
+        r["artist"], r["album_id"] = f"Artist {r['id']}", r["id"]
+        vec = json.loads(r["sound"])
+        vec[0] = 5.0 if r["id"] % 2 else -5.0  # two tone colours across the library
+        r["sound"] = json.dumps(vec)
+    best = sorted((r for r in rows if r["id"] % 2), key=lambda r: -r["_energy"])[:20]
+    for r in best:  # the strongest workout songs all have one tone colour
+        r["_energy"], r["bpm"], energy[r["id"]] = 0.99, 128, 0.99
+    picked = [by_id(rows)[i] for i in next(m for m in moods.mood_mixes(rows, energy, {}, "d") if m["key"] == "workout")["ids"]]
+    assert sum(r["id"] % 2 for r in picked) >= 0.65 * len(picked)  # about half without it
+
+
+def test_one_version_of_a_song():
+    rows, energy = library(n=600, seed=7)
+    for r in rows:
+        r["artist"], r["album_id"], r["title"] = f"Artist {r['id'] // 2}", r["id"], f"Song {r['id'] // 2}"
+        if r["id"] % 2:
+            r["title"] += " (Live)"  # every song twice: the record and a live version
+    for m in moods.mood_mixes(rows, energy, {}, "day-1"):
+        titles = [by_id(rows)[i]["title"].replace(" (Live)", "") for i in m["ids"]]
+        assert len(titles) == len(set(titles)), m["key"]

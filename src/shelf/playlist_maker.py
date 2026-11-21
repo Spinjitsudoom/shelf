@@ -166,7 +166,7 @@ def make(rows, energy: dict[int, float], score: dict[int, float], want: Want, re
         candidates = [r for r in rows if allowed(r)]
 
     # How well each fits the moods and energy asked for (measured songs only).
-    feats = moods.features(rows, energy)
+    feats = moods.features(rows, energy, genres_of)
     fits = [f for key, _n, _d, _c, f in moods.MOODS if key in want.moods]
 
     def fit(r) -> float | None:
