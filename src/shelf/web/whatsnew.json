@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.0.11",
+    "date": "2026-11-22",
+    "new": [
+      {"title": "Show all of an artist’s releases", "text": "In the Android app, Show all next to an artist’s releases lays every one out down the page."}
+    ],
+    "fixed": [
+      "Mood mixes fit their mood far better: genres count, so Chill no longer gets metal, and each mix sounds like it belongs together.",
+      "A mood mix has one version of a song, not the live and album versions side by side.",
+      "Many more artists get their photo and About, including ones Wikipedia knows by another spelling (P!nk, Ke$ha, deadmau5).",
+      "The Android app checks for updates when you open it, instead of waiting for a background check the phone may never run."
+    ]
+  },
+  {
     "version": "1.0.10",
     "date": "2026-11-19",
     "new": [
