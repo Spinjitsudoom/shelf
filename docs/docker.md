@@ -42,6 +42,13 @@ docker run -d --name shelf --restart unless-stopped -p 4533:4533 \
   ghcr.io/spinjitsudoom/shelf:latest
 ```
 
+## Podman, and Fedora or other SELinux systems
+
+Podman takes the same commands (`podman run …`, `podman compose up -d`). On Fedora, RHEL and
+other systems with SELinux, add `:Z` to each folder so the container is allowed to read it:
+`-v ./shelf-data:/data:Z -v /path/to/your/music:/music:ro,Z`. Without it, Shelf starts but
+finds no music. With rootless Podman, add `--userns=keep-id` so the files stay yours.
+
 ## Who owns the files
 
 Shelf runs as user 1000, not as root. Your music only needs to be readable. The `shelf-data`
@@ -193,8 +200,8 @@ docker compose pull && docker compose up -d
 ```
 
 Your library, accounts and settings are in `shelf-data`, so they stay. In a container, Shelf
-doesn't check for updates itself. Pin a version (`ghcr.io/spinjitsudoom/shelf:1.1`) if you'd
-rather update when you choose.
+doesn't check for updates itself. Pin a version (`ghcr.io/spinjitsudoom/shelf:1.0` for 1.0 updates only, or an exact one like
+`:1.0.11`) if you'd rather update when you choose.
 
 ## Backing up
 
