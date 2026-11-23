@@ -842,7 +842,8 @@ export async function searchView(el, query, player) {
     onlineTimer = setTimeout(() => lookOnline(q), 600);
     const r = await api.search(q);
     if (input.value.trim() !== q) return; // a newer query is on its way
-    setTracks(r.tracks, { label: `Search: ${q}`, href: `#/search?q=${encodeURIComponent(q)}` });
+    // single: a song from search plays on its own, and Autoplay carries on with similar ones.
+    setTracks(r.tracks, { label: `Search: ${q}`, href: `#/search?q=${encodeURIComponent(q)}`, single: true });
     const shows = r.podcasts ?? [];
     episodes = r.episodes ?? [];
     if (!r.artists.length && !r.albums.length && !r.tracks.length && !shows.length && !episodes.length) {

@@ -369,8 +369,14 @@ view.addEventListener("click", async (e) => {
   const qrow = e.target.closest("[data-queue-index]");
   if (qrow) { player.jumpTo(Number(qrow.dataset.queueIndex)); return; }
   const row = e.target.closest(".track-row[data-index]");
-  if (row && !e.target.closest("a")) player.playList(ctx.tracks, rowIndex(row), { context: ctx.context });
+  if (row && !e.target.closest("a")) playRow(rowIndex(row));
 });
+
+/** Play a listed song and the ones after it; a song from search plays on its own, then Autoplay. */
+function playRow(i) {
+  if (ctx.context?.single) return player.playList([ctx.tracks[i]], 0, { context: ctx.context, autoplay: true });
+  player.playList(ctx.tracks, i, { context: ctx.context });
+}
 
 attachQueueDrag(view, player, {
   redraw: () => {
@@ -1188,7 +1194,7 @@ function trackMenu(i, at) {
     at,
     header: { art: caseHtml(t, { size: 160, cls: "case-sm" }), title: t.title, sub: `${t.artist}, ${t.album}` },
     items: [
-      { label: "Play", icon: "i-play", run: () => player.playList(ctx.tracks, i, { context: ctx.context }) },
+      { label: "Play", icon: "i-play", run: () => playRow(i) },
       { label: "Play next", icon: "i-next-up", run: () => player.playNext([t]) },
       { label: "Add to queue", icon: "i-plus", run: () => player.addToQueue([t]) },
       { label: "Add to playlist", icon: "i-playlist", run: () => addToPlaylistMenu(() => [t.id], at) },

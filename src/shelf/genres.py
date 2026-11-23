@@ -50,6 +50,18 @@ def song_genres(row, artist_genres: dict[str, list[str]]) -> frozenset[str]:
     return got
 
 
+# Words too loose to tie genres together ("music", "and"), and ones that name an era or a
+# format rather than a sound.
+_LOOSE = {"music", "and", "n", "the", "of", "&", "new", "modern", "classic", "contemporary", "alternative",
+          "indie", "other", "misc", "various", "soundtrack", "retrospective", "best", "hits"}
+
+
+@lru_cache(maxsize=65536)
+def words(genres: frozenset[str]) -> frozenset[str]:
+    """The words of some genres that say something about the sound: {"power metal"} -> {"power", "metal"}."""
+    return frozenset(w for g in genres for w in re.split(r"[\s&+]+", g) if len(w) > 1 and w not in _LOOSE)
+
+
 def library_genres(rows, artist_genres: dict[str, list[str]]) -> list[str]:
     """Every genre the library has, by tag or artist, as names to show ("Thrash Metal")."""
     names: dict[str, str] = {}

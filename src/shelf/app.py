@@ -3154,6 +3154,14 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             album_ids.add(t["album_id"])
         bpms = sorted({t["bpm"] for t in mine if t["bpm"]})
         tempo_fit: dict[float, float] = {}
+        # Looser ties for songs nothing else links: genres sharing a word ("power metal" and
+        # "heavy metal"), and the same era.
+        word_n: dict[str, int] = {}
+        for t in mine:
+            for w in genres.words(genres.song_genres(t, known)):
+                word_n[w] = word_n.get(w, 0) + 1
+        years = sorted({t["year"] for t in mine if t["year"]})
+        era_fit: dict[int, float] = {}
         mine_ids = [t["id"] for t in mine]
         # Sounds like: how close each song is to the songs of `mine` it's nearest to.
         near = sound.nearest(sound.library_vectors(cfg.db_path), mine_ids, [t["id"] for t in pool])
@@ -3169,10 +3177,20 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
                 continue
             a = max(artist_n.get(fold(t["artist"]), 0), artist_n.get(fold(t["album_artist_name"] or ""), 0))
             s = 3 * min(a, 5) / 5 + (1.2 if a else 0)
-            if genre_n:
-                shared = [genre_n.get(g, 0) for g in genres.song_genres(t, known)]
-                if shared:
-                    s += 2 * max(shared) / len(mine)
+            theirs = genres.song_genres(t, known)
+            shared = [genre_n.get(g, 0) for g in theirs]
+            if shared and max(shared):
+                s += 2 * max(shared) / len(mine)
+            elif word_n:
+                close = [word_n.get(w, 0) for w in genres.words(theirs)]
+                if close:
+                    s += max(close) / len(mine)
+            if years and t["year"]:
+                fit = era_fit.get(t["year"])
+                if fit is None:
+                    d = min(abs(t["year"] - y) for y in years)
+                    fit = era_fit[t["year"]] = 0.8 * max(0.0, 1 - max(0, d - 3) / 12)
+                s += fit
             if t["bpm"] and bpms:
                 fit = tempo_fit.get(t["bpm"])
                 if fit is None:  # songs share tempos, so each is worked out once
@@ -3436,6 +3454,17 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             raise HTTPException(404, "This mix isn’t around today")
         return _summary(m) | {"tracks": m["tracks"]}
 
+    def _goes_with(rows, seed, rng, limit: int, other_albums: bool = False) -> list[dict]:
+        """Songs from across the library that fit `seed` (song radio and Autoplay): its sound,
+        genres, tempo and key, and what's played alongside it, with a few of its artist's songs
+        and mostly other artists. `other_albums` leaves out the rest of the seed's album."""
+        same = [r for r in rows if mixes.artist_of(r).casefold() == mixes.artist_of(seed).casefold() and r["id"] != seed["id"]]
+        mine = [seed, *rng.sample(same, min(4, len(same)))]
+        mine_ids = {r["id"] for r in mine}
+        pool = [r for r in rows if r["id"] not in mine_ids
+                and not (other_albums and r["album_key"] == seed["album_key"])]
+        return _recommend(mine, pool, rng.randrange(1, 10**6), limit)
+
     @app.get("/api/radio")
     def radio(track: int | None = None, artist: str | None = Query(None, max_length=200),
               limit: int = Query(50, ge=5, le=200)):
@@ -3448,8 +3477,6 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             seed = next((r for r in rows if r["id"] == track), None)
             if not seed:
                 raise HTTPException(404, "Track not found")
-            same = [r for r in rows if mixes.artist_of(r).casefold() == mixes.artist_of(seed).casefold() and r["id"] != track]
-            mine = [seed, *rng.sample(same, min(4, len(same)))]
             first = [track_json(seed)]
             name, desc = f"{seed['title']} Radio", f"Songs that go with {seed['title']} by {seed['artist']}"
             prefer = [mixes.artist_of(seed)]
@@ -3464,9 +3491,10 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
             prefer = [shown]
         else:
             raise HTTPException(400, "Start radio from a song or an artist")
-        mine_ids = {r["id"] for r in mine}
-        pool = [r for r in rows if r["id"] not in mine_ids or track is None]
-        picks = _recommend(mine, [r for r in pool if r["id"] != track], rng.randrange(1, 10**6), limit - len(first))
+        if track is not None:
+            picks = _goes_with(rows, seed, rng, limit - len(first))
+        else:
+            picks = _recommend(mine, rows, rng.randrange(1, 10**6), limit)
         # Artist radio leans on the artist: about a third of it is theirs.
         if artist:
             own = [track_json(r) for r in rng.sample(mine, min(len(mine), limit // 3))]
@@ -3768,27 +3796,23 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
 
     @app.get("/api/tracks/{track_id}/similar")
     def similar(track_id: int, limit: int = Query(40, ge=1, le=200)):
-        """Autoplay: more songs by the same artist or in the same genre, from other albums first."""
+        """Autoplay: what song radio would play after this song, from other albums (as on
+        Spotify, the music carries on with songs that fit, mostly by other artists)."""
         if podcasts.is_episode(track_id):
             return []  # after an episode, nothing plays by itself
         with db() as conn:
-            seed = conn.execute(f"{TRACK_SELECT} WHERE t.id = ?", (track_id,)).fetchone()
-            if not seed:
-                raise HTTPException(404, "Track not found")
-            rows = conn.execute(
-                f"""{TRACK_SELECT}
-                WHERE t.id != ? AND (a.artist = ? COLLATE NOCASE OR (t.genre IS NOT NULL AND t.genre = ? COLLATE NOCASE))
-                ORDER BY (t.album_key = ?), RANDOM() LIMIT ?""",
-                (track_id, seed["album_artist_name"], seed["genre"], seed["album_key"], limit),
-            ).fetchall()
-            if len(rows) < limit:  # small library or untagged genre: top up with anything
-                seen = [track_id, *[r["id"] for r in rows]]
-                marks = ",".join("?" * len(seen))
-                rows += conn.execute(
-                    f"{TRACK_SELECT} WHERE t.id NOT IN ({marks}) ORDER BY RANDOM() LIMIT ?",
-                    (*seen, limit - len(rows)),
-                ).fetchall()
-        return [track_json(r) for r in rows]
+            rows = conn.execute(TRACK_SELECT).fetchall()
+        seed = next((r for r in rows if r["id"] == track_id), None)
+        if not seed:
+            raise HTTPException(404, "Track not found")
+        picks = _goes_with(rows, seed, random.Random(), limit, other_albums=True)
+        if len(picks) < limit:  # a small library: top up with the rest, other albums first
+            seen = {track_id, *(t["id"] for t in picks)}
+            rest = [r for r in rows if r["id"] not in seen]
+            random.shuffle(rest)
+            rest.sort(key=lambda r: r["album_key"] == seed["album_key"])
+            picks += [track_json(r) for r in rest[:limit - len(picks)]]
+        return picks
 
     @app.delete("/api/history")
     def clear_history():

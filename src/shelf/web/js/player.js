@@ -99,7 +99,8 @@ export class Player extends EventTarget {
   // ---- starting playback ----
 
   /** Play `tracks` from `start`; `startAt` begins partway into that song (the transition preview). */
-  playList(tracks, start = 0, { shuffle = false, context = null, startAt = 0 } = {}) {
+  /** `autoplay`: fetch similar songs straight away (one song from search, with the rest to follow). */
+  playList(tracks, start = 0, { shuffle = false, context = null, startAt = 0, autoplay = false } = {}) {
     if (!tracks.length) return;
     this.context = context;
     if (shuffle) {
@@ -117,6 +118,7 @@ export class Player extends EventTarget {
       this.shuffle = false;
       this._go(start, startAt);
     }
+    if (autoplay) this._autoplayMore();
   }
 
   playNext(tracks, { quiet = false } = {}) {

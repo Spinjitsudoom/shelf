@@ -155,9 +155,10 @@ fun SearchScreen(api: ShelfApi, onPlay: (List<Track>, Int, PlayContext) -> Unit,
                         }
                     }
                     if (res.tracks.isNotEmpty()) item { SectionTitle("Songs") }
-                    itemsIndexed(res.tracks) { i, t ->
+                    // A song from search plays on its own; Autoplay carries on with similar songs, as on Spotify.
+                    itemsIndexed(res.tracks) { _, t ->
                         TrackRow(null, t.title, "${t.artist}, ${t.album}", fmtTime(t.duration),
-                            { remember(query); onPlay(res.tracks, i, PlayContext("Search: $query", "search")) },
+                            { remember(query); onPlay(listOf(t), 0, PlayContext("Search: $query", "search")) },
                             coverUrl = api.coverUrl(t.albumId, t.cover, 160), coverColor = albumColor(null, t.album), track = t)
                     }
                     if (res.podcasts.isNotEmpty()) item { SectionTitle("Podcasts") }

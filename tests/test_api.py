@@ -141,3 +141,31 @@ def test_every_script_is_kept_for_offline():
     web = Path(__file__).parent.parent / "src" / "shelf" / "web"
     shell = set(re.findall(r'"(js/[a-z-]+\.js)"', (web / "sw.js").read_text()))
     assert {f"js/{p.name}" for p in (web / "js").glob("*.js")} <= shell
+
+
+def test_autoplay_carries_on_like_song_radio(client):
+    """After a song, Autoplay plays songs that fit it from across the library: a few by the
+    same artist and mostly others, never the rest of its own album."""
+    from shelf.db import session
+
+    login(client)
+    with session(client.app.state.cfg.db_path) as conn:
+        conn.execute("UPDATE tracks SET genre = 'Rock'")
+        for a in range(8):
+            key = f"other-{a}"
+            conn.execute("INSERT INTO albums(key, title, artist, track_count, duration, added_at) VALUES (?, ?, ?, 3, 600, 0)",
+                         (key, f"Album {a}", f"Artist {a}"))
+            for n in range(3):
+                conn.execute("""INSERT INTO tracks(path, mtime, size, title, artist, album, album_key, genre, duration, added_at)
+                                VALUES (?, 0, 0, ?, ?, ?, ?, ?, 200, 0)""",
+                             (f"/x/{a}/{n}.mp3", f"Song {a}.{n}", f"Artist {a}", f"Album {a}", key, "Rock" if a < 5 else "Jazz"))
+    first = next(a for a in client.get("/api/albums").json() if a["title"] == "First")
+    seed = client.get(f"/api/albums/{first['id']}").json()["tracks"][0]
+    got = client.get(f"/api/tracks/{seed['id']}/similar?limit=10").json()
+    assert len(got) == 10 and len({t["id"] for t in got}) == 10
+    assert seed["id"] not in {t["id"] for t in got}
+    assert all(t["album"] != "First" for t in got)
+    others = [t for t in got if t["artist"].casefold() != "band"]
+    assert len(others) >= 6
+    # The same genre comes first.
+    assert all(t["artist"] in {f"Artist {a}" for a in range(5)} for t in others[:4])
