@@ -1,0 +1,60 @@
+# Shelf for ZimaOS and CasaOS: App Store → + (top right) → Install a customized app → Import,
+# then paste this file. Change the music folder below if yours isn't /DATA/Media/Music.
+# See "ZimaOS and CasaOS" in docs/docker.md.
+name: shelf
+services:
+  shelf:
+    image: ghcr.io/spinjitsudoom/shelf:latest
+    container_name: shelf
+    restart: unless-stopped
+    # ZimaOS makes the AppData folder as root, so Shelf runs as root to be able to write to it.
+    # Your music is still mounted read-only.
+    user: "0:0"
+    ports:
+      - target: 4533
+        published: "4533"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: /DATA/AppData/shelf
+        target: /data
+      - type: bind
+        source: /DATA/Media/Music
+        target: /music
+        read_only: true
+    environment:
+      TZ: Europe/London
+    x-casaos:
+      envs:
+        - container: TZ
+          description:
+            en_us: Your time zone. Daily mixes, stats and "only at night" measuring go by it.
+      ports:
+        - container: "4533"
+          description:
+            en_us: Shelf's web page and the address apps connect to
+      volumes:
+        - container: /data
+          description:
+            en_us: Accounts, library database and covers. Keep this.
+        - container: /music
+          description:
+            en_us: Your music. Shelf only reads it.
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: shelf
+  author: Spinjitsudoom
+  developer: Spinjitsudoom
+  category: Media
+  description:
+    en_us: Your own music server. Play your library in the browser, the Android app, the desktop player or any Subsonic app.
+  tagline:
+    en_us: Your own music server
+  icon: https://raw.githubusercontent.com/Spinjitsudoom/shelf/main/src/shelf/web/icons/icon-512.png
+  index: /
+  port_map: "4533"
+  scheme: http
+  title:
+    en_us: Shelf

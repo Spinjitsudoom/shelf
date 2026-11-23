@@ -42,6 +42,20 @@ docker run -d --name shelf --restart unless-stopped -p 4533:4533 \
   ghcr.io/spinjitsudoom/shelf:latest
 ```
 
+## ZimaOS and CasaOS
+
+Shelf has a ready-made app file for these: [packaging/zimaos/docker-compose.yml](../packaging/zimaos/docker-compose.yml).
+
+1. Open the **App Store**, press **+** (top right), then **Install a customized app**.
+2. Press **Import** (top right), paste the file, and press **Submit**.
+3. Check the second folder under **Volumes**: it should be where your music is (the file
+   expects `/DATA/Media/Music`). Set **TZ** to your time zone, then press **Install**.
+4. Open Shelf from the dashboard and make the admin account.
+
+Shelf keeps its database in `/DATA/AppData/shelf`. It runs as root there, because ZimaOS
+makes that folder as root; your music is still read-only to it. To update, use the app's
+**Check then update** on the dashboard, or **Settings → Update** in its menu.
+
 ## Podman, and Fedora or other SELinux systems
 
 Podman takes the same commands (`podman run …`, `podman compose up -d`). On Fedora, RHEL and
