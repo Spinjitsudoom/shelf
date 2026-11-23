@@ -53,8 +53,8 @@ Shelf has a ready-made app file for these: [packaging/zimaos/docker-compose.yml]
 4. Open Shelf from the dashboard and make the admin account.
 
 Shelf keeps its database in `/DATA/AppData/shelf`. It runs as root there, because ZimaOS
-makes that folder as root; your music is still read-only to it. To update, use the app's
-**Check then update** on the dashboard, or **Settings → Update** in its menu.
+makes that folder as root; your music is still read-only to it. To update, open the menu on
+Shelf's dashboard tile and update it there (it pulls the newest image and keeps your data).
 
 ## Podman, and Fedora or other SELinux systems
 
