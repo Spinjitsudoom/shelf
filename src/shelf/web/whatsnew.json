@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.0.12",
+    "date": "2026-11-23",
+    "new": [
+      {"title": "Play one song from search", "text": "Tapping a song in search plays just that song, and Autoplay carries on with songs that go with it, instead of playing every result."},
+      {"title": "Docker files for ZimaOS", "text": "Each release now comes with compose.yaml for Docker anywhere, and compose.zimaos.yaml to paste into the ZimaOS or CasaOS App Store.", "admin": true}
+    ],
+    "fixed": [
+      "Autoplay picks songs that fit, mostly by other artists, instead of random songs by the same artist or the rest of the album.",
+      "Song radio and recommendations link genres that share a word (Power Metal and Heavy Metal) and songs from the same years."
+    ]
+  },
+  {
     "version": "1.0.11",
     "date": "2026-11-22",
     "new": [
