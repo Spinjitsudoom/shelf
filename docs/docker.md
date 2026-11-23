@@ -7,7 +7,8 @@ desktop players, Subsonic apps) works the same way.
 
 ## Start it
 
-Make a folder for Shelf, put this in it as `compose.yaml`, and change the music path to yours:
+Make a folder for Shelf, put this in it as `compose.yaml` (or download `compose.yaml` from the
+latest release), and change the music path to yours:
 
 ```yaml
 services:
@@ -44,7 +45,9 @@ docker run -d --name shelf --restart unless-stopped -p 4533:4533 \
 
 ## ZimaOS and CasaOS
 
-Shelf has a ready-made app file for these: [packaging/zimaos/docker-compose.yml](../packaging/zimaos/docker-compose.yml).
+Shelf has a ready-made app file for these: [compose.zimaos.yaml](../compose.zimaos.yaml) (also
+attached to every release). Use it only there: its folders under `/DATA` exist only on ZimaOS
+and CasaOS, and it runs Shelf as root. Everywhere else, use [compose.yaml](../compose.yaml).
 
 1. Open the **App Store**, press **+** (top right), then **Install a customized app**.
 2. Press **Import** (top right), paste the file, and press **Submit**.

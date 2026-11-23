@@ -1,6 +1,6 @@
 # Shelf for ZimaOS and CasaOS: App Store → + (top right) → Install a customized app → Import,
 # then paste this file. Change the music folder below if yours isn't /DATA/Media/Music.
-# See "ZimaOS and CasaOS" in docs/docker.md.
+# See "ZimaOS and CasaOS" in docs/docker.md. On any other system, use compose.yaml instead.
 name: shelf
 services:
   shelf:

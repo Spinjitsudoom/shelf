@@ -1,5 +1,6 @@
 # Shelf with Docker Compose:   docker compose up -d   then open http://<this computer>:4533
 # The first person to open it makes the admin account. See docs/docker.md for more.
+# On ZimaOS or CasaOS, use compose.zimaos.yaml instead.
 services:
   shelf:
     image: ghcr.io/spinjitsudoom/shelf:latest

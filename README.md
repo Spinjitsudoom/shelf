@@ -87,8 +87,10 @@ and **players** on the devices you listen on. Everything is on the
   to let it on the network: allow it, so your phone can reach it. Tempo and key analysis,
   "sounds like", CD ripping and the DJ aren't available on Windows.
 - **Docker** (PCs, servers, Raspberry Pi and other ARM boards): `ghcr.io/spinjitsudoom/shelf`.
-  See [docs/docker.md](docs/docker.md) for the Compose file, Raspberry Pi notes and reverse
-  proxies (Caddy, nginx, Traefik).
+  There are two Compose files: [compose.yaml](compose.yaml) for Docker anywhere, and
+  [compose.zimaos.yaml](compose.zimaos.yaml) to paste into the ZimaOS or CasaOS App Store.
+  See [docs/docker.md](docs/docker.md) for both, Raspberry Pi notes and reverse proxies
+  (Caddy, nginx, Traefik).
 
   ```bash
   docker run -d --name shelf -p 4533:4533 -v ./shelf-data:/data -v /path/to/music:/music:ro ghcr.io/spinjitsudoom/shelf

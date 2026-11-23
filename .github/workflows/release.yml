@@ -214,6 +214,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp install.sh files/
+          cp install.sh compose.yaml compose.zimaos.yaml files/
           gh release create "$GITHUB_REF_NAME" files/* --title "Shelf ${{ needs.version.outputs.version }}" --generate-notes \
             --notes-file packaging/release-notes.md
