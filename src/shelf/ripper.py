@@ -10,6 +10,12 @@
 4. Eject the disc and rescan.
 
 Everything happens on a background thread; `state` says how it's going.
+
+On Linux the drive is /dev/sr0 and cd-paranoia comes from the system's packages. On Windows
+the drive is the PC's first CD/DVD drive (its letter, "D:"), cd-paranoia is the copy the
+installer puts in a cdparanoia folder next to shelf-server.exe (packaging/windows/fetch_cdparanoia.py),
+and Windows itself says whether a disc is in and ejects it. SHELF_CD_DEVICE and
+SHELF_CD_PARANOIA choose another drive or program on either.
 """
 
 from __future__ import annotations
@@ -23,6 +29,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import sys
 import threading
 import urllib.error
 import urllib.parse
@@ -30,10 +37,12 @@ import urllib.request
 from pathlib import Path
 
 from . import __version__
+from .procs import WINDOWS, no_window
 from .uploads import safe_part
 
 log = logging.getLogger("shelf.ripper")
-DEVICE = os.environ.get("SHELF_CD_DEVICE", "/dev/sr0")
+# The drive; empty on Windows means the PC's first CD/DVD drive, whatever its letter.
+DEVICE = os.environ.get("SHELF_CD_DEVICE", "" if WINDOWS else "/dev/sr0")
 PARANOIA = os.environ.get("SHELF_CD_PARANOIA", "cd-paranoia")
 AGENT = f"Shelf/{__version__} (self-hosted music server)"
 _TRACK = re.compile(r"^\s*(\d+)\.\s+(\d+)\s+\[[^\]]+\]\s+(\d+)\s+\[")
@@ -116,11 +125,101 @@ def fetch_cover(release_id: str | None, group_id: str | None) -> bytes | None:
     return None
 
 
-def has_audio_disc() -> bool:
-    """Whether the drive holds a disc with audio tracks, asked of udev (instant, unlike
-    cd-paranoia, which can wait minutes on an empty drive). True if udev can't say."""
+def windows_cd_drives() -> list[str]:
+    """The PC's CD/DVD drives, by letter: ["D:"]."""
+    import ctypes
+
+    k = ctypes.windll.kernel32
+    mask = k.GetLogicalDrives()
+    return [f"{chr(65 + i)}:" for i in range(26) if mask >> i & 1 and k.GetDriveTypeW(f"{chr(65 + i)}:\\") == 5]  # DRIVE_CDROM
+
+
+def device() -> str | None:
+    """The drive to rip from: SHELF_CD_DEVICE, else /dev/sr0 on Linux and the first CD/DVD
+    drive on Windows. None when Windows has no CD drive."""
+    if DEVICE:
+        return DEVICE
+    if WINDOWS:
+        drives = windows_cd_drives()
+        return drives[0] if drives else None
+    return None
+
+
+def drive_present(dev: str | None) -> bool:
+    if not dev:
+        return False
+    if WINDOWS and re.fullmatch(r"[A-Za-z]:", dev):
+        return dev.upper() in windows_cd_drives()
+    return Path(dev).exists()
+
+
+def paranoia() -> str | None:
+    """cd-paranoia: SHELF_CD_PARANOIA or the one on PATH, else (in the packaged Windows server)
+    the copy next to shelf-server.exe."""
+    found = shutil.which(PARANOIA)
+    if found:
+        return found
+    if WINDOWS:
+        bundled = Path(sys.executable).parent / "cdparanoia" / "cd-paranoia.exe"
+        if bundled.exists():
+            return str(bundled)
+    return None
+
+
+def windows_has_disc(dev: str) -> bool:
+    """Whether a Windows drive has a disc in, asked of Windows (instant), without the
+    "insert a disk" box an empty drive would otherwise put up on the server's screen."""
+    import ctypes
+
+    k = ctypes.windll.kernel32
+    old = ctypes.c_uint()
+    k.SetThreadErrorMode(0x0001, ctypes.byref(old))  # SEM_FAILCRITICALERRORS
     try:
-        out = subprocess.run(["udevadm", "info", "-q", "property", "-n", DEVICE],
+        return bool(k.GetVolumeInformationW(f"{dev}\\", None, 0, None, None, None, None, 0))
+    finally:
+        k.SetThreadErrorMode(old.value, None)
+
+
+def windows_eject(dev: str) -> None:
+    """Opens a Windows drive's tray (IOCTL_STORAGE_EJECT_MEDIA)."""
+    import ctypes
+    from ctypes import wintypes
+
+    k = ctypes.windll.kernel32
+    k.CreateFileW.restype = wintypes.HANDLE
+    handle = k.CreateFileW(f"\\\\.\\{dev}", 0x80000000, 0x1 | 0x2, None, 3, 0, None)  # GENERIC_READ, share read/write, OPEN_EXISTING
+    if handle in (None, wintypes.HANDLE(-1).value):
+        return
+    try:
+        returned = wintypes.DWORD()
+        k.DeviceIoControl(handle, 0x2D4808, None, 0, None, 0, ctypes.byref(returned), None)
+    finally:
+        k.CloseHandle(handle)
+
+
+def eject(dev: str | None) -> None:
+    if not dev:
+        return
+    if WINDOWS:
+        try:
+            windows_eject(dev)
+        except OSError:
+            log.info("Couldn’t eject %s", dev)
+        return
+    subprocess.run(["eject", dev], capture_output=True, timeout=30)
+
+
+def has_audio_disc(dev: str | None = None) -> bool:
+    """Whether the drive holds a disc with audio tracks, asked of udev (instant, unlike
+    cd-paranoia, which can wait minutes on an empty drive). True if udev can't say. On
+    Windows, whether there's a disc in at all; cd-paranoia then finds its audio tracks."""
+    dev = dev or device()
+    if not dev:
+        return False
+    if WINDOWS:
+        return windows_has_disc(dev) if re.fullmatch(r"[A-Za-z]:", dev) else True
+    try:
+        out = subprocess.run(["udevadm", "info", "-q", "property", "-n", dev],
                              capture_output=True, text=True, timeout=10).stdout
     except (OSError, subprocess.SubprocessError):
         return True
@@ -143,7 +242,7 @@ class Ripper:
 
     @property
     def available(self) -> bool:
-        return Path(DEVICE).exists() and shutil.which(PARANOIA) is not None
+        return paranoia() is not None and drive_present(device())
 
     def _set(self, **kw) -> None:
         with self._lock:
@@ -157,10 +256,15 @@ class Ripper:
 
     def _read(self) -> None:
         try:
-            if not has_audio_disc():
+            dev, prog = device(), paranoia()
+            if not dev or not prog:
+                self._set(status="error", error="There’s no CD drive (or no cd-paranoia) on the server.")
+                return
+            if not has_audio_disc(dev):
                 self._set(status="error", error="There’s no audio CD in the drive.")
                 return
-            out = subprocess.run([PARANOIA, "-d", DEVICE, "-Q"], capture_output=True, timeout=120, text=True)
+            out = subprocess.run([prog, "-d", dev, "-Q"], capture_output=True, timeout=120, text=True,
+                                 errors="replace", **no_window())
             tracks = parse_toc(out.stderr + out.stdout)
             if not tracks:
                 self._set(status="error", error="There’s no audio CD in the drive.")
@@ -197,7 +301,10 @@ class Ripper:
         artist_dir = safe_part(artist, "Unknown Artist")
         album_name = safe_part(album, "Unknown Album")
         folder = root / artist_dir / (f"{album_name} (Disc {disc})" if disc else album_name)
+        dev, prog = device(), paranoia()
         try:
+            if not dev or not prog:
+                raise OSError("there’s no CD drive (or no cd-paranoia) on the server")
             folder.mkdir(parents=True, exist_ok=True)
             cover_path = None
             if self._cover:
@@ -212,8 +319,8 @@ class Ripper:
                     self._set(progress={"track": i + 1, "total": total, "done": i,
                                         "title": titles[i] if i < len(titles) else f"Track {i + 1}"})
                     wav = Path(tmp) / f"{i}.wav"
-                    r = subprocess.run([PARANOIA, "-d", DEVICE, "-w", str(t["number"]), str(wav)],
-                                       capture_output=True, timeout=3600)
+                    r = subprocess.run([prog, "-d", dev, "-w", str(t["number"]), str(wav)],
+                                       capture_output=True, timeout=3600, **no_window())
                     if r.returncode != 0 or not wav.exists():
                         raise OSError(f"track {t['number']} couldn’t be read (the disc may be badly scratched)")
                     title = titles[i] if i < len(titles) and titles[i].strip() else f"Track {t['number']}"
@@ -231,13 +338,13 @@ class Ripper:
                     if disc:
                         cmd += ["-metadata", f"disc={disc}"]
                     cmd.append(str(out))
-                    enc = subprocess.run(cmd, capture_output=True, timeout=600)
+                    enc = subprocess.run(cmd, capture_output=True, timeout=600, **no_window())
                     if enc.returncode != 0:
                         raise OSError(enc.stderr.decode(errors="replace")[-300:])
                     wav.unlink(missing_ok=True)
             self._set(status="done", progress={"track": total, "total": total, "done": total},
                       result={"folder": str(folder), "artist": artist, "album": album})
-            subprocess.run(["eject", DEVICE], capture_output=True, timeout=30)
+            eject(dev)
             if self.on_done:
                 self.on_done()
         except (OSError, subprocess.SubprocessError) as e:
@@ -247,5 +354,25 @@ class Ripper:
     def eject(self) -> None:
         if self.state.get("status") == "ripping":
             return
-        subprocess.run(["eject", DEVICE], capture_output=True, timeout=30)
+        eject(device())
         self._set(status="idle", disc=None, progress=None, error=None)
+
+
+def check() -> dict:
+    """What the server sees of its CD drive, for checking an install:
+    `python -m shelf.ripper check`, or `shelf-server.exe --module shelf.ripper check` on Windows."""
+    dev, prog = device(), paranoia()
+    out = {"windows": WINDOWS, "drives": windows_cd_drives() if WINDOWS else None, "device": dev,
+           "cdParanoia": prog, "available": Ripper().available}
+    if dev and prog:
+        out["disc"] = has_audio_disc(dev)
+        if out["disc"]:
+            r = subprocess.run([prog, "-v", "-d", dev, "-Q"], capture_output=True, text=True, errors="replace",
+                               timeout=120, **no_window())
+            out["tracks"] = len(parse_toc(r.stderr + r.stdout))
+            out["output"] = (r.stderr + r.stdout)[-2000:]
+    return out
+
+
+if __name__ == "__main__":
+    print(json.dumps(check()))

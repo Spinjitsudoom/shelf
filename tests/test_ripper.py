@@ -73,3 +73,49 @@ def test_read_and_rip_a_disc(client, tmp_path, monkeypatch, library):
     from shelf.tags import read_tags
     tags = read_tags(folder / "02 Encore Outro.flac")
     assert (tags.title, tags.album, tags.track_no, tags.year) == ("Encore/Outro", "Live Disc", 2, 1999)
+
+
+def windows(monkeypatch, drives, disc=True):
+    """Pretends to be a Windows server with these CD drives ("D:"), a disc in or not."""
+    monkeypatch.setattr(ripper, "WINDOWS", True)
+    monkeypatch.setattr(ripper, "DEVICE", "")
+    monkeypatch.setattr(ripper, "windows_cd_drives", lambda: list(drives))
+    monkeypatch.setattr(ripper, "windows_has_disc", lambda dev: disc)
+    ejected = []
+    monkeypatch.setattr(ripper, "windows_eject", ejected.append)
+    return ejected
+
+
+def test_windows_uses_the_first_cd_drive_and_the_bundled_cd_paranoia(tmp_path, monkeypatch):
+    windows(monkeypatch, ["E:", "F:"])
+    monkeypatch.setattr(ripper, "PARANOIA", "no-such-cd-paranoia")
+    assert ripper.device() == "E:"
+    assert ripper.paranoia() is None and not ripper.Ripper().available
+    exe = tmp_path / "cdparanoia" / "cd-paranoia.exe"
+    exe.parent.mkdir()
+    exe.touch()
+    monkeypatch.setattr(ripper.sys, "executable", str(tmp_path / "shelf-server.exe"))
+    assert ripper.paranoia() == str(exe) and ripper.Ripper().available
+    monkeypatch.setattr(ripper, "DEVICE", "F:")  # SHELF_CD_DEVICE picks another drive
+    assert ripper.device() == "F:" and ripper.Ripper().available
+
+
+def test_windows_without_a_cd_drive_has_no_ripping(monkeypatch):
+    windows(monkeypatch, [])
+    monkeypatch.setattr(ripper, "paranoia", lambda: "cd-paranoia.exe")
+    r = ripper.Ripper()
+    assert ripper.device() is None and not r.available
+    r._read()
+    assert r.state["status"] == "error" and "no CD drive" in r.state["error"]
+
+
+def test_windows_empty_drive_says_so_and_ejects_its_own_way(monkeypatch):
+    ejected = windows(monkeypatch, ["D:"], disc=False)
+    monkeypatch.setattr(ripper, "paranoia", lambda: "cd-paranoia.exe")
+    ran = []
+    monkeypatch.setattr(ripper.subprocess, "run", lambda cmd, *a, **k: ran.append(cmd))
+    r = ripper.Ripper()
+    r._read()
+    assert r.state["error"] == "There’s no audio CD in the drive." and ran == []  # cd-paranoia never waits on it
+    r.eject()
+    assert ejected == ["D:"] and ran == []  # no `eject` program on Windows

@@ -83,9 +83,9 @@ and **players** on the devices you listen on. Everything is on the
 
   Remove it with `… | bash -s -- --uninstall` (your library data is kept).
 - **Windows:** run `Shelf-Server-Setup-….exe`. Shelf Server sits in the notification area
-  (Open Shelf, Start with Windows, Quit) and has ffmpeg built in. Windows asks once whether
-  to let it on the network: allow it, so your phone can reach it. Tempo and key analysis,
-  "sounds like", CD ripping and the DJ aren't available on Windows.
+  (Open Shelf, Start with Windows, Quit) and has ffmpeg and cd-paranoia (for ripping CDs) built
+  in. Windows asks once whether to let it on the network: allow it, so your phone can reach it.
+  The DJ isn't available on Windows.
 - **Docker** (PCs, servers, Raspberry Pi and other ARM boards): `ghcr.io/spinjitsudoom/shelf`.
   There are two Compose files: [compose.yaml](compose.yaml) for Docker anywhere, and
   [compose.zimaos.yaml](compose.zimaos.yaml) to paste into the ZimaOS or CasaOS App Store.
@@ -400,12 +400,15 @@ A song that hasn't been measured yet has no tempo or mood, so it doesn't match r
   files, or pick them. Each song is filed as `Artist/Album/` in a music folder from its own tags;
   cover pictures go with their album; a file that's already there is skipped and nothing is
   overwritten. The library rescans when you close the window.
-- **Rip a CD** (admin dashboard → CD drive, when the server has a drive and `cd-paranoia`):
+- **Rip a CD** (admin dashboard → CD drive, when the server has a drive and `cd-paranoia`; the
+  Windows server has cd-paranoia built in):
   put a disc in and press **Read disc**. Shelf works out its MusicBrainz disc ID, fills in the
   artist, album, year, track titles and cover (edit them if you like, or fill them in for discs
   MusicBrainz doesn't know), then rips with cd-paranoia, which re-reads scratched spots, to FLAC
   with tags and cover, files it as `Artist/Album/NN Title.flac`, ejects the disc and rescans.
-  A different drive: set `SHELF_CD_DEVICE` (default `/dev/sr0`).
+  A different drive: set `SHELF_CD_DEVICE` (default `/dev/sr0` on Linux, the PC's first CD/DVD
+  drive on Windows, e.g. `E:`). To see what the server finds: `python -m shelf.ripper check`
+  (on Windows, `shelf-server.exe --module shelf.ripper check` in the install folder).
 - **Not on your shelf** (Home → *New from your artists*, artist pages, and `#/releases`): albums
   and EPs your artists have out that you don't have yet, from MusicBrainz, checked once a day
   (admins can press **Check now**). Covers from the Cover Art Archive; each links to MusicBrainz.

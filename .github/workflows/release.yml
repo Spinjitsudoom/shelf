@@ -155,6 +155,8 @@ jobs:
         run: |
           python packaging/windows/fetch_ffmpeg.py "dist\Shelf Server\ffmpeg"
           "$PWD\dist\Shelf Server\ffmpeg" | Out-File -FilePath $env:GITHUB_PATH -Append
+      - name: Add cd-paranoia (for ripping CDs)
+        run: python packaging/windows/fetch_cdparanoia.py "dist\Shelf Server\cdparanoia"
       - name: Check the tray program has everything
         run: |
           $p = Start-Process -FilePath "dist\Shelf Server\Shelf Server.exe" -ArgumentList "--self-test" -Wait -PassThru
@@ -192,6 +194,20 @@ jobs:
           $v = (& $exe --module shelf.sound clicks.wav 40 | Select-Object -Last 1) | ConvertFrom-Json
           if ($v.Count -ne 52) { throw "Sound fingerprint not measured: $v" }
           "Measured: $($a.bpm) BPM, key $($a.key), fingerprint of $($v.Count) numbers"
+      - name: The installed copy finds a CD drive and reads it with its own cd-paranoia
+        run: |
+          $exe = "$env:LOCALAPPDATA\Programs\Shelf Server\shelf-server.exe"
+          $none = (& $exe --module shelf.ripper check | Select-Object -Last 1) | ConvertFrom-Json
+          if (-not $none.cdParanoia -or $none.available) { throw "Without a CD drive: $($none | ConvertTo-Json -Compress)" }
+          # A disc image mounted as a CD drive (data only: no audio to rip, but the drive is real to Windows).
+          python -m pip install pycdlib
+          python -c "import io, pycdlib; i = pycdlib.PyCdlib(); i.new(); i.add_fp(io.BytesIO(b'hi'), 2, '/HI.TXT;1'); i.write('disc.iso'); i.close()"
+          Mount-DiskImage -ImagePath "$PWD\disc.iso" | Out-Null
+          Start-Sleep -Seconds 3
+          $c = (& $exe --module shelf.ripper check | Select-Object -Last 1) | ConvertFrom-Json
+          Dismount-DiskImage -ImagePath "$PWD\disc.iso" | Out-Null
+          if (-not $c.available -or -not $c.disc -or $c.output -notmatch "CDROM sensed") { throw "With a CD drive: $($c | ConvertTo-Json -Compress)" }
+          "Found $($c.device) with $($c.cdParanoia)"
       - uses: actions/upload-artifact@v7
         with:
           name: server-windows

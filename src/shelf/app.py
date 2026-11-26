@@ -2028,7 +2028,7 @@ def create_app(cfg: Config, start_scanner: bool = True) -> FastAPI:
     @app.get("/api/cd")
     def cd_state():
         admin_only()
-        return {"available": cd.available, "device": ripper.DEVICE, **cd.state}
+        return {"available": cd.available, "device": ripper.device(), **cd.state}
 
     @app.post("/api/cd/read")
     def cd_read():
